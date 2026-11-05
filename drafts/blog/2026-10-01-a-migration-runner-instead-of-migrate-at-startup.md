@@ -62,8 +62,7 @@ return Environment.ExitCode;
 
 A few things to notice:
 - `AddMigrationDbContexts()` registers the four contexts **directly**, not through each host's own registration. Those pull in save-changes interceptors, the whole OpenIddict server, `UserManager`, the gateway's session... none of which a migration needs. The runner stays a database tool rather than a second copy of three applications.
-- `DatabaseMigrator` is a `BackgroundService` that does the work and then stops the host.
-- `return Environment.ExitCode` turns the outcome into the process's exit code, which is what orchestrators read.
+- `return Environment.ExitCode` hands the outcome of `DatabaseMigrator`, a `BackgroundService`, to whatever orchestrates the process.
 
 Registering the contexts directly has one price: each context's schema and history table is repeated in the runner. Here is one of them:
 
@@ -73,7 +72,7 @@ builder.Services.AddDbContext<BillingDbContext>(options => options
         .MigrationsHistoryTable(HistoryRepository.DefaultTableName, BillingDbContext.Schema)));
 ```
 
-Each context keeps its own `__EFMigrationsHistory` in its own schema, so a mismatch here would migrate into the wrong place: that duplication is the thing to review whenever a context changes schema.
+A mismatch with the host's own registration would migrate into the wrong place, so this duplication is worth reviewing whenever a context changes schema.
 
 
 ## The migrator
@@ -130,7 +129,7 @@ private async Task MigrateAllAsync(CancellationToken cancellationToken)
 }
 ```
 
-The order is now written down in one place instead of being an accident of which container started first. The identity context goes first because the rest of the platform's rows are attributed to its users.
+The order is now written down in one place instead of being an accident of which container started first.
 
 `MigrateAsync<TContext>` logs the pending migrations by name (`GetPendingMigrationsAsync`), then calls `context.Database.MigrateAsync()`. Before that, it creates the database and the history table if missing (`IRelationalDatabaseCreator`, `IHistoryRepository.CreateIfNotExistsAsync`): on an empty database, EF otherwise queries `__EFMigrationsHistory` before it exists and logs the refused query at Error level, although it recovers. Clean logs, and a real failure still stands out. 👍
 
@@ -176,9 +175,7 @@ public static async Task MigrateAsync(string connectionString, string schema, Ca
 }
 ```
 
-- The host is **built but never started**: nothing connects to RabbitMQ and no node joins the cluster whose tables these are.
-- `IMessageStore.Admin.MigrateAsync()` is Wolverine's own migration, which only adds tables and columns.
-- It runs once per schema: `wolverine` for the API and `wolverine_identity` for the identity host, because one schema would make them one cluster.
+The host is **built but never started**, so nothing connects to RabbitMQ and no node joins the cluster; `IMessageStore.Admin.MigrateAsync()` is Wolverine's own migration, which only adds. It runs once per schema: `wolverine` for the API and `wolverine_identity` for the identity host, because one schema would make them one cluster.
 
 On the other side, the hosts must stop creating these tables themselves. The bus configuration sets `AutoBuildMessageStorageOnStartup` from a `Messaging:AutoCreateStorage` option that is off by default; only the integration tests, which have no runner, switch it on.
 
@@ -281,16 +278,7 @@ public static bool IsDataSeedingEnabled(this IHostEnvironment environment, IConf
     => configuration.GetValue<bool?>(EnabledKey) ?? environment.IsDevelopment();
 ```
 
-Development seeds, everything else does not, and `Seed:Enabled` overrides it in either direction. In the API, that decision simply adds a hosted service:
-
-```csharp
-if (environment.IsDataSeedingEnabled(configuration))
-{
-    services.AddHostedService<SampleDataSeeder>();
-}
-```
-
-This split is what lets us run the runner against any environment without writing sample rows into it.
+Development seeds, everything else does not, and `Seed:Enabled` overrides it in either direction; in the API, a `true` simply registers a `SampleDataSeeder` hosted service. This split is what lets us run the runner against any environment without writing sample rows into it.
 
 
 ## Conclusion

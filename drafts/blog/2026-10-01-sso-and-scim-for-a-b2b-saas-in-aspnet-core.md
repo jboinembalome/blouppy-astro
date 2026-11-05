@@ -18,7 +18,7 @@ tags:
   - OpenID Connect
 ---
 
-The first enterprise customer always asks the same two questions. "Can our people sign in with Okta (or Entra ID, or Google Workspace)?" And: "when someone leaves the company, can they lose access the same afternoon, without anybody opening your admin page?" The first one is **single sign-on**, the second one is **provisioning**, and its standard is **SCIM 2.0**.
+Enterprise customers ask two questions. "Can our people sign in with Okta, Entra ID or Google Workspace?" And: "when someone leaves, can they lose access the same afternoon, without anybody opening your admin page?" The first one is **single sign-on**, the second one is **provisioning**, and its standard is **SCIM 2.0**.
 
 You can buy both as a service. But with Microsoft's own OpenID Connect handler, a DNS lookup and a few controllers, ASP.NET Core can do it alone.
 
@@ -27,7 +27,7 @@ In this article, we will build it step by step: verified domains through a DNS T
 
 ## Why it is harder than a sign-in button
 GitHub and Google are two authentication handlers registered at startup from configuration. An organization's provider is different:
-- **It is added at runtime.** An administrator configures it any day, and the next sign-in must use it, without a restart and on every replica.
+- **It is added at runtime**, any day, without a restart and on every replica.
 - **A provider speaks only for its own addresses.** If a provider can assert any e-mail it likes, it can sign in as anyone (the _nOAuth_ class of attack). So an organization must prove its domains first, and its provider speaks for those and nothing else.
 - **Leaving has to stop everything that acts as the person**: the browser session, the personal access tokens, the membership, the teams. Without erasing an account the person may still want back.
 
@@ -99,13 +99,10 @@ if (!await unitOfWork.TryCommitAsync(cancellationToken))
 }
 ```
 
-Why can the commit fail? Two organizations may verify the same domain at the same moment, and no check before the write settles that race. A **unique index on `domain` filtered on `status = 'Verified'`** does, and the loser gets `VerifiedElsewhere`.
-
-> **_Note:_**  Verifying a domain is allowed on every plan. Only the connection and SCIM are behind a plan, as we will see at the end.
-
+Why can the commit fail? Two organizations may verify the same domain at the same moment. A **unique index on `domain` filtered on `status = 'Verified'`** settles that race.
 
 ## One OIDC scheme per organization, at runtime
-A connection is one row per organization: issuer, client id, protected client secret, scopes, the e-mail claim, a default role for new members (`Viewer` or `Member`, never `Admin`), and a `version` raised by every change. OIDC only, with Microsoft's `OpenIdConnectHandler`.
+A connection is one row per organization: issuer, client id, protected secret, scopes, the e-mail claim, a default role (`Viewer` or `Member`, never `Admin`) and a `version` raised by every change.
 
 The trick is to decorate `IAuthenticationSchemeProvider`. Here is `SsoSchemeProvider.GetSchemeAsync`:
 
@@ -137,7 +134,7 @@ public async Task<AuthenticationScheme?> GetSchemeAsync(string name)
 - Any other name goes to the inner provider: GitHub and Google are untouched.
 - `ISsoConnectionLookup` is a per-replica cache of one minute.
 - `IOptionsMonitorCache<OpenIdConnectOptions>` keeps named options forever, so a new version evicts them.
-- `GetAllSchemesAsync` just delegates: a connection is **never listed**, so the login page never shows a button per customer.
+- `GetAllSchemesAsync` just delegates: a connection is **never listed**, so no login button per customer.
 
 The named options come from an `IConfigureNamedOptions<OpenIdConnectOptions>`, `SsoOpenIdConnectOptions`:
 
@@ -145,11 +142,9 @@ The named options come from an `IConfigureNamedOptions<OpenIdConnectOptions>`, `
 oidc.Authority = connection.Issuer;
 oidc.ClientId = connection.ClientId;
 oidc.ClientSecret = connection.ClientSecret;
-oidc.ResponseType = OpenIdConnectResponseType.Code;
 oidc.UsePkce = true;
 oidc.CallbackPath = SsoConnectionRules.CallbackPathOf(connectionId);
 oidc.SignInScheme = IdentityConstants.ExternalScheme;
-oidc.MapInboundClaims = false;
 oidc.Backchannel = httpClientFactory.CreateClient(SsoConnectionRules.HttpClientName);
 ```
 
@@ -161,7 +156,7 @@ One last piece: ASP.NET Core only asks the schemes registered **at startup** whe
 ## The sign-in flow
 ### Finding the provider
 There are three doors:
-- **On the login page, from the e-mail.** `/sso/discover?email=` is rate-limited and answers the same empty object for an unknown domain and for a domain without an active connection, so it reveals nothing.
+- **On the login page, from the e-mail.** `/sso/discover?email=` is rate-limited and answers the same empty object for an unknown domain and an inactive one.
 - **From the app.** The Angular SPA sits behind a BFF gateway (another article of this series), and its `UseSsoLogin` middleware redirects `/bff/login?sso={connectionId}` to the connection's start page on the identity host. The person comes back through `/bff/login`, whose session is then there.
 - **From the provider's dashboard tile**, which points at `/sso/{id}/start`: OIDC has no IdP-initiated flow, so the tile starts an ordinary sign-in.
 
@@ -176,8 +171,7 @@ When the provider answers, `SsoSignInService.SignInAsync` runs, in order:
 Here are steps 1 and 2:
 
 ```csharp
-// The provider speaks for the domains its organization proved, and for nothing else: a provider asserting an
-// address it does not own cannot reach anyone's account (nOAuth, §5.4 step 1).
+// The provider speaks for the domains its organization proved, and for nothing else (nOAuth).
 if (!await IsInVerifiedDomainAsync(connection.OrganizationId, email, cancellationToken))
 {
     return SsoSignInResult.Refused(SsoSignInRefusal.EmailOutsideVerifiedDomains);
@@ -222,7 +216,7 @@ var identity = new ClaimsIdentity(
 - The token is looked up by its hash, so there is no timing to compare.
 - The rate limit (600 a minute) is partitioned by the hashed `Authorization` header, because the limiter runs before authentication.
 
-`ScimControllerBase` carries `[Authorize(Policy = Policies.Scim)]`, answers `application/scim+json`, and is hidden from the OpenAPI spec: providers speak RFC 7644, not our API.
+`ScimControllerBase` carries `[Authorize(Policy = Policies.Scim)]`, answers `application/scim+json` and stays out of the OpenAPI spec.
 
 ### Be lenient with what providers send
 Filters are one `attr eq "value"` (`ScimFilter.TryParse`), what Okta and Entra ID send before creating a user. And providers do not all speak the same SCIM. Here is a deactivation, Entra ID style, from the end-to-end suite:
@@ -261,20 +255,17 @@ An account outside the verified domains only loses the membership. **The owner c
 
 
 ## Privacy and plans
-What the provider sends is personal data, kept as long as the SCIM row. An erased account's SCIM users are forgotten, and whoever configured a connection becomes `deleted-user`. A deleted organization takes its connection, domains, tokens and SCIM rows with it, and the accounts its provider deactivated are reactivated, since no other organization may. The data export gains a `single-sign-on.json`, never with a token or a secret.
+An erased account's SCIM users are forgotten, and whoever configured a connection becomes `deleted-user`. A deleted organization takes its connection, domains, tokens and SCIM rows with it, and the accounts its provider deactivated are reactivated, since no other organization may. The data export gains a `single-sign-on.json`, never with a token or a secret.
 
-SSO and SCIM sit behind one entitlement, `AllowsSso`. Losing it lifts enforcement at the next sign-in, stops the SCIM tokens at once, and keeps the connection as an optional way in.
+SSO and SCIM sit behind one entitlement, `AllowsSso` (verifying a domain is on every plan). Losing it lifts enforcement at the next sign-in, stops the SCIM tokens at once, and keeps the connection as an optional way in.
 
 
 ## Testing it with a real provider
-A unit test cannot prove that a real provider's sign-in creates a member. So `SingleSignOn.feature` and `ScimProvisioning.feature` run against a Keycloak container in the end-to-end graph, through the real gateway: a first sign-in creates the account and the membership, an address outside the verified domains is refused, and a revoked SCIM token is answered `401` at once.
+`SingleSignOn.feature` and `ScimProvisioning.feature` run against a Keycloak container in the end-to-end graph, through the real gateway: a first sign-in creates the account and the membership, an address outside the verified domains is refused, and a revoked SCIM token is answered `401` at once.
 
 
 ## What it costs
-Nothing is free:
-- **No SAML**, and a verified domain is never re-checked later.
-- **An outbound DNS dependency**: port 53, UDP and TCP, to the resolvers.
-- **Eventual memberships**: the member arrives over the bus, a moment after the sign-in.
+No SAML; a verified domain is never re-checked; the identity host needs DNS egress on port 53; and the membership arrives over the bus, a moment after the sign-in.
 
 
 ## Conclusion

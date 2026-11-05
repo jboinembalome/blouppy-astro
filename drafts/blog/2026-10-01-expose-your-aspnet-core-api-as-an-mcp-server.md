@@ -134,7 +134,7 @@ private async Task<ToolResult> InvokeAsync(ITool tool, ToolArguments arguments, 
 - A read token sees only the read tools in `tools/list`, but a write called anyway is still refused.
 - Every write call spends the write budget (`IToolCaller`, more on it below), refused or not: a loop of bad writes is still a loop.
 
-The catalog also logs each call (tool, outcome, duration, user, token, organization) and **never the arguments nor the result**, because they hold what people wrote.
+The catalog logs each call, but **never the arguments nor the result**: they hold what people wrote.
 
 
 ## Binding the catalog to MCP
@@ -202,7 +202,7 @@ if (!principal.HasClaim(BlouppyClaimTypes.Audience, Options.Audience))
 }
 ```
 
-The MCP endpoint is its own resource, named by its public URL (the gateway's address followed by `/mcp`). A connector's token is minted for that resource alone, so a token held by a chat application is not a token for the REST API.
+The MCP endpoint is its own resource, named by its public URL (the gateway's address plus `/mcp`). A connector's token is minted for it alone, so a chat application's token is not a token for the REST API.
 
 `McpChallengeHandler` refuses in the terms of the MCP authorization specification. A missing or invalid token gets a 401 that tells the client where to start:
 
@@ -210,12 +210,12 @@ The MCP endpoint is its own resource, named by its public URL (the gateway's add
 WWW-Authenticate: Bearer resource_metadata="https://app.example.com/.well-known/oauth-protected-resource/mcp", scope="blouppy.read blouppy.write"
 ```
 
-That URL serves the **Protected Resource Metadata** (RFC 9728), anonymous and the same for everyone. It names the resource, the identity server as `authorization_servers`, the two scopes, and `bearer_methods_supported: ["header"]`, never a query string a log would keep.
+That URL serves the anonymous **Protected Resource Metadata** (RFC 9728): the resource, the identity server as `authorization_servers`, the two scopes, and `bearer_methods_supported: ["header"]`.
 
 ### Two scopes, and a step-up
 `blouppy.read` reads, `blouppy.write` also contributes. And **no token administers an organization**: `Policies.Manage` requires the browser's own scope, so through a token `rename_workspace` answers _read-only_ and is left to the browser and its assistant.
 
-When a read token calls a write tool, `McpWriteScopeChallengeMiddleware` reads the JSON-RPC body and, for a `tools/call` of a write, answers **403 `insufficient_scope`** naming both scopes. A connector can then ask the user for write and retry, which it could never do from a tool result only the model reads.
+When a read token calls a write tool, `McpWriteScopeChallengeMiddleware` reads the JSON-RPC body and answers **403 `insufficient_scope`** naming both scopes, so a connector can ask the user for write and retry.
 
 
 ## The organization decides too
@@ -246,10 +246,7 @@ public static RouteConfig Route { get; } = new RouteConfig
     .WithTransformXForwarded(xDefault: ForwardedTransformActions.Set);
 ```
 
-- The client's `Authorization` header passes through unchanged: it is the credential.
-- The `Cookie` header is removed, so a page on another site cannot ride the user's session here.
-
-Two middlewares come before it:
+The client's `Authorization` header passes through unchanged, and the `Cookie` header is removed, so a page on another site cannot ride the user's session. Two middlewares come first:
 
 ```csharp
 app.UseSameOriginCheck(blouppyConfiguration.GatewayUrl, [McpRoute.Path]);
