@@ -9,7 +9,6 @@ const IndexPage = ({ data: { markdownRemark: { frontmatter } } }: PageProps<Home
     <>
       <Head description={frontmatter.mainpitch.description} />
       <IndexPageTemplate
-        image={frontmatter.image}
         title={frontmatter.title}
         heading={frontmatter.heading}
         subheading={frontmatter.subheading}
@@ -36,11 +35,6 @@ export const pageQuery = graphql`
     markdownRemark(frontmatter: { templateKey: { eq: "index-page" } }) {
       frontmatter {
         title
-        image {
-          childImageSharp {
-            gatsbyImageData(layout: FULL_WIDTH)
-          }
-        }
         heading
         subheading
         mainpitch {

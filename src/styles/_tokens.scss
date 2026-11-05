@@ -1,0 +1,160 @@
+/* Blouppy design tokens, mirrored from Blouppy Starter.
+ *
+ * Source: front/libs/ui/src/tokens/tokens.css and flamingo.css in the Starter,
+ * explained by its DESIGN.md. The names and values are the same, so the blog
+ * and the product read as one family. Two differences, both forced by this
+ * site running Tailwind 3: the neutrals are written as hex values (Tailwind 3
+ * exposes no --color-zinc-* variables), and only the roles this site uses are
+ * declared. tailwind.config.js turns these roles into utilities.
+ */
+:root {
+  color-scheme: light;
+
+  --blouppy-primary-50: #f5f5fc;
+  --blouppy-primary-100: #ebebf9;
+  --blouppy-primary-200: #ced0f2;
+  --blouppy-primary-300: #b5bfeb;
+  --blouppy-primary-400: #8e93dc;
+  --blouppy-primary-500: #676dcf;
+  --blouppy-primary-600: #5052a7;
+  --blouppy-primary-700: #3a3e80;
+  --blouppy-primary-800: #262b5a;
+  --blouppy-primary-900: #131633;
+  --blouppy-primary-950: #0b0d1f;
+
+  --blouppy-primary-fill: var(--blouppy-primary-500);
+  --blouppy-primary-fill-hover: var(--blouppy-primary-600);
+  --blouppy-primary-contrast: var(--blouppy-surface-0);
+
+  /* Neutrals: zinc in light mode, slate in dark. */
+  --blouppy-surface-0: #ffffff;
+  --blouppy-surface-50: #fafafa;
+  --blouppy-surface-100: #f4f4f5;
+  --blouppy-surface-200: #e4e4e7;
+  --blouppy-surface-300: #d4d4d8;
+  --blouppy-surface-400: #a1a1aa;
+  --blouppy-surface-500: #71717a;
+  --blouppy-surface-600: #52525b;
+  --blouppy-surface-700: #3f3f46;
+  --blouppy-surface-800: #27272a;
+  --blouppy-surface-900: #18181b;
+  --blouppy-surface-950: #09090b;
+
+  --blouppy-font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --blouppy-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --blouppy-bg: var(--blouppy-surface-0);
+  --blouppy-bg-soft: var(--blouppy-surface-50);
+  --blouppy-card: var(--blouppy-surface-0);
+  --blouppy-border: var(--blouppy-surface-200);
+  --blouppy-heading: var(--blouppy-surface-900);
+  --blouppy-text: var(--blouppy-surface-700);
+  --blouppy-muted: var(--blouppy-surface-500);
+  --blouppy-faint: var(--blouppy-surface-400);
+  --blouppy-bg-hover: var(--blouppy-surface-100);
+  --blouppy-bg-subtle: var(--blouppy-surface-100);
+  --blouppy-accent-soft: var(--blouppy-primary-100);
+  --blouppy-accent-text: var(--blouppy-primary-600);
+  --blouppy-accent-border: var(--blouppy-primary-200);
+
+  --blouppy-focus-ring-color: var(--blouppy-accent-text);
+  --blouppy-transition-duration: 0.2s;
+
+  /* The logo's four gradient stops (DESIGN.md §2.5). Decoration only, and
+   * only in the home page's hero and its closing call to action — reading
+   * pages carry none, as in the Starter's docs. */
+  --blouppy-flamingo-peach: #ffc1a3;
+  --blouppy-flamingo-pink: #ffb1bb;
+  --blouppy-flamingo-lilac: #efc2eb;
+  --blouppy-flamingo-blue: #afc1ee;
+  --blouppy-flamingo-shape-opacity: 0.4;
+  --blouppy-flamingo-glow: var(--blouppy-primary-100);
+
+  /* Site-only presentation, as in the Starter's landing page. */
+  --nav-height: calc(4rem + 1px);
+  --nav-bg: rgb(255 255 255 / 0.85);
+  --frame-shadow: 0 24px 64px -16px rgb(19 22 51 / 0.25);
+  --code-bg: #0f1117;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --blouppy-surface-50: #f8fafc;
+  --blouppy-surface-100: #f1f5f9;
+  --blouppy-surface-200: #e2e8f0;
+  --blouppy-surface-300: #cbd5e1;
+  --blouppy-surface-400: #94a3b8;
+  --blouppy-surface-500: #64748b;
+  --blouppy-surface-600: #475569;
+  --blouppy-surface-700: #334155;
+  --blouppy-surface-800: #1e293b;
+  --blouppy-surface-900: #0f172a;
+  --blouppy-surface-950: #020617;
+
+  --blouppy-primary-fill: var(--blouppy-primary-400);
+  --blouppy-primary-fill-hover: var(--blouppy-primary-300);
+  --blouppy-primary-contrast: var(--blouppy-surface-950);
+
+  --blouppy-bg: var(--blouppy-surface-950);
+  --blouppy-bg-soft: var(--blouppy-surface-900);
+  --blouppy-card: var(--blouppy-surface-900);
+  --blouppy-border: var(--blouppy-surface-800);
+  --blouppy-heading: var(--blouppy-surface-100);
+  --blouppy-text: var(--blouppy-surface-300);
+  --blouppy-muted: var(--blouppy-surface-400);
+  --blouppy-faint: var(--blouppy-surface-500);
+  --blouppy-bg-hover: var(--blouppy-surface-800);
+  --blouppy-bg-subtle: var(--blouppy-surface-800);
+  --blouppy-accent-soft: color-mix(in srgb, var(--blouppy-primary-500) 16%, transparent);
+  --blouppy-accent-text: var(--blouppy-primary-300);
+  --blouppy-accent-border: color-mix(in srgb, var(--blouppy-primary-500) 40%, transparent);
+
+  --blouppy-flamingo-shape-opacity: 0.14;
+  --blouppy-flamingo-glow: color-mix(in srgb, var(--blouppy-primary-500) 22%, transparent);
+
+  --nav-bg: rgb(2 6 23 / 0.8);
+  --frame-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.6);
+  --code-bg: #0b1222;
+}
+
+html {
+  background-color: var(--blouppy-bg);
+}
+
+/* The flamingo layer, copied from the Starter's flamingo.css: a glow at the
+ * top of a surface, and shapes that drift behind it. Where each shape sits
+ * stays with the page. */
+.flamingo-glow {
+  background: radial-gradient(ellipse 60% 50% at 50% 0%, var(--blouppy-flamingo-glow), transparent);
+}
+
+.flamingo-shapes {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.flamingo-shape {
+  position: absolute;
+  opacity: var(--blouppy-flamingo-shape-opacity);
+  animation: flamingo-drift var(--drift-duration, 18s) ease-in-out var(--drift-delay, 0s) infinite;
+}
+
+.flamingo-blur {
+  border-radius: 9999px;
+  filter: blur(48px);
+}
+
+@keyframes flamingo-drift {
+  50% {
+    translate: var(--drift-x, 14px) var(--drift-y, -14px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flamingo-shape {
+    animation: none;
+  }
+}

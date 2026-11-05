@@ -1,166 +1,94 @@
-/* This example requires Tailwind CSS v2.0+ */
 import React, { useState } from "react";
 import { Link } from "gatsby";
 import { Disclosure } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
-import Search from "../search";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
+import { LinkGetProps } from "@reach/router";
+import Search from "../search";
 import { ThemeToggle } from "../theme-toggle/ThemeToggle";
 import { BlouppyIcon } from "../icons/svg/BlouppyIcon";
 import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
-import { LinkGetProps } from "@reach/router";
+import { starterUrl } from "../../constants/starter";
+
+const links = [
+  { name: "Blog", href: "/blog" },
+  { name: "Tags", href: "/tags" },
+  { name: "About", href: "/about" },
+  { name: "Contact", href: "/contact" },
+];
+
+const linkClassName = "text-sm font-medium text-muted transition-colors hover:text-accent";
+const activeLinkClassName = "text-sm font-medium text-accent";
+
+// A section stays highlighted on its sub-pages: /blog on an article, /tags on a tag.
+const isPartiallyActive =
+  (base: string) =>
+  ({ isPartiallyCurrent, location }: LinkGetProps) => {
+    const onArticle = base === "/blog" && location.pathname.startsWith("/blog/");
+    return isPartiallyCurrent || onArticle ? { className: activeLinkClassName } : {};
+  };
+
+const mobileLinkClassName = "block rounded-lg px-3 py-2.5 text-base font-medium text-body hover:bg-hover";
+
+const searchIndices = [{ name: `Pages`, title: `Pages` }];
 
 export const Navbar = () => {
   const [toggleSearch, setToggleSearch] = useState(false);
 
-  const toggleSearchChange = (event: boolean) => {
-    setToggleSearch(event);
-  };
-
-  const searchClick = () => {
-    setToggleSearch(true);
-  };
-
-  const navigation = {
-    link: [
-      {
-        name: "Home",
-        href: "/",
-      },
-      {
-        name: "Blog",
-        href: "/blog",
-      },
-      {
-        name: "Resume",
-        href: "/resume",
-      },
-      {
-        name: "Portfolio",
-        href: "/portfolio",
-      },
-      {
-        name: "About",
-        href: "/about",
-      },
-      {
-        name: "Contact",
-        href: "/contact",
-      },
-    ],
-  };
-
-  const isActive = ({ isCurrent }: LinkGetProps): {} =>
-    isCurrent
-      ? {
-          className:
-            "text-gray-900 dark:text-gray-100 border-primary-400 text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium",
-        }
-      : {};
-
-  const isPartiallyActive = ({ isPartiallyCurrent }: LinkGetProps) =>
-    isPartiallyCurrent
-      ? {
-          className:
-            "text-gray-900 dark:text-gray-100 border-primary-400 text-gray-500 hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium",
-        }
-      : {};
-
-  const isActiveForMobile = ({ isCurrent }: LinkGetProps) =>
-    isCurrent
-      ? {
-          className:
-            "bg-primary-50 border-primary-400 text-primary-600 text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium",
-        }
-      : {};
-
-  const isPartiallyActiveForMobile = ({ isPartiallyCurrent }: LinkGetProps) =>
-    isPartiallyCurrent
-      ? {
-          className:
-            "bg-primary-50 border-primary-400 text-primary-600 text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium",
-        }
-      : {};
-
-  const searchIndices = [{ name: `Pages`, title: `Pages` }];
-
   return (
-    <Disclosure as="nav" className="sticky top-0 z-40 w-full backdrop-blur flex-none transition-colors duration-500 bg-white/75 dark:bg-gray-950/75 shadow">
+    <Disclosure
+      as="nav"
+      className="sticky top-0 z-40 w-full border-b border-line backdrop-blur-md"
+      style={{ backgroundColor: "var(--nav-bg)" }}
+    >
       {({ open }) => (
         <>
-          {/* lg and more Menu */}
-          <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
-            <div className="relative flex justify-between h-16">
-              <div className="absolute inset-y-0 left-0 flex items-center md:hidden">
-                {/* Mobile menu button */}
-                <Disclosure.Button className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500">
-                  <span className="sr-only">Open main menu</span>
-                  {open ? (
-                    <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
-                  ) : (
-                    <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
-                  )}
-                </Disclosure.Button>
-              </div>
-              <div className="flex-1 flex items-center justify-center md:items-stretch md:justify-start">
-                <div className="flex-shrink-0 flex items-center">
-                  <Link to="/" title="Logo">
-                    <span className="sr-only">Home</span>
-                    <BlouppyIcon className="block lg:hidden p-2 h-14 w-14" />
-                    <BlouppyWithTextIcon className="text-gray-900 dark:text-gray-100 hidden lg:block p-2 w-32" />
+          <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
+            <div className="flex items-center gap-8">
+              <Link to="/" className="flex items-center text-heading" aria-label="Blouppy, home">
+                <BlouppyIcon className="block h-11 w-11 p-1.5 lg:hidden" />
+                <BlouppyWithTextIcon className="hidden w-32 p-1.5 lg:block" />
+              </Link>
+              <div className="hidden items-center gap-7 md:flex">
+                {links.map((item) => (
+                  <Link key={item.name} to={item.href} getProps={isPartiallyActive(item.href)} className={linkClassName}>
+                    {item.name}
                   </Link>
-                </div>
-                <div className="hidden md:ml-6 md:flex md:space-x-8">
-                  {navigation.link.map((item) => (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      getProps={
-                        item.name == "Home" ? isActive : isPartiallyActive
-                      }
-                      className="text-gray-500 border-transparent hover:border-gray-300 hover:text-gray-700 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium"
-                    >
-                      {item.name}
-                    </Link>
-                  ))}
-                </div>
+                ))}
               </div>
-              <div className="absolute inset-y-0 right-0 flex items-center space-x-3 pr-2 md:static md:inset-auto md:ml-6 md:pr-0">
-                <button onClick={searchClick}>
-                  <span className="sr-only">Search article with algolia</span>
-                  <MagnifyingGlassIcon className="h-6 w-6 text-gray-500 hover:text-gray-600" />
-                </button>
-                <Search
-                  indices={searchIndices}
-                  openModal={toggleSearch}
-                  modalClosed={toggleSearchChange}
-                />
+            </div>
 
-                <div className="order-last">
-                  <ThemeToggle />
-                </div>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setToggleSearch(true)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading"
+              >
+                <span className="sr-only">Search articles</span>
+                <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <Search indices={searchIndices} openModal={toggleSearch} modalClosed={setToggleSearch} />
+              <ThemeToggle />
+              <a href={starterUrl} className="btn btn-sm ml-2 hidden sm:inline-flex" rel="noopener">
+                Blouppy Starter
+              </a>
+              <Disclosure.Button className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading md:hidden">
+                <span className="sr-only">{open ? "Close main menu" : "Open main menu"}</span>
+                {open ? <XMarkIcon className="h-6 w-6" aria-hidden="true" /> : <Bars3Icon className="h-6 w-6" aria-hidden="true" />}
+              </Disclosure.Button>
             </div>
           </div>
 
-          {/* sm Menu */}
-          <Disclosure.Panel className="md:hidden">
-            <div className="pt-2 pb-4 space-y-1">
-              {navigation.link.map((item) => (
-                <Disclosure.Button
-                  key={item.name}
-                  as={Link}
-                  to={item.href}
-                  getProps={
-                    item.name == "Home"
-                      ? isActiveForMobile
-                      : isPartiallyActiveForMobile
-                  }
-                  className="border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700 block pl-3 pr-4 py-2 border-l-4 text-base font-medium"
-                >
+          <Disclosure.Panel className="border-t border-line md:hidden">
+            <div className="space-y-1 px-4 pb-4 pt-3">
+              {links.map((item) => (
+                <Disclosure.Button key={item.name} as={Link} to={item.href} className={mobileLinkClassName}>
                   {item.name}
                 </Disclosure.Button>
               ))}
+              <a href={starterUrl} className="btn mt-3 w-full" rel="noopener">
+                Blouppy Starter
+              </a>
             </div>
           </Disclosure.Panel>
         </>

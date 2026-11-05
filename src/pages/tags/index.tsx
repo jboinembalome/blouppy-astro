@@ -3,6 +3,7 @@ import { Seo } from "../../components/seo/Seo";
 import { PageProps, graphql } from "gatsby";
 import { TagsPageQuery } from "../../types/graphql-queries";
 import { TagWithCount } from "../../components/tag";
+import { PageHeader } from "../../components/page-header/PageHeader";
 
 const TagsPage = ({ data }: PageProps<TagsPageQuery>) => {
   const { allMarkdownRemark: { group } } = data;
@@ -10,21 +11,16 @@ const TagsPage = ({ data }: PageProps<TagsPageQuery>) => {
   return (
     <>
       <Head siteUrl={data.site.siteMetadata.siteUrl} />
-      <div className="max-w-prose mx-auto">
-        <div className="text-lg max-w-prose mx-auto">
-          <h1 className="block text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-            Tags
-          </h1>
-
-          <ul className="mt-8 flex flex-wrap gap-2">
-            {group.map((tag) => (
-              <li key={tag.fieldValue}>
-                <TagWithCount tag={tag} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <PageHeader kicker="Blog" title="Tags" subtitle="Every topic the articles cover, with how many posts each one has." />
+      <ul className="flex flex-wrap gap-2">
+        {[...group]
+          .sort((a, b) => b.totalCount - a.totalCount)
+          .map((tag) => (
+            <li key={tag.fieldValue}>
+              <TagWithCount tag={tag} />
+            </li>
+          ))}
+      </ul>
     </>
   );
 };

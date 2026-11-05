@@ -61,6 +61,11 @@ export const createPages: GatsbyNode["createPages"] = async ({
         // additional data can be passed via context
         context: {
           id,
+          // An article's related posts are those sharing a tag with it.
+          // "Development" is on every post, so it relates nothing.
+          relatedTags: (edge.node.frontmatter.tags ?? []).filter(
+            (tag: string) => tag !== "Development"
+          ),
         },
       });
   });
@@ -75,7 +80,7 @@ export const createPages: GatsbyNode["createPages"] = async ({
   paginate({
     createPage, // The Gatsby `createPage` function
     items: blogPosts, // An array of objects to paginate
-    itemsPerPage: 5, // How many items you want per page
+    itemsPerPage: 10, // How many items you want per page
     pathPrefix: pathPrefix, // Creates pages like `/blog`, `/blog/page/2`, etc
     component: resolve("src/templates/blogs-template.tsx"),
   });

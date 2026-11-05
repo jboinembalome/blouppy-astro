@@ -12,6 +12,7 @@ type FrontmatterType = {
   title: string;
   date: string;
   description: string;
+  category: string;
   tags: string[];
   featuredpost: boolean;
   featuredlink: string;
@@ -28,6 +29,7 @@ export type BlogPostQuery = {
   markdownRemark: {
     html: string;
     timeToRead: number;
+    tableOfContents: string;
     excerpt: string;
     id: string;
     fields: FieldsType;

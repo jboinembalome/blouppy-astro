@@ -19,6 +19,7 @@ export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
       title={props.title} 
       date={props.date} 
       description={props.description} 
+      category={props.category}
       tags={props.tags} 
       image={props.image}
       imageLink={props.imageLink}
@@ -28,6 +29,8 @@ export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
       authorimage={props.authorimage} 
       readingTime={props.readingTime} 
       content={props.content} 
+      tableOfContents={props.tableOfContents}
+      related={props.related}
       disqusConfig={disqusConfig} />
   );
 };

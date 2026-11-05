@@ -39,8 +39,8 @@ const Index = () => {
   return (
     <>
       <Head />
-      <div className="bg-gray-100 dark:bg-gray-900">
-        <div className="relative bg-white dark:bg-gray-900 border border-transparent rounded-lg shadow">
+      <div className="bg-soft">
+        <div className="relative bg-card border border-line rounded-xl">
           <h2 className="sr-only">Contact me</h2>
 
           <div className="grid grid-cols-1 lg:grid-cols-3">
@@ -81,7 +81,7 @@ const Index = () => {
               </ul>
             </div>
             <div className="py-10 px-6 sm:px-10 lg:col-span-2 xl:p-12">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Send me a message</h3>
+              <h3 className="text-lg font-medium text-heading">Send me a message</h3>
               <form name="contact" method="post" action="/contact/thanks/"
                 data-netlify="true" data-netlify-honeypot="bot-field"
                 onSubmit={handleSubmit}
@@ -95,7 +95,7 @@ const Index = () => {
                   </label>
                 </div>
                 <div>
-                  <label htmlFor="first-name" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <label htmlFor="first-name" className="block text-sm font-medium text-heading">
                     First name
                   </label>
                   <div className="mt-1">
@@ -106,12 +106,12 @@ const Index = () => {
                       autoComplete="given-name"
                       onChange={handleChange}
                       required={true}
-                      className="py-3 px-4 block w-full shadow-sm dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-indigo-500 focus:border-primary-400 border-gray-300 rounded-md"
+                      className="py-3 px-4 block w-full shadow-sm bg-page text-heading focus:ring-primary-400 focus:border-primary-400 border-line rounded-md"
                     />
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="last-name" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <label htmlFor="last-name" className="block text-sm font-medium text-heading">
                     Last name
                   </label>
                   <div className="mt-1">
@@ -122,12 +122,12 @@ const Index = () => {
                       autoComplete="family-name"
                       onChange={handleChange}
                       required={true}
-                      className="py-3 px-4 block w-full shadow-sm dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-indigo-500 focus:border-primary-400 border-gray-300 rounded-md"
+                      className="py-3 px-4 block w-full shadow-sm bg-page text-heading focus:ring-primary-400 focus:border-primary-400 border-line rounded-md"
                     />
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <label htmlFor="email" className="block text-sm font-medium text-heading">
                     Email
                   </label>
                   <div className="mt-1">
@@ -138,16 +138,16 @@ const Index = () => {
                       autoComplete="email"
                       onChange={handleChange}
                       required={true}
-                      className="py-3 px-4 block w-full shadow-sm dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-indigo-500 focus:border-primary-400 border-gray-300 rounded-md"
+                      className="py-3 px-4 block w-full shadow-sm bg-page text-heading focus:ring-primary-400 focus:border-primary-400 border-line rounded-md"
                     />
                   </div>
                 </div>
                 <div>
                   <div className="flex justify-between">
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <label htmlFor="phone" className="block text-sm font-medium text-heading">
                       Phone
                     </label>
-                    <span id="phone-optional" className="text-sm text-gray-500 dark:text-gray-400">
+                    <span id="phone-optional" className="text-sm text-muted">
                       Optional
                     </span>
                   </div>
@@ -159,13 +159,13 @@ const Index = () => {
                       autoComplete="tel"
                       onChange={handleChange}
                       required={false}
-                      className="py-3 px-4 block w-full shadow-sm dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-indigo-500 focus:border-primary-400 border-gray-300 rounded-md"
+                      className="py-3 px-4 block w-full shadow-sm bg-page text-heading focus:ring-primary-400 focus:border-primary-400 border-line rounded-md"
                       aria-describedby="phone-optional"
                     />
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label htmlFor="subject" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <label htmlFor="subject" className="block text-sm font-medium text-heading">
                     Subject
                   </label>
                   <div className="mt-1">
@@ -176,16 +176,16 @@ const Index = () => {
                       onChange={handleChange}
                       required={true}
                       // autocomplete="off"
-                      className="py-3 px-4 block w-full shadow-sm dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-indigo-500 focus:border-primary-400 border-gray-300 rounded-md"
+                      className="py-3 px-4 block w-full shadow-sm bg-page text-heading focus:ring-primary-400 focus:border-primary-400 border-line rounded-md"
                     />
                   </div>
                 </div>
                 <div className="sm:col-span-2">
                   <div className="flex justify-between">
-                    <label htmlFor="message" className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <label htmlFor="message" className="block text-sm font-medium text-heading">
                       Message
                     </label>
-                    <span id="message-max" className="text-sm text-gray-500 dark:text-gray-400">
+                    <span id="message-max" className="text-sm text-muted">
                       Max. 500 characters
                     </span>
                   </div>
@@ -195,7 +195,7 @@ const Index = () => {
                       name={'message'}
                       onChange={handleChange}
                       required={true}
-                      className="py-3 px-4 block w-full shadow-sm dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-indigo-500 focus:border-primary-400 border border-gray-300 rounded-md"
+                      className="py-3 px-4 block w-full shadow-sm bg-page text-heading focus:ring-primary-400 focus:border-primary-400 border border-line rounded-md"
                       aria-describedby="message-max"
                       maxLength={500}
                       defaultValue={''}
@@ -205,7 +205,7 @@ const Index = () => {
                 <div className="sm:col-span-2 sm:flex sm:justify-end">
                   <button
                     type="submit"
-                    className="mt-2 w-full inline-flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white dark:text-gray-900 bg-primary-500 hover:bg-primary-600 dark:bg-primary-300 hover:dark:bg-primary-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:w-auto"
+                    className="btn mt-2 w-full sm:w-auto"
                   >
                     Submit
                   </button>

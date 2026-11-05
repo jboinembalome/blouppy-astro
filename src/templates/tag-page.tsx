@@ -2,39 +2,39 @@ import React from "react";
 import { Link, PageProps, graphql } from "gatsby";
 import { kebabCase } from "lodash";
 import { Seo } from "../components/seo/Seo";
-import { ButtonInternalLink } from "../components/button";
-import { TagPageQuery } from "../types/graphql-queries";
+import { PageHeader } from "../components/page-header/PageHeader";
+import { ArticleCard } from "../components/article-card/ArticleCard";
+import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
 
-const TagPage = ({ data, pageContext }: PageProps<TagPageQuery>) => {
-  const posts = data.allMarkdownRemark.edges;
-  const postLinks = posts.map((post) => (
-    <li key={post.node.fields.slug} className="px-4 py-4 sm:px-0">
-      <Link to={post.node.fields.slug}>
-        <h2 className="is-size-2 text-2xl leading-9 font-medium text-gray-900 dark:text-gray-100 hover:text-primary-500 dark:hover:text-primary-300">
-          {post.node.frontmatter.title}
-        </h2>
-      </Link>
-    </li>
-  ));
-  const tag = (pageContext as any).tag;
-  const totalCount = data.allMarkdownRemark.totalCount;
-  const tagHeader = `${totalCount} post${totalCount === 1 ? "" : "s"} tagged with`;
+type TagPageQuery = {
+  site: { siteMetadata: { siteUrl: string } };
+  allMarkdownRemark: {
+    totalCount: number;
+    edges: ArticleSummaryEdge[];
+  };
+};
+
+const TagPage = ({ data, pageContext }: PageProps<TagPageQuery, { tag: string }>) => {
+  const { tag } = pageContext;
+  const { totalCount, edges } = data.allMarkdownRemark;
 
   return (
     <>
       <Head tag={tag} siteUrl={data.site.siteMetadata.siteUrl} />
-
-      <div className="text-gray-500 dark:text-gray-400 mx-auto">
-        <div className="text-lg max-w-prose mx-auto">
-          <h1 className="block text-3xl leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-            {tagHeader}{" "}
-            <span className="text-primary-500 dark:text-primary-300">
-              {tag}
-            </span>
-          </h1>
-          <ul className="mt-8 divide-y divide-gray-200">{postLinks}</ul>
-          <ButtonInternalLink link="/tags/" text="Browse all tags" className="mt-2 mx-auto" />
-        </div>
+      <PageHeader
+        kicker="Tag"
+        title={tag}
+        subtitle={`${totalCount} article${totalCount === 1 ? "" : "s"} tagged with ${tag}.`}
+      />
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {edges.map(({ node }) => (
+          <ArticleCard key={node.id} article={node} headingLevel="h2" />
+        ))}
+      </div>
+      <div className="mt-12 border-t border-line pt-6">
+        <Link to="/tags/" className="btn-outline btn-sm">
+          Browse all tags
+        </Link>
       </div>
     </>
   );
@@ -69,12 +69,7 @@ export const tagPageQuery = graphql`
       totalCount
       edges {
         node {
-          fields {
-            slug
-          }
-          frontmatter {
-            title
-          }
+          ...ArticleSummary
         }
       }
     }

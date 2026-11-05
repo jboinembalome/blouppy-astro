@@ -15,7 +15,7 @@ const SearchBox = ({ refine, currentRefinement, className }: SearchBoxProps) => 
             aria-hidden="true"
         />
         <input
-            className="h-12 w-full border-0 bg-transparent pl-11 pr-4 placeholder-gray-400 focus:ring-0 sm:text-sm"
+            className="h-12 w-full border-0 bg-transparent pl-11 pr-4 placeholder-faint focus:ring-0 sm:text-sm"
             type="text" placeholder="Search..." role="combobox" aria-expanded="false" aria-controls="options"
             autoComplete="off"
             onChange={e => refine(e.target.value)}

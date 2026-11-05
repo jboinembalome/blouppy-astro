@@ -6,3 +6,29 @@
   NODE_VERSION = "18.15.0"
   NPM_VERSION = "9.6.4"
   NPM_FLAGS = "--legacy-peer-deps"
+
+# The Resume and Portfolio pages were removed; keep their old links working.
+[[redirects]]
+  from = "/resume"
+  to = "/about/"
+  status = 301
+
+[[redirects]]
+  from = "/resume/*"
+  to = "/about/"
+  status = 301
+
+[[redirects]]
+  from = "/portfolio/2026-04-26-http-file-generator/*"
+  to = "/blog/2026-04-26-http-file-generator/"
+  status = 301
+
+[[redirects]]
+  from = "/portfolio"
+  to = "/blog/"
+  status = 301
+
+[[redirects]]
+  from = "/portfolio/*"
+  to = "/blog/"
+  status = 301

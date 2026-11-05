@@ -13,18 +13,16 @@ export interface PaginationProps {
 
 export const Pagination = ({ previousPagePath, nextPagePath, previousPageButtonText, nextPageButtonText, humanPageNumber, numberOfPages, className }: PaginationProps) => {
     return (
-        <div className={className}>
-          <div className="w-0 flex-1 flex">
+        <nav aria-label="Pagination" className={`mt-12 flex items-center justify-between gap-4 border-t border-line pt-6 ${className ?? ''}`}>
+          <div className="flex flex-1">
             {previousPagePath ? (
-              <Link to={previousPagePath} className="btn">{previousPageButtonText}</Link>) : null}
+              <Link to={previousPagePath} rel="prev" className="btn-outline btn-sm">← {previousPageButtonText}</Link>) : null}
           </div>
-          <div className="flex">
-            <span className="text-gray-500 dark:text-gray-400 text-sm font-medium">Page {humanPageNumber} of {numberOfPages}</span>
-          </div>
-          <div className="flex-1 flex justify-end">
+          <span className="text-sm text-muted">Page {humanPageNumber} of {numberOfPages}</span>
+          <div className="flex flex-1 justify-end">
             {nextPagePath ? (
-              <Link to={nextPagePath} className="btn ml-3 ">{nextPageButtonText}</Link>) : null}
+              <Link to={nextPagePath} rel="next" className="btn-outline btn-sm">{nextPageButtonText} →</Link>) : null}
           </div>
-        </div>
+        </nav>
     );
 };

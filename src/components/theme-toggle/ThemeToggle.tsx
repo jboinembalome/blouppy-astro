@@ -106,9 +106,9 @@ export function ThemeToggle({ panelClassName }: ThemeToggleProps) {
     };
 
     return (
-        <Listbox value={setting} onChange={listboxOnChange}>
+        <Listbox as="div" className="relative" value={setting} onChange={listboxOnChange}>
             <Listbox.Label className="sr-only">Theme</Listbox.Label>
-            <Listbox.Button type="button" className="hover:text-gray-600">
+            <Listbox.Button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading">
                 <span className="dark:hidden">
                     <Sun className="w-6 h-6" selected={setting !== 'system'} />
                 </span>
@@ -117,12 +117,12 @@ export function ThemeToggle({ panelClassName }: ThemeToggleProps) {
                 </span>
             </Listbox.Button>
             <Listbox.Options
-                className={`absolute z-50 top-full right-0 bg-white rounded-lg ring-1 ring-gray-900/10 shadow-lg overflow-hidden w-36 py-1 text-sm text-gray-700 font-semibold dark:bg-gray-900 dark:ring-0 dark:highlight-white/5 dark:text-gray-300 ${panelClassName}`}
+                className={`absolute z-50 top-full right-0 mt-2 w-36 overflow-hidden rounded-lg border border-line bg-card py-1 text-sm font-medium text-body shadow-lg ${panelClassName ?? ''}`}
             >
                 {settings.map(({ value, label, icon: Icon }) => (
                     <Listbox.Option key={value} value={value} as={Fragment}>
                         {({ active, selected }) => (
-                            <li className={`${selected && 'text-primary-400'} ${active && 'bg-gray-50 dark:bg-gray-600/30'} py-1 px-2 flex items-center cursor-pointer`}>
+                            <li className={`${selected ? 'text-accent' : ''} ${active ? 'bg-hover' : ''} py-1 px-2 flex items-center cursor-pointer`}>
                                 <Icon selected={selected} className="w-6 h-6 mr-2" />
                                 {label}
                             </li>

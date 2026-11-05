@@ -1,11 +1,10 @@
 ---
 templateKey: index-page
-title: Welcome on board
-image: /img/blouppy-starter.png
-heading: Welcome on board
-subheading: It is a pleasure to be with you
+title: Practical .NET and Angular,
+heading: from real code
+subheading: Articles on ASP.NET Core, Angular and SaaS architecture, each one drawn from code that runs in production. Security, messaging, testing and the traps nobody warns you about.
 mainpitch:
-  title: What is Blouppy?
+  title: Hi, I'm Jimmy
   description: >
-    Blouppy is a place where you can get information about tips, best practices, technologies around Microsoft such as .NET Core, WPF, ASP.NET Core but also about other topics. You can also find information about the creator of Blouppy if you wish.
+    I'm a .NET and Angular developer, and Blouppy is where I write about what I build: the patterns, the trade-offs and the bugs I'd rather you didn't hit.
 ---

@@ -136,6 +136,15 @@ const config: GatsbyConfig = {
             },
           },
           {
+            // Anchors on h2/h3, which the article's table of contents links to.
+            resolve: 'gatsby-remark-autolink-headers',
+            options: {
+              elements: ['h2', 'h3'],
+              isIconAfterHeader: true,
+              className: 'anchor',
+            },
+          },
+          {
             resolve: 'gatsby-remark-code-buttons',
             options: {
               buttonText: `Copy`,
