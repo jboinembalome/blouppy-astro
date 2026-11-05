@@ -22,20 +22,20 @@ Enterprise customers ask two questions. "Can our people sign in with Okta, Entra
 
 You can buy both as a service. But with Microsoft's own OpenID Connect handler, a DNS lookup and a few controllers, ASP.NET Core can do it alone.
 
-In this article, we will build it step by step: verified domains through a DNS TXT record, one OIDC connection per organization added at runtime, the sign-in flow, a SCIM endpoint with its own token, deactivation, and the privacy and plan rules around it.
+In this article, we will see verified domains through a DNS TXT record, one OIDC connection per organization added at runtime, the sign-in flow, a SCIM endpoint with its own token, deactivation, privacy and plans.
 
 
 ## Why it is harder than a sign-in button
 GitHub and Google are two authentication handlers registered at startup from configuration. An organization's provider is different:
 - **It is added at runtime**, any day, without a restart and on every replica.
-- **A provider speaks only for its own addresses.** If a provider can assert any e-mail it likes, it can sign in as anyone (the _nOAuth_ class of attack). So an organization must prove its domains first, and its provider speaks for those and nothing else.
+- **A provider speaks only for its own addresses.** A provider asserting any e-mail could sign in as anyone (the _nOAuth_ class of attack), so an organization proves its domains first.
 - **Leaving has to stop everything that acts as the person**: the browser session, the personal access tokens, the membership, the teams. Without erasing an account the person may still want back.
 
 In the code base this comes from, all of it lives in the identity host (`Blouppy.Identity`, on OpenIddict). Memberships stay in the API, reached through integration events.
 
 
 ## Proving a domain with a DNS TXT record
-Everything starts here. An organization claims `acme.com`, gets a random challenge, and publishes it as a TXT record:
+An organization claims `acme.com`, gets a random challenge, and publishes it as a TXT record:
 
 ```text:clipboard=false
 _blouppy-challenge.acme.com.  TXT  "blouppy-domain-verification=<challenge>"
@@ -104,7 +104,7 @@ Why can the commit fail? Two organizations may verify the same domain at the sam
 ## One OIDC scheme per organization, at runtime
 A connection is one row per organization: issuer, client id, protected secret, scopes, the e-mail claim, a default role (`Viewer` or `Member`, never `Admin`) and a `version` raised by every change.
 
-The trick is to decorate `IAuthenticationSchemeProvider`. Here is `SsoSchemeProvider.GetSchemeAsync`:
+The trick is to decorate `IAuthenticationSchemeProvider`. Here is `SsoSchemeProvider`:
 
 ```csharp
 public async Task<AuthenticationScheme?> GetSchemeAsync(string name)
@@ -164,7 +164,7 @@ There are three doors:
 When the provider answers, `SsoSignInService.SignInAsync` runs, in order:
 1. **The e-mail must be in one of the organization's verified domains**, or the sign-in is refused.
 2. **Find the account by the connection's login** (`sso-{id}` and the provider's `sub`), not by e-mail, which can change at the provider.
-3. **Else find it by e-mail and link it.** An unconfirmed account also loses its password and other logins, which nobody proved belonged to that address (`ManagedAccounts.ClaimAsync`).
+3. **Else find it by e-mail and link it.** An unconfirmed one loses its password and other logins (`ManagedAccounts.ClaimAsync`).
 4. **Else create it**, just in time: e-mail confirmed, no password, no personal organization.
 5. **Make the member**, by publishing `SsoMemberProvisionedIntegrationEventDto` with the connection's default role.
 
@@ -182,7 +182,7 @@ var user = await userManager.FindByLoginAsync(scheme, providerUserId);
 var existing = user ?? await userManager.FindByEmailAsync(email);
 ```
 
-Why is the membership an event? The identity host does not own memberships. And since "is this person a member?" is asked on every sign-in, a failure between the two heals at the next one. 👍
+The membership is an event because the identity host does not own it, and since it is checked on every sign-in, a failure heals at the next one. 👍
 
 There is no extra second factor after an SSO sign-in: MFA is the provider's job. But an SSO session lasts **24 hours at most** (`SsoManagedSessionValidator.HasEnded`, asked before a refresh): without SCIM, that is how someone removed at the provider stops reaching the app.
 
@@ -255,7 +255,7 @@ An account outside the verified domains only loses the membership. **The owner c
 
 
 ## Privacy and plans
-An erased account's SCIM users are forgotten, and whoever configured a connection becomes `deleted-user`. A deleted organization takes its connection, domains, tokens and SCIM rows with it, and the accounts its provider deactivated are reactivated, since no other organization may. The data export gains a `single-sign-on.json`, never with a token or a secret.
+An erased account's SCIM users are forgotten, and whoever configured a connection becomes `deleted-user`. A deleted organization takes its connection, domains, tokens and SCIM rows with it, and the accounts its provider deactivated are reactivated, since no other organization may.
 
 SSO and SCIM sit behind one entitlement, `AllowsSso` (verifying a domain is on every plan). Losing it lifts enforcement at the next sign-in, stops the SCIM tokens at once, and keeps the connection as an optional way in.
 
@@ -271,7 +271,7 @@ No SAML; a verified domain is never re-checked; the identity host needs DNS egre
 ## Conclusion
 SSO for a B2B SaaS is not a sign-in button. The provider is added at runtime, so a decorated `IAuthenticationSchemeProvider` builds an `OpenIdConnectHandler` scheme per connection. And a provider must never speak for an address it does not own, so every sign-in starts by checking the e-mail against domains proven with a DNS TXT record.
 
-SCIM is the other half: a hashed, per-organization token, a lenient endpoint behind a plain proxy route, and a deactivation that ends sessions and revokes tokens without erasing anyone.
+SCIM is the other half: a hashed per-organization token, a lenient endpoint behind a plain proxy route, and a deactivation that revokes everything without erasing anyone.
 
 This is how single sign-on and SCIM are built in [Blouppy Starter](https://starter.blouppy.com/), on its OpenIddict identity host. The [SSO and SCIM documentation](https://docs.starter.blouppy.com/modules/sso-scim/) goes through the configuration.
 

@@ -18,7 +18,7 @@ tags:
   - .NET Aspire
 ---
 
-The quickest way to keep a database up to date with EF Core is one line in `Program.cs`: `context.Database.Migrate()` before `app.Run()`. It works on a laptop. Then we deploy two replicas, and both try to apply the same migration at the same moment. Or we add a second service with its own `DbContext`, and one service starts against a schema the other has not finished migrating. Add a message bus that keeps its outbox in the same database, and a job scheduler with its own tables, and "who creates what, and when" no longer has a clear answer.
+The quickest way to keep a database up to date with EF Core is one line in `Program.cs`: `context.Database.Migrate()` before `app.Run()`. It works on a laptop. Then we deploy two replicas, or a second service with its own `DbContext`, or a message bus and a job scheduler with their own tables, and "who creates what, and when" no longer has a clear answer.
 
 The fix is to give that job to one process whose only purpose is to migrate: it runs before everything else, applies every schema, then exits. Its exit code decides whether the services may start.
 
@@ -28,7 +28,7 @@ In this article, we will build that runner as a .NET worker, guard it against Pr
 ## What goes wrong with Migrate() at startup
 Let's be precise about the failures, because each one shapes the design:
 - **Replicas race.** Two instances of the same service both see a pending migration and both try to apply it.
-- **Services start against a foreign schema.** In the code base this article comes from, four EF Core contexts share one PostgreSQL database: the application's (`BlouppyDbContext`), Billing's (`BillingDbContext`), the identity host's (`ApplicationDbContext`, ASP.NET Identity and OpenIddict) and the gateway's (`GatewayDbContext`, the cookie's Data Protection keys). If each host migrates its own, the API can start while the identity host is still creating the tables the API reads.
+- **Services start against a foreign schema.** In the code base this article comes from, four EF Core contexts share one PostgreSQL database: `BlouppyDbContext`, `BillingDbContext`, the identity host's `ApplicationDbContext` and the gateway's `GatewayDbContext`. If each host migrates its own, the API can start while the identity host is still creating tables the API reads.
 - **Non-EF tables have no owner.** Wolverine's outbox, inbox and dead letters, and Quartz.NET's clustered job store, also live in that database. If each host builds them "on the way up", the race simply moves.
 - **Production changes by accident.** `Migrate()` at startup turns every process start into a schema change.
 
@@ -104,8 +104,8 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 ```
 
 - Any failure is logged and sets the exit code to **1**.
-- `finally` always calls `IHostApplicationLifetime.StopApplication()`: the worker never lingers, success or not.
-- `ShouldRunAndSayWhyNot()` is the Production guard, which we will see in a moment.
+- `finally` always calls `IHostApplicationLifetime.StopApplication()`: the worker never lingers.
+- `ShouldRunAndSayWhyNot()` is the Production guard, coming next.
 
 And here is the run itself:
 
@@ -133,23 +133,12 @@ The order is now written down in one place instead of being an accident of which
 
 `MigrateAsync<TContext>` logs the pending migrations by name (`GetPendingMigrationsAsync`), then calls `context.Database.MigrateAsync()`. Before that, it creates the database and the history table if missing (`IRelationalDatabaseCreator`, `IHistoryRepository.CreateIfNotExistsAsync`): on an empty database, EF otherwise queries `__EFMigrationsHistory` before it exists and logs the refused query at Error level, although it recovers. Clean logs, and a real failure still stands out. 👍
 
-> **_Note:_**  EF Core 9 and later also take a migration lock while applying migrations, which helps with the replica race on its own. It does not solve the rest: the order between contexts, the non-EF tables, and services starting before the schema is ready.
+> **_Note:_**  Since EF Core 9, `Migrate()` takes a database lock, which helps with the replica race. It does not solve the rest: the order between contexts, the non-EF tables, and services starting too early.
 
 
 ## The tables EF does not own
 ### Quartz.NET
-Quartz.NET's clustered store needs its tables, and the scheduler in the API only *validates* them at startup. So they come in as an ordinary EF migration of `BlouppyDbContext`, whose `Up` creates the `quartz` schema and runs Quartz's own PostgreSQL script:
-
-```csharp
-migrationBuilder.EnsureSchema(name: "quartz");
-
-migrationBuilder.Sql("""
-    CREATE TABLE IF NOT EXISTS quartz.qrtz_job_details (
-      sched_name text not null,
-      ...
-```
-
-The runner needs nothing special for it, and a Quartz upgrade that changes those tables is simply a migration of its own.
+Quartz.NET's clustered store needs its tables, and the scheduler in the API only *validates* them at startup. So they come in as an ordinary EF migration of `BlouppyDbContext` (`AddQuartzScheduler`), whose `Up` calls `migrationBuilder.EnsureSchema(name: "quartz")` and then `migrationBuilder.Sql(...)` with Quartz's own PostgreSQL script. The runner needs nothing special for it, and a Quartz upgrade that changes those tables is simply a migration of its own.
 
 ### Wolverine
 Wolverine's tables are a different story: only Wolverine knows their shape. The runner calls a small helper, `MessageStorage.MigrateAsync`, in the messaging adapter:
@@ -235,8 +224,7 @@ if (migrations is not null)
 }
 ```
 
-- `WaitFor(blouppyDb)` waits for PostgreSQL to be healthy before the runner starts.
-- `WaitForCompletion(migrations)` holds the API (and, the same way, the identity host and the gateway) until the runner has exited successfully. A non-zero exit and they never start.
+- `WaitForCompletion(migrations)` holds the API (and the identity host and the gateway) until the runner has exited successfully. A non-zero exit and they never start.
 - The runner is left out of a Production graph entirely: a second, independent guard on top of `AllowInProduction`.
 - `DOTNET_ENVIRONMENT` is the subtle one. A worker reads `DOTNET_ENVIRONMENT`, while Aspire hands a project `ASPNETCORE_ENVIRONMENT`. Without this line the runner comes up as Production, its guard skips everything, it exits 0... and every other resource starts against a database nobody migrated. 😉
 
