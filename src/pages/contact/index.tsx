@@ -1,6 +1,6 @@
 import React, { ChangeEvent, FormEvent, useState } from 'react'
 import { navigate } from 'gatsby-link'
-import { EnvelopeIcon, PhoneIcon } from '@heroicons/react/24/outline'
+import { EnvelopeIcon } from '@heroicons/react/24/outline'
 import { LinkedInIcon, TwitterIcon } from '../../components/icons/svg/social/Icons'
 import { Seo } from "../../components/seo/Seo"
 import { useSiteMetadata } from "../../hooks/useSiteMetadata"
@@ -50,13 +50,6 @@ const Index = () => {
                 {description}
               </p>
               <dl className="mt-8 space-y-6">
-                <dt>
-                  <span className="sr-only">Phone number</span>
-                </dt>
-                <dd className="flex text-sm md:text-base text-primary-50 dark:text-gray-900">
-                  <PhoneIcon className="flex-shrink-0 w-6 h-6 text-primary-200 dark:text-gray-900" aria-hidden="true" />
-                  <span className="ml-3">+33 6 52 26 46 76</span>
-                </dd>
                 <dt>
                   <span className="sr-only">Email</span>
                 </dt>
