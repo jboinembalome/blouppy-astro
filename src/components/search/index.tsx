@@ -1,6 +1,6 @@
 import algoliasearch from "algoliasearch/lite"
-import { createRef, default as React, Fragment, useState, useMemo } from "react"
-import { InstantSearch } from "react-instantsearch-dom"
+import { createRef, default as React, Fragment, useMemo } from "react"
+import { InstantSearch } from "react-instantsearch"
 import CustomSearchBox from "./search-box"
 import SearchResult from "./search-result"
 import { Dialog, Transition } from '@headlessui/react'
@@ -16,7 +16,6 @@ interface SearchProps {
 
 export default function Search({ indices, openModal, modalClosed }: SearchProps) {
     const rootRef = createRef<HTMLDivElement>()
-    const [query, setQuery] = useState()
 
     const searchClient = useMemo(
         () =>
@@ -31,7 +30,7 @@ export default function Search({ indices, openModal, modalClosed }: SearchProps)
         <div ref={rootRef}>
             <InstantSearch searchClient={searchClient}
                 indexName={indices[0].name}
-                onSearchStateChange={({ query }) => setQuery(query)}>
+                future={{ preserveSharedStateOnUnmount: true }}>
                 <div className="relative">
                     <Transition.Root show={openModal} as={Fragment} afterLeave={() => modalClosed(false)}>
                         <Dialog as="div" className="fixed inset-0 z-50 overflow-y-auto p-4 sm:p-6 md:p-20" onClose={modalClosed}>
@@ -59,7 +58,7 @@ export default function Search({ indices, openModal, modalClosed }: SearchProps)
                                 <div className="mx-auto max-w-xl transform divide-y divide-line overflow-hidden rounded-xl border border-line shadow-lg transition-all">
                                     <CustomSearchBox className="bg-card text-heading relative" />
                                     <SearchResult className="bg-card text-heading p-4 max-h-72 scroll-py-2 overflow-y-auto py-2 text-sm"
-                                        indices={indices} query={query}
+                                        indices={indices}
                                     />
 
                                 </div>

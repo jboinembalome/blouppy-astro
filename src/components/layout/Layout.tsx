@@ -1,8 +1,6 @@
 import React from "react";
-import { Helmet } from "react-helmet";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
-import { withPrefix } from "gatsby";
 import "../../styles/site.scss";
 
 // Which decoration a page gets (the flamingo layer, DESIGN.md §2.5 of the
@@ -33,35 +31,6 @@ const PageBand = () => (
 export const Layout = ({ children, kind = "page" }: LayoutProps) => {
   return (
     <div className="flex min-h-screen flex-col bg-page text-body">
-      <Helmet>
-        <html lang="en" />
-        <link
-          rel="apple-touch-icon"
-          sizes="180x180"
-          href={`${withPrefix("/")}img/apple-touch-icon.png`}
-        />
-
-        <link rel="shortcut icon" href={`${withPrefix("/")}img/favicon.ico`} />
-        <link
-          rel="icon"
-          type="image/png"
-          href={`${withPrefix("/")}img/favicon-32x32.png`}
-          sizes="32x32"
-        />
-        <link
-          rel="icon"
-          type="image/png"
-          href={`${withPrefix("/")}img/favicon-16x16.png`}
-          sizes="16x16"
-        />
-
-        <link
-          rel="mask-icon"
-          href={`${withPrefix("/")}img/safari-pinned-tab.svg`}
-          color="#676dcf"
-        />
-        <body />
-      </Helmet>
       <Navbar />
       <main className="main relative isolate flex-1 overflow-x-clip">
         {kind === "page" && <PageBand />}

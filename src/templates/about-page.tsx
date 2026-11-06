@@ -1,5 +1,5 @@
 import React from 'react'
-import { PageProps, graphql } from 'gatsby'
+import { HeadProps, PageProps, graphql } from 'gatsby'
 import { AboutPageTemplate } from './about-page-template'
 import { Seo } from "../components/seo/Seo"
 import { ImageDataLike, getSrc } from "gatsby-plugin-image"
@@ -10,13 +10,6 @@ const AboutPage = ({ data }: PageProps<AboutPageQuery>) => {
 
   return (
     <>
-      <Head 
-        title={frontmatter.title}
-        description={frontmatter.description}
-        siteUrl={data.site.siteMetadata.siteUrl}
-        authorName={data.site.siteMetadata.author.name}
-        aboutimage={frontmatter.aboutimage} 
-      />
       <AboutPageTemplate
         title={frontmatter.title}
         aboutimage={frontmatter.aboutimage}
@@ -26,22 +19,18 @@ const AboutPage = ({ data }: PageProps<AboutPageQuery>) => {
   )
 }
 
-interface HeadProps {
-  title: string;
-  description: string;
-  siteUrl: string;
-  authorName: string;
-  aboutimage: ImageDataLike;
-}
-
-const Head = ({ title, description, siteUrl, authorName, aboutimage }: HeadProps) => {
+export const Head = ({ data, location }: HeadProps<AboutPageQuery>) => {
+  const { frontmatter } = data.markdownRemark
   return (
-    <Seo title={title} description={description} url={`${siteUrl}/about`}>
-      <meta name="image" content={`${siteUrl}${getSrc(aboutimage)}`} />
-      <meta property="og:image:alt" content={authorName} />
-      <meta property="og:image" content={`${siteUrl}${getSrc(aboutimage)}`} />
-    </Seo>);
-};
+    <Seo
+      title={frontmatter.title}
+      description={frontmatter.description}
+      pathname={location.pathname}
+      image={getSrc(frontmatter.aboutimage as ImageDataLike)}
+      imageAlt={`Portrait of ${data.site.siteMetadata.author.name}`}
+    />
+  )
+}
 
 export default AboutPage
 

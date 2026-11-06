@@ -11,7 +11,6 @@ interface ArticleIndexProps {
 }
 
 const readTopicFromUrl = () => {
-  if (typeof window === "undefined") return null;
   const slug = new URLSearchParams(window.location.search).get("topic");
   return topicBySlug(slug)?.slug ?? null;
 };
@@ -20,7 +19,10 @@ const readTopicFromUrl = () => {
 // topic and revealed nine at a time as the reader scrolls. The topic lives in
 // the URL (?topic=security) so a filtered list can be shared.
 export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
-  const [topicSlug, setTopicSlug] = useState<string | null>(readTopicFromUrl);
+  // The HTML is built without a query string, so the topic is read once the
+  // page has hydrated: reading it during the first render would not match.
+  const [topicSlug, setTopicSlug] = useState<string | null>(null);
+  const [urlRead, setUrlRead] = useState(false);
   const [visible, setVisible] = useState(PAGE_SIZE);
   const sentinel = useRef<HTMLDivElement>(null);
 
@@ -50,11 +52,17 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
   };
 
   useEffect(() => {
+    setTopicSlug(readTopicFromUrl());
+    setUrlRead(true);
+  }, []);
+
+  useEffect(() => {
+    if (!urlRead) return;
     const url = new URL(window.location.href);
     if (topicSlug) url.searchParams.set("topic", topicSlug);
     else url.searchParams.delete("topic");
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
-  }, [topicSlug]);
+  }, [topicSlug, urlRead]);
 
   // Load the next nine a little before the end of the grid comes into view.
   useEffect(() => {

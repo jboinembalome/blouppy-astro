@@ -2,6 +2,9 @@ import { ImageQuery } from "./ImageQuery";
 
 type SiteMetadataType = {
   siteUrl: string;
+  author: {
+    name: string;
+  };
 };
 
 type FieldsType = {
@@ -11,6 +14,7 @@ type FieldsType = {
 type FrontmatterType = {
   title: string;
   date: string;
+  isoDate: string;
   description: string;
   category: string;
   topic: string;

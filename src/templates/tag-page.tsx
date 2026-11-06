@@ -1,6 +1,5 @@
 import React from "react";
-import { Link, PageProps, graphql } from "gatsby";
-import { kebabCase } from "lodash";
+import { HeadProps, Link, PageProps, graphql } from "gatsby";
 import { Seo } from "../components/seo/Seo";
 import { PageHeader } from "../components/page-header/PageHeader";
 import { ArticleCard } from "../components/article-card/ArticleCard";
@@ -20,7 +19,6 @@ const TagPage = ({ data, pageContext }: PageProps<TagPageQuery, { tag: string }>
 
   return (
     <>
-      <Head tag={tag} siteUrl={data.site.siteMetadata.siteUrl} />
       <PageHeader
         kicker="Tag"
         title={tag}
@@ -40,16 +38,15 @@ const TagPage = ({ data, pageContext }: PageProps<TagPageQuery, { tag: string }>
   );
 };
 
-interface HeadProps {
-  tag: string;
-  siteUrl: string;
-}
-
-const Head = ({ tag, siteUrl }: HeadProps) => {
-  const description = `Article(s) tagged with ${tag}`;
-  const url = `${siteUrl}/tags/${kebabCase(tag)}`;
-
-  return <Seo title={tag} description={description} url={url} />;
+export const Head = ({ data, pageContext, location }: HeadProps<TagPageQuery, { tag: string }>) => {
+  const count = data.allMarkdownRemark.totalCount;
+  return (
+    <Seo
+      title={pageContext.tag}
+      description={`${count} article${count === 1 ? "" : "s"} tagged with ${pageContext.tag}.`}
+      pathname={location.pathname}
+    />
+  );
 };
 
 export default TagPage;
