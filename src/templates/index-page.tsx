@@ -7,12 +7,11 @@ import { HomePageQuery } from "../types/graphql-queries";
 const IndexPage = ({ data: { markdownRemark: { frontmatter } } }: PageProps<HomePageQuery>) => {
   return (
     <>
-      <Head description={frontmatter.mainpitch.description} />
+      <Head description={frontmatter.subheading} />
       <IndexPageTemplate
         title={frontmatter.title}
         heading={frontmatter.heading}
         subheading={frontmatter.subheading}
-        mainpitch={frontmatter.mainpitch}
       />
     </>
   );
@@ -23,9 +22,7 @@ interface HeadProps {
 }
 
 const Head = ({ description }: HeadProps) => {
-  const headDescription = `The personal website of Jimmy Boinembalome. ${description}`;
-
-  return <Seo description={headDescription} />;
+  return <Seo description={description} />;
 };
 
 export default IndexPage;
@@ -37,10 +34,6 @@ export const pageQuery = graphql`
         title
         heading
         subheading
-        mainpitch {
-          title
-          description
-        }
       }
     }
   }

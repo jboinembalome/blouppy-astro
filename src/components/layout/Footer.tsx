@@ -51,7 +51,7 @@ export const Footer = () => {
               <BlouppyWithTextIcon className="w-32" />
             </Link>
             <p className="max-w-xs">
-              Practical .NET and Angular articles by Jimmy Boinembalome, written from the code of a real SaaS.
+              Practical software engineering articles, written from the code of a real SaaS.
             </p>
             <ul role="list" className="mt-6 flex gap-5">
               {social.map(({ name, href, Icon }) => (

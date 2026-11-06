@@ -4,7 +4,6 @@ import kebabCase from "lodash/kebabCase";
 import { ArticleCard } from "../components/article-card/ArticleCard";
 import { useLatestArticles } from "../hooks/useLatestArticles";
 import { starterDocsUrl, starterUrl } from "../constants/starter";
-import { withPrefix } from "gatsby";
 
 interface HeroProps {
   title: string;
@@ -26,7 +25,7 @@ const Hero = ({ title, heading, subheading }: HeroProps) => (
     </div>
 
     <div className="mx-auto w-full max-w-3xl">
-      <span className="chip mb-6 px-3.5 py-1.5 text-[0.8125rem] font-semibold">.NET 10 · ASP.NET Core · Angular 22</span>
+      <span className="chip mb-6 px-3.5 py-1.5 text-[0.8125rem] font-semibold">Architecture · Security · Testing · Front-end</span>
       <h1 className="mx-auto mb-5 text-4xl font-extrabold leading-[1.15] tracking-tight text-heading sm:text-5xl lg:text-6xl">
         {title} <span className="home-highlight">{heading}</span>
       </h1>
@@ -73,9 +72,9 @@ const LatestArticles = ({ articles }: { articles: ReturnType<typeof useLatestArt
   <section aria-labelledby="latest-title" className="mx-auto w-full max-w-6xl px-4 md:px-6 lg:px-8">
     <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
       <div>
-        <span className="section-kicker">Latest articles</span>
+        <span className="section-kicker">Blog</span>
         <h2 id="latest-title" className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">
-          Fresh from the blog
+          Latest articles
         </h2>
       </div>
       <Link to="/blog" className="text-sm font-semibold text-accent hover:underline">
@@ -86,30 +85,6 @@ const LatestArticles = ({ articles }: { articles: ReturnType<typeof useLatestArt
       {articles.map(({ node }) => (
         <ArticleCard key={node.id} article={node} />
       ))}
-    </div>
-  </section>
-);
-
-interface AuthorProps {
-  mainpitch: {
-    title: string;
-    description: string;
-  };
-}
-
-const Author = ({ mainpitch }: AuthorProps) => (
-  <section aria-labelledby="author-title" className="mx-auto w-full max-w-3xl px-4 md:px-6 lg:px-8">
-    <div className="flex flex-col items-center gap-6 rounded-xl border border-line bg-card p-6 text-center sm:flex-row sm:p-8 sm:text-left">
-      <img src={`${withPrefix("/")}img/jimmy.jpg`} alt="" className="h-20 w-20 shrink-0 rounded-full object-cover" />
-      <div>
-        <h2 id="author-title" className="mb-2 text-xl font-semibold text-heading">
-          {mainpitch.title}
-        </h2>
-        <p className="text-base leading-relaxed text-muted">{mainpitch.description}</p>
-        <Link to="/about" className="mt-3 inline-block text-sm font-semibold text-accent hover:underline">
-          More about me →
-        </Link>
-      </div>
     </div>
   </section>
 );
@@ -125,8 +100,8 @@ const StarterCallToAction = () => (
     <span className="mb-3 block text-[0.84375rem] font-bold uppercase tracking-widest text-primary-200">Blouppy Starter</span>
     <h2 className="mb-3.5 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">The code behind the articles</h2>
     <p className="mx-auto mb-8 max-w-xl text-base text-primary-100 sm:text-[1.03rem]">
-      Most posts here come from a real .NET 10 and Angular 22 SaaS foundation: the BFF gateway, OpenIddict, Wolverine, billing,
-      webhooks, GDPR and more, built, tested and documented.
+      Most posts here come from a real SaaS foundation built on .NET 10 and Angular 22: the BFF gateway, identity, messaging,
+      billing, webhooks, GDPR and more, built, tested and documented.
     </p>
     <div className="flex flex-wrap justify-center gap-3.5">
       <a href={starterUrl} className="btn btn-lg bg-white text-primary-700 hover:bg-primary-50 max-sm:w-full" rel="noopener">
@@ -139,9 +114,9 @@ const StarterCallToAction = () => (
   </section>
 );
 
-interface IndexPageTemplateProps extends HeroProps, AuthorProps {}
+interface IndexPageTemplateProps extends HeroProps {}
 
-export const IndexPageTemplate = ({ title, heading, subheading, mainpitch }: IndexPageTemplateProps) => {
+export const IndexPageTemplate = ({ title, heading, subheading }: IndexPageTemplateProps) => {
   const { articles, topics } = useLatestArticles();
 
   return (
@@ -149,7 +124,6 @@ export const IndexPageTemplate = ({ title, heading, subheading, mainpitch }: Ind
       <Hero title={title} heading={heading} subheading={subheading} />
       <Topics topics={topics} />
       <LatestArticles articles={articles} />
-      <Author mainpitch={mainpitch} />
       <StarterCallToAction />
     </div>
   );

@@ -128,3 +128,14 @@ export const onCreateNode: GatsbyNode["onCreateNode"] = ({
     });
   }
 };
+
+// Declared rather than inferred: a post may credit its cover photo, but none
+// has to, and an inferred field disappears from the schema when no file has it.
+export const createSchemaCustomization: GatsbyNode["createSchemaCustomization"] = ({ actions }) => {
+  actions.createTypes(`
+    type MarkdownRemarkFrontmatter {
+      featuredauthor: String
+      featuredlink: String
+    }
+  `);
+};

@@ -10,7 +10,6 @@ const IndexPagePreview = ({ entry }: any) => {
         title={data.title}
         heading={data.heading}
         subheading={data.subheading}
-        mainpitch={data.mainpitch || {}}
       />
     )
   } else {

@@ -7,8 +7,6 @@ authorimage: /img/jimmy.jpg
 category: C#
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
-featuredauthor: Wimber Cancho
-featuredlink: https://unsplash.com/@billcy?utm_source=unsplash&utm_medium=referral&utm_content=creditCopy
 featuredimage: /img/introduction-to-benchmarkdotnet.jpg
 description: >-
   Let's discover the BenchmarkDotNet package for tracking performance and sharing reproducible measurement experiments.

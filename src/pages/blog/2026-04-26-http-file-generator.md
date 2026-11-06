@@ -7,7 +7,7 @@ authorimage: /img/jimmy.jpg
 category: Next.js
 categorycolor: bg-blue-100 text-blue-800
 featuredpost: true
-featuredimage: /img/http-file-generator.png
+featuredimage: /img/http-file-generator.jpg
 description: >-
   Discover HTTP File Generator, a privacy-first browser tool that turns your OpenAPI specifications into ready-to-use .http files — no installation, no login required.
 tags:

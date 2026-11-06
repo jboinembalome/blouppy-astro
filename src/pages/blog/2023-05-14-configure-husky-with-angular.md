@@ -7,8 +7,6 @@ authorimage: /img/jimmy.jpg
 category: Angular
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Roman Synkevych
-featuredlink: https://unsplash.com/@synkevych?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/configure-husky-with-angular.jpg
 description: Quick steps to install Husky in an Angular project.
 tags:

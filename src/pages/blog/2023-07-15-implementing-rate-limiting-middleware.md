@@ -7,8 +7,6 @@ authorimage: /img/jimmy.jpg
 category: C#
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
-featuredauthor: Michael Dziedzic
-featuredlink: https://unsplash.com/@lazycreekimages?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/implementing-rate-limiting-middleware-in-dotnet7.jpg
 description: >-
   Explore how to effectively implement and configure rate limiting in .NET 7 to secure your ASP.NET Core applications against potential threats.

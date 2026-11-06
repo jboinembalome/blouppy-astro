@@ -7,8 +7,6 @@ authorimage: /img/jimmy.jpg
 category: C#
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
-featuredauthor: Marek Piwnicki
-featuredlink: https://unsplash.com/@marekpiwnicki
 featuredimage: /img/some-features-of-csharp8-to-reduce-our-code.jpg
 description: >-
   Let's discover some features and improvements that appeared with the 8th version of the C# language.

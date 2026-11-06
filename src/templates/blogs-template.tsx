@@ -31,7 +31,7 @@ const BlogsPage = ({ data, pageContext }: PageProps<BlogsPageQuery, BlogsPageCon
       <PageHeader
         kicker="Blog"
         title="Articles"
-        subtitle="ASP.NET Core, Angular and SaaS architecture: patterns, trade-offs and traps, each one drawn from real code."
+        subtitle="Patterns, trade-offs and traps, each one drawn from real code."
       />
       <section className="flex flex-col gap-6">
         {articles.map(({ node }) => (
@@ -52,7 +52,7 @@ const BlogsPage = ({ data, pageContext }: PageProps<BlogsPageQuery, BlogsPageCon
 
 const Head = () => {
   const { siteUrl } = useSiteMetadata();
-  const description = "Articles on ASP.NET Core, Angular and SaaS architecture.";
+  const description = "Practical software engineering articles: architecture, security, testing, back end and front end.";
 
   return <Seo title="Blog" description={description} url={`${siteUrl}/blog`} />
 };

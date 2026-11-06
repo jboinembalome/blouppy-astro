@@ -5,10 +5,6 @@ export type HomePageQuery = {
             title: string;
             heading: string;
             subheading: string;
-            mainpitch: {
-                title: string;
-                description: string;
-            };
         }
     };
 };

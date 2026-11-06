@@ -7,8 +7,6 @@ authorimage: /img/jimmy.jpg
 category: Angular
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Caspar Camille Rubin
-featuredlink: https://unsplash.com/@casparrubin?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/configure-prettier-with-angular.jpg
 description: Quick steps to install Prettier in an Angular project.
 tags:
