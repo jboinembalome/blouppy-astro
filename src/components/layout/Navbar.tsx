@@ -4,7 +4,7 @@ import { Disclosure } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 import { LinkGetProps } from "@reach/router";
-import Search from "../search";
+import Search, { searchConfigured } from "../search";
 import { ThemeToggle } from "../theme-toggle/ThemeToggle";
 import { BlouppyIcon } from "../icons/svg/BlouppyIcon";
 import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
@@ -61,15 +61,19 @@ export const Navbar = () => {
             </div>
 
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setToggleSearch(true)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading"
-              >
-                <span className="sr-only">Search articles</span>
-                <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
-              </button>
-              <Search indices={searchIndices} openModal={toggleSearch} modalClosed={setToggleSearch} />
+              {searchConfigured && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setToggleSearch(true)}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading"
+                  >
+                    <span className="sr-only">Search articles</span>
+                    <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <Search indices={searchIndices} openModal={toggleSearch} modalClosed={setToggleSearch} />
+                </>
+              )}
               <ThemeToggle />
               <a href={starterUrl} className="btn btn-sm ml-2 hidden sm:inline-flex" rel="noopener">
                 Blouppy Starter

@@ -149,9 +149,11 @@ const config: GatsbyConfig = {
       options: {
         plugins: [
           {
+            // Turns the CMS's /img/... paths, in the body and the front matter
+            // alike, into paths gatsby-plugin-sharp can resolve.
             resolve: 'gatsby-remark-relative-images',
             options: {
-              name: 'uploads',
+              staticFolderName: 'static',
             },
           },
           {
