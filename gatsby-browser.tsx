@@ -4,6 +4,7 @@ import '@fontsource-variable/inter';
 import './src/styles/site.scss';
 import { Layout } from './src/components/layout';
 import { pageKindOf } from './src/components/layout/Layout';
+import { applyConsent, getConsent, trackPageView } from './src/components/consent/consent';
 
 const addBuyMeACoffee = () => {
   const script = document.createElement("script");
@@ -33,6 +34,15 @@ require("prismjs/themes/prism-tomorrow.css")
 
 export const wrapPageElement: GatsbyBrowser["wrapPageElement"] = ({ element, props }) => {
     return <Layout kind={pageKindOf(props.location.pathname)}>{element}</Layout>;
+}
+
+// Google Analytics starts only for a reader who agreed to it (see consent.ts).
+export const onClientEntry: GatsbyBrowser["onClientEntry"] = () => {
+  applyConsent(getConsent());
+}
+
+export const onRouteUpdate: GatsbyBrowser["onRouteUpdate"] = ({ location }) => {
+  trackPageView(location.pathname + location.search + location.hash);
 }
 
 export const onInitialClientRender: GatsbyBrowser["onInitialClientRender"] = () => {
