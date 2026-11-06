@@ -5,6 +5,8 @@ date: 2023-05-19T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Front end'
+illustration: 2
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/enhancing-ue-trackby-angular.jpg

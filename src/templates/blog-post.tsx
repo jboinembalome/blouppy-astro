@@ -5,6 +5,7 @@ import { Seo } from "../components/seo/Seo";
 import { ImageDataLike, getSrc } from "gatsby-plugin-image";
 import { BlogPostQuery } from "../types/graphql-queries";
 import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
+import { topicByName } from "../constants/topics";
 
 type BlogPostPageQuery = BlogPostQuery & {
   related: { edges: (ArticleSummaryEdge & { node: { frontmatter: { tags: string[] } } })[] };
@@ -36,6 +37,7 @@ const BlogPost = ({ data, pageContext }: PageProps<BlogPostPageQuery, { relatedT
         slug={post.fields.slug}
         siteUrl={data.site.siteMetadata.siteUrl}
         featuredimage={post.frontmatter.featuredimage}
+        topic={post.frontmatter.topic}
       />
       <BlogPostTemplate
         content={post.html}
@@ -49,6 +51,7 @@ const BlogPost = ({ data, pageContext }: PageProps<BlogPostPageQuery, { relatedT
         slug={post.fields.slug}
         readingTime={readingTime}
         category={post.frontmatter.category}
+        topic={post.frontmatter.topic}
         tags={post.frontmatter.tags}
         title={post.frontmatter.title}
         tableOfContents={post.tableOfContents}
@@ -63,25 +66,26 @@ interface HeadProps {
   description: string;
   slug: string;
   siteUrl: string;
-  featuredimage: ImageDataLike;
+  featuredimage?: ImageDataLike;
+  topic?: string;
 }
 
-const Head = ({ title, description, slug, siteUrl, featuredimage }: HeadProps) => {
+const Head = ({ title, description, slug, siteUrl, featuredimage, topic }: HeadProps) => {
+  // A shared link shows the topic's image (static/img/topics); a post without a
+  // topic falls back to its own cover, if it has one.
+  const topicImage = topicByName(topic) ? `/img/topics/${topicByName(topic)!.slug}.jpg` : undefined;
+  const image = topicImage ?? (featuredimage ? getSrc(featuredimage) : undefined);
+
   return (
     <Seo
       title={title}
       description={description}
       url={`${siteUrl}${slug}`}
     >
-      <meta
-        name="image"
-        content={`${siteUrl}${getSrc(featuredimage)}`}
-      />
+      {image ? <meta name="image" content={`${siteUrl}${image}`} /> : <></>}
+      {image ? <meta property="og:image" content={`${siteUrl}${image}`} /> : <></>}
       <meta property="og:image:alt" content={title} />
-      <meta
-        property="og:image"
-        content={`${siteUrl}${getSrc(featuredimage)}`}
-      />
+      <meta property="og:type" content="article" />
     </Seo>
   );
 };
@@ -108,6 +112,7 @@ export const pageQuery = graphql`
         title
         description
         category
+        topic
         tags
         featuredauthor
         featuredlink

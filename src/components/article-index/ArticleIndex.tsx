@@ -1,0 +1,143 @@
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ArticleCard, FeaturedArticleCard } from "../article-card/ArticleCard";
+import { ArticleSummaryEdge } from "../../types/graphql-queries/ArticleSummaryQuery";
+import { topicBySlug, topics } from "../../constants/topics";
+
+// Three columns on a wide screen: nine is three full rows.
+const PAGE_SIZE = 9;
+
+interface ArticleIndexProps {
+  articles: ArticleSummaryEdge[];
+}
+
+const readTopicFromUrl = () => {
+  if (typeof window === "undefined") return null;
+  const slug = new URLSearchParams(window.location.search).get("topic");
+  return topicBySlug(slug)?.slug ?? null;
+};
+
+// The newest post as a large card, then every post in a grid, filtered by
+// topic and revealed nine at a time as the reader scrolls. The topic lives in
+// the URL (?topic=security) so a filtered list can be shared.
+export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
+  const [topicSlug, setTopicSlug] = useState<string | null>(readTopicFromUrl);
+  const [visible, setVisible] = useState(PAGE_SIZE);
+  const sentinel = useRef<HTMLDivElement>(null);
+
+  const counts = useMemo(() => {
+    const byTopic = new Map<string, number>();
+    articles.forEach(({ node }) => {
+      const name = node.frontmatter.topic;
+      if (name) byTopic.set(name, (byTopic.get(name) ?? 0) + 1);
+    });
+    return byTopic;
+  }, [articles]);
+
+  const active = topicBySlug(topicSlug);
+  const featured = articles[0];
+  // Unfiltered, the newest post is already the featured card; filtered, the
+  // grid holds every post of the topic.
+  const pool = useMemo(
+    () => (active ? articles.filter(({ node }) => node.frontmatter.topic === active.name) : articles.slice(1)),
+    [articles, active]
+  );
+  const shown = pool.slice(0, visible);
+  const hasMore = visible < pool.length;
+
+  const selectTopic = (slug: string | null) => {
+    setTopicSlug((current) => (current === slug ? null : slug));
+    setVisible(PAGE_SIZE);
+  };
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (topicSlug) url.searchParams.set("topic", topicSlug);
+    else url.searchParams.delete("topic");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, [topicSlug]);
+
+  // Load the next nine a little before the end of the grid comes into view.
+  useEffect(() => {
+    const element = sentinel.current;
+    if (!element || !hasMore || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) setVisible((count) => count + PAGE_SIZE);
+      },
+      { rootMargin: "600px 0px" }
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [hasMore, shown.length]);
+
+  const chipClassName = (isActive: boolean) =>
+    `inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
+      isActive ? "border-accent-border bg-accent-soft text-accent" : "border-line bg-card text-body hover:border-accent-border hover:text-accent"
+    }`;
+
+  return (
+    <>
+      {featured && !active && (
+        <section aria-labelledby="latest-title" className="mb-14">
+          <h2 id="latest-title" className="section-kicker">
+            Latest article
+          </h2>
+          <FeaturedArticleCard article={featured.node} />
+        </section>
+      )}
+
+      <section aria-labelledby="articles-title" id="articles" className="scroll-mt-24">
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <h2 id="articles-title" className="text-3xl font-extrabold tracking-tight text-heading">
+            {active ? active.name : "All articles"}
+          </h2>
+          {/* On a phone the topics scroll sideways rather than wrap. */}
+          <ul
+            className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 lg:justify-end"
+            aria-label="Filter by topic"
+          >
+            <li className="shrink-0">
+              <button type="button" className={chipClassName(!active)} aria-pressed={!active} onClick={() => selectTopic(null)}>
+                All
+              </button>
+            </li>
+            {topics
+              .filter((topic) => counts.has(topic.name))
+              .map((topic) => (
+                <li key={topic.slug} className="shrink-0">
+                  <button
+                    type="button"
+                    className={chipClassName(active?.slug === topic.slug)}
+                    aria-pressed={active?.slug === topic.slug}
+                    onClick={() => selectTopic(topic.slug)}
+                  >
+                    {topic.name}
+                  </button>
+                </li>
+              ))}
+          </ul>
+        </div>
+
+        {active && (
+          <p className="-mt-2 mb-6 text-base text-muted" aria-live="polite">
+            {active.description} {pool.length} article{pool.length === 1 ? "" : "s"}.
+          </p>
+        )}
+
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {shown.map(({ node }) => (
+            <ArticleCard key={node.id} article={node} />
+          ))}
+        </div>
+
+        {hasMore && (
+          <div ref={sentinel} className="mt-10 flex justify-center">
+            <button type="button" className="btn-outline btn-sm" onClick={() => setVisible((count) => count + PAGE_SIZE)}>
+              Show more
+            </button>
+          </div>
+        )}
+      </section>
+    </>
+  );
+};

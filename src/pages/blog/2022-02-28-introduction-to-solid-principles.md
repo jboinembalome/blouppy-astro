@@ -5,6 +5,8 @@ date: 2022-02-28T18:04:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Best Practices
+topic: 'Architecture'
+illustration: 1
 categorycolor: bg-green-100 text-green-800
 featuredpost: true
 featuredimage: /img/introduction_to_solid_principles.jpg

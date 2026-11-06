@@ -1,7 +1,5 @@
-import { ImageQuery } from "./ImageQuery";
-
 // The fields of the `ArticleSummary` fragment (components/article-card), which
-// every list of articles queries: the home page, the blog, a tag, related posts.
+// every list of articles queries: the home page, a tag, related posts.
 export type ArticleSummary = {
   id: string;
   timeToRead: number;
@@ -12,8 +10,10 @@ export type ArticleSummary = {
   frontmatter: {
     title: string;
     date: string;
-    category: string;
-    featuredimage: ImageQuery;
+    description: string | null;
+    topic: string | null;
+    illustration: number | null;
+    tags: string[] | null;
   };
 };
 

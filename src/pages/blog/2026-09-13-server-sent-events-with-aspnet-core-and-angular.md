@@ -5,6 +5,8 @@ date: 2026-09-13T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Messaging'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/server-sent-events-with-aspnet-core-and-angular.jpg

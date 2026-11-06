@@ -5,6 +5,8 @@ date: 2023-06-03T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'C# & .NET'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/validating-requests-with-fluentvalidation.jpg

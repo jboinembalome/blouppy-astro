@@ -5,6 +5,8 @@ date: 2026-07-03T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Architecture'
+illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/architecture-tests-that-fail-the-build.jpg

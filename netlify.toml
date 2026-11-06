@@ -7,6 +7,18 @@
   NPM_VERSION = "9.6.4"
   NPM_FLAGS = "--legacy-peer-deps"
 
+# The article list moved to the home page; /blog and its old pages point there.
+# Only these paths: the articles themselves stay under /blog/<slug>/.
+[[redirects]]
+  from = "/blog"
+  to = "/"
+  status = 301
+
+[[redirects]]
+  from = "/blog/page/*"
+  to = "/"
+  status = 301
+
 # The Resume and Portfolio pages were removed; keep their old links working.
 [[redirects]]
   from = "/resume"
@@ -25,10 +37,10 @@
 
 [[redirects]]
   from = "/portfolio"
-  to = "/blog/"
+  to = "/"
   status = 301
 
 [[redirects]]
   from = "/portfolio/*"
-  to = "/blog/"
+  to = "/"
   status = 301

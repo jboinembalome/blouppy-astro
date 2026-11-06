@@ -15,7 +15,7 @@ const columns: { title: string; links: FooterLink[] }[] = [
   {
     title: "Blog",
     links: [
-      { label: "All articles", href: "/blog" },
+      { label: "Articles", href: "/" },
       { label: "Tags", href: "/tags" },
       { label: "About", href: "/about" },
       { label: "Contact", href: "/contact" },
@@ -51,7 +51,7 @@ export const Footer = () => {
               <BlouppyWithTextIcon className="w-32" />
             </Link>
             <p className="max-w-xs">
-              Practical software engineering articles, written from the code of a real SaaS.
+              Articles on software engineering: architecture, security, testing, back end and front end.
             </p>
             <ul role="list" className="mt-6 flex gap-5">
               {social.map(({ name, href, Icon }) => (

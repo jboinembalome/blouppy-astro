@@ -8,8 +8,8 @@ const IndexPagePreview = ({ entry }: any) => {
     return (
       <IndexPageTemplate
         title={data.title}
-        heading={data.heading}
         subheading={data.subheading}
+        articles={[]}
       />
     )
   } else {

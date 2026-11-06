@@ -5,6 +5,8 @@ date: 2026-04-26T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Next.js
+topic: 'Tooling'
+illustration: 1
 categorycolor: bg-blue-100 text-blue-800
 featuredpost: true
 featuredimage: /img/http-file-generator.jpg

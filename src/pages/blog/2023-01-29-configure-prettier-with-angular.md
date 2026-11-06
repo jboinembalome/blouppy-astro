@@ -5,6 +5,8 @@ date: 2023-01-29T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Tooling'
+illustration: 1
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/configure-prettier-with-angular.jpg

@@ -5,14 +5,32 @@ import { Navbar } from "./Navbar";
 import { withPrefix } from "gatsby";
 import "../../styles/site.scss";
 
+// Which decoration a page gets (the flamingo layer, DESIGN.md §2.5 of the
+// Starter, applied here to the blog's pages):
+// - home: lays out its own full-width hero, glow and shapes included;
+// - article: none, so nothing competes with the text;
+// - page: a light band at the top (About, Contact, Tags...).
+export type PageKind = "home" | "article" | "page";
+
+export const pageKindOf = (pathname: string): PageKind =>
+  pathname === "/" ? "home" : pathname.startsWith("/blog/") ? "article" : "page";
+
 interface LayoutProps {
   children: JSX.Element | JSX.Element[];
-  // The home page lays out its own full-width sections (the hero's glow runs
-  // edge to edge, under the navbar); every other page sits in the column.
-  fullBleed?: boolean;
+  kind?: PageKind;
 }
 
-export const Layout = ({ children, fullBleed = false }: LayoutProps) => {
+// The light band of the secondary pages: the glow and two shapes in the top
+// corners, fading out before the content below the title.
+const PageBand = () => (
+  <div className="page-band" aria-hidden="true">
+    <span className="flamingo-shape flamingo-blur page-band-left" />
+    <span className="flamingo-shape flamingo-blur page-band-right" />
+    <span className="flamingo-shape page-band-ring" />
+  </div>
+);
+
+export const Layout = ({ children, kind = "page" }: LayoutProps) => {
   return (
     <div className="flex min-h-screen flex-col bg-page text-body">
       <Helmet>
@@ -45,8 +63,9 @@ export const Layout = ({ children, fullBleed = false }: LayoutProps) => {
         <body />
       </Helmet>
       <Navbar />
-      <main className="main flex-1">
-        {fullBleed ? (
+      <main className="main relative isolate flex-1 overflow-x-clip">
+        {kind === "page" && <PageBand />}
+        {kind === "home" ? (
           children
         ) : (
           <div className="mx-auto w-full max-w-6xl px-4 py-10 md:px-6 md:py-14 lg:px-8">{children}</div>

@@ -5,6 +5,8 @@ date: 2026-06-09T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Messaging'
+illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/replacing-masstransit-with-wolverine.jpg

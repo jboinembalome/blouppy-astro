@@ -5,6 +5,8 @@ date: 2022-04-11T17:28:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'C# & .NET'
+illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/some-features-of-csharp8-to-reduce-our-code.jpg

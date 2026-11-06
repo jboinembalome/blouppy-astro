@@ -3,13 +3,13 @@ import React from "react";
 import { Link } from "gatsby";
 import { Content, HTMLContent } from "../layout/Content";
 import { ArticleInformation } from "./ArticleInformation";
-import { ArticleImage } from "./ArticleImage";
 import { ArticleTags } from "./ArticleTags";
 import { DisqusConfig } from "gatsby-plugin-disqus";
 import { ArticleComments } from "./ArticleComments";
-import { ArticleImageCaption } from "./ArticleImageCaption";
 import { ArticleToc } from "./ArticleToc";
-import { ArticleCard } from "../article-card/ArticleCard";
+import { TopicIcon } from "../topic/TopicIcon";
+import { topicByName } from "../../constants/topics";
+import { CompactArticleCard } from "../article-card/ArticleCard";
 import { ArticleSummaryEdge } from "../../types/graphql-queries/ArticleSummaryQuery";
 
 export interface ArticleProps {
@@ -18,6 +18,7 @@ export interface ArticleProps {
     date?: string;
     description?: string;
     category?: string;
+    topic?: string;
     tags?: string[];
     author?: string;
     authorimage?: {
@@ -43,21 +44,31 @@ export interface ArticleProps {
 
 // The reading page, laid out like the Starter's docs: one column of text at a
 // comfortable measure, and the table of contents beside it from lg up. No
-// decoration here — the flamingo shapes stay on the home page (DESIGN.md §2.5).
+// cover on screen: the title is already there. The cover, when a post has one,
+// only serves as the image of a shared link (see the page's Head).
 export const Article = (props: ArticleProps) => {
     const isNotHTMLContent = typeof props.content !== 'string';
     const hasToc = !!props.tableOfContents && props.tableOfContents.includes("<li");
     const bodyClassName = "article-body prose prose-blouppy max-w-none lg:prose-lg";
+    const topic = topicByName(props.topic);
 
     return (
         <div className={hasToc ? "lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:gap-14" : ""}>
             <article className="mx-auto w-full min-w-0 max-w-3xl">
                 <header className="flex flex-col gap-5">
                     {props.disqusConfig && (
-                        <div className="flex flex-wrap items-center gap-3 text-sm">
-                            <Link to="/blog" className="font-medium text-muted hover:text-accent">← All articles</Link>
-                            {props.category && <span className="chip text-xs">{props.category}</span>}
-                        </div>
+                        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm font-medium text-muted">
+                            <Link to="/" className="hover:text-accent">Articles</Link>
+                            {topic && (
+                                <>
+                                    <span aria-hidden="true">›</span>
+                                    <Link to={`/?topic=${topic.slug}`} className="inline-flex items-center gap-2 text-accent hover:underline">
+                                        <TopicIcon topic={topic} size="sm" />
+                                        {topic.name}
+                                    </Link>
+                                </>
+                            )}
+                        </nav>
                     )}
                     <h1 className="text-3xl font-extrabold leading-tight tracking-tight text-heading sm:text-4xl lg:text-[2.75rem]">
                         {props.title}
@@ -69,14 +80,6 @@ export const Article = (props: ArticleProps) => {
                     )}
                     {props.author && props.date && (
                         <ArticleInformation author={props.author} authorimage={props.authorimage} date={props.date} readingTime={props.readingTime ?? ''} link={props.link} />
-                    )}
-                    {props.image && (
-                        <figure className="mt-2 flex flex-col gap-3">
-                            <ArticleImage image={props.image} alt="" />
-                            {props.imageLink && props.imageCreator && (
-                                <ArticleImageCaption imageLink={props.imageLink} imageCreator={props.imageCreator} source={props.imageSource} />
-                            )}
-                        </figure>
                     )}
                 </header>
 
@@ -94,9 +97,9 @@ export const Article = (props: ArticleProps) => {
                 {props.related && props.related.length > 0 && (
                     <section aria-labelledby="related-title" className="mt-14 border-t border-line pt-10">
                         <h2 id="related-title" className="mb-6 text-xl font-semibold text-heading">Keep reading</h2>
-                        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="grid gap-4 sm:grid-cols-3">
                             {props.related.map(({ node }) => (
-                                <ArticleCard key={node.id} article={node} showExcerpt={false} />
+                                <CompactArticleCard key={node.id} article={node} />
                             ))}
                         </div>
                     </section>

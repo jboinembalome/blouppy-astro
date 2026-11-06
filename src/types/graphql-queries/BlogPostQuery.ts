@@ -13,6 +13,7 @@ type FrontmatterType = {
   date: string;
   description: string;
   category: string;
+  topic: string;
   tags: string[];
   featuredpost: boolean;
   featuredlink: string;

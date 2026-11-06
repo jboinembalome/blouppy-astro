@@ -5,6 +5,8 @@ date: 2026-06-03T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Front end'
+illustration: 3
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/just-use-input-type-date-in-angular.jpg

@@ -4,7 +4,7 @@ title: About
 description: About Jimmy Boinembalome, software engineer and author of Blouppy.
 aboutimage: /img/jimmy2.jpg
 ---
-I'm Jimmy, a software engineer from France. Blouppy is where I write about what I build: the patterns that hold up in production, the trade-offs behind them and the traps I'd rather you didn't fall into.
+I'm Jimmy, a software engineer from France. Blouppy is where I write about software engineering: the patterns I rely on, the trade-offs behind them and the traps I'd rather you didn't fall into.
 
 ## How I started
 I started programming as an apprentice at ETAI. With only a few theoretical principles, I wondered how a developer could actually create software, and that is where I wrote my first "Hello World!". For an experienced developer, it is nothing revolutionary. As a beginner, I found it incredible!

@@ -5,6 +5,8 @@ date: 2026-09-01T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Data'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/a-migration-runner-instead-of-migrate-at-startup.jpg

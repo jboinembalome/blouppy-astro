@@ -11,7 +11,7 @@ import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
 import { starterUrl } from "../../constants/starter";
 
 const links = [
-  { name: "Blog", href: "/blog" },
+  { name: "Articles", href: "/" },
   { name: "Tags", href: "/tags" },
   { name: "About", href: "/about" },
   { name: "Contact", href: "/contact" },
@@ -20,12 +20,14 @@ const links = [
 const linkClassName = "text-sm font-medium text-muted transition-colors hover:text-accent";
 const activeLinkClassName = "text-sm font-medium text-accent";
 
-// A section stays highlighted on its sub-pages: /blog on an article, /tags on a tag.
+// A section stays highlighted on its sub-pages: Articles on an article, Tags
+// on a tag. "/" is a prefix of every path, so Articles is matched by hand.
 const isPartiallyActive =
   (base: string) =>
   ({ isPartiallyCurrent, location }: LinkGetProps) => {
-    const onArticle = base === "/blog" && location.pathname.startsWith("/blog/");
-    return isPartiallyCurrent || onArticle ? { className: activeLinkClassName } : {};
+    const active =
+      base === "/" ? location.pathname === "/" || location.pathname.startsWith("/blog/") : isPartiallyCurrent;
+    return active ? { className: activeLinkClassName } : {};
   };
 
 const mobileLinkClassName = "block rounded-lg px-3 py-2.5 text-base font-medium text-body hover:bg-hover";

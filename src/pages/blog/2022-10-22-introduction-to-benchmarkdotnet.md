@@ -5,6 +5,8 @@ date: 2022-10-22T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Testing'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/introduction-to-benchmarkdotnet.jpg

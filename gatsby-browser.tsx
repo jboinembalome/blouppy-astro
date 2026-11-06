@@ -3,6 +3,7 @@ import type { GatsbyBrowser } from "gatsby"
 import '@fontsource-variable/inter';
 import './src/styles/site.scss';
 import { Layout } from './src/components/layout';
+import { pageKindOf } from './src/components/layout/Layout';
 
 const addBuyMeACoffee = () => {
   const script = document.createElement("script");
@@ -31,7 +32,7 @@ require("prismjs/plugins/command-line/prism-command-line.css")
 require("prismjs/themes/prism-tomorrow.css")
 
 export const wrapPageElement: GatsbyBrowser["wrapPageElement"] = ({ element, props }) => {
-    return <Layout fullBleed={props.location.pathname === "/"}>{element}</Layout>;
+    return <Layout kind={pageKindOf(props.location.pathname)}>{element}</Layout>;
 }
 
 export const onInitialClientRender: GatsbyBrowser["onInitialClientRender"] = () => {

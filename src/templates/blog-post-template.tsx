@@ -20,6 +20,7 @@ export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
       date={props.date} 
       description={props.description} 
       category={props.category}
+      topic={props.topic}
       tags={props.tags} 
       image={props.image}
       imageLink={props.imageLink}

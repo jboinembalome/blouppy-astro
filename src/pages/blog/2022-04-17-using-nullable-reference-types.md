@@ -5,6 +5,8 @@ date: 2022-04-17T17:28:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'C# & .NET'
+illustration: 3
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/using-nullable-reference-types-in-csharp-projects.jpg
