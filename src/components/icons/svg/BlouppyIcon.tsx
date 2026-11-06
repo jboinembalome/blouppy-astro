@@ -1,6 +1,11 @@
 import * as React from "react";
 
-export const BlouppyIcon = (props: React.SVGProps<SVGSVGElement>) => (
+// The gradients are referenced by id, and the navbar hides one copy of the
+// logo with display:none while another shows: every copy needs its own ids, or
+// the visible one points at the hidden one's gradients and renders blank.
+export const BlouppyIcon = (props: React.SVGProps<SVGSVGElement>) => {
+  const uid = React.useId().replace(/:/g, "");
+  return (
   <svg
     viewBox="0 0 120 120"
     xmlns="http://www.w3.org/2000/svg"
@@ -8,49 +13,49 @@ export const BlouppyIcon = (props: React.SVGProps<SVGSVGElement>) => (
     {...props}
   >
     <defs>
-      <linearGradient y2={0.5} x2={1} y1={0.5} x1={0} id="a">
+      <linearGradient y2={0.5} x2={1} y1={0.5} x1={0} id={`${uid}a`}>
         <stop stopColor="#FFC1A3" offset={0} />
         <stop stopColor="#FFB1BB" offset={1} />
       </linearGradient>
-      <linearGradient y2={0.5} x2={1} y1={0.5} x1={0} id="b">
+      <linearGradient y2={0.5} x2={1} y1={0.5} x1={0} id={`${uid}b`}>
         <stop stopColor="#EFC2EB" offset={0} />
         <stop stopColor="#AFC1EE" offset={1} />
       </linearGradient>
-      <linearGradient y2={0.5} x2={1} y1={0.5} x1={0} id="c">
+      <linearGradient y2={0.5} x2={1} y1={0.5} x1={0} id={`${uid}c`}>
         <stop stopColor="#AFC1EE" offset={0} />
         <stop stopColor="#EFC2EB" offset={1} />
       </linearGradient>
-      <linearGradient y2={0.483} x2={0.998} y1={0.483} x1={-0.015} id="d">
+      <linearGradient y2={0.483} x2={0.998} y1={0.483} x1={-0.015} id={`${uid}d`}>
         <stop stopColor="#EFC2EB" offset={0} />
         <stop stopColor="#AFC1EE" offset={1} />
       </linearGradient>
-      <linearGradient y2={0.493} x2={0.995} y1={0.493} x1={0.001} id="e">
+      <linearGradient y2={0.493} x2={0.995} y1={0.493} x1={0.001} id={`${uid}e`}>
         <stop stopColor="#FFC1A3" offset={0} />
         <stop stopColor="#FFB1BB" offset={1} />
       </linearGradient>
-      <linearGradient y2={0.508} x2={0.981} y1={0.508} x1={-0.003} id="f">
+      <linearGradient y2={0.508} x2={0.981} y1={0.508} x1={-0.003} id={`${uid}f`}>
         <stop stopColor="#EFC2EB" offset={0} />
         <stop stopColor="#AFC1EE" offset={1} />
       </linearGradient>
     </defs>
     <title>{"Layer 1"}</title>
     <path
-      fill="url(#a)"
+      fill={`url(#${uid}a)`}
       d="M109.7 89.1c-2.5 4.4-5.9 8.6-10 12.4-9.2 8.5-21.1 13.5-33.5 14.8-24.8 2.6-48.2-9.8-44.5-40.2 1.2-9.7 5-18.9 10.7-26.9 1.8-2.6 4-5.2 6.4-7.2.8-.7 2-.7 2.8 0 .5.4.8 1 .8 1.6 0 .3-.1.6-.2 1-14.4 29.3-4.5 51.4 11.5 56.8 16.2 5.4 46-8.6 45.6-32.7.2-7.3-5.9-13.8-13.9-14.9-6.9-.9-15.3 2.1-22.2 12.1-5.4-7.6-3.8-18.7.1-25.7 2.2-4 4.6-7.6 5.9-11 1.4-3.7 1.4-7.1-1.6-10.3-5-5.3-23.4-7.4-42.1 10.3-6.2 5.8-11.1 12.7-14.8 20.3-7.8 16.2-5.8 26.1-5.6 27C-5.6 40.9 18.4 8.8 49.7 2.7h.1c4.8-.9 9.8-1.2 14.8-.8 5 .4 9.8 1.8 14 4.4C98.7 18.6 82 40 82 40c30.3-7.5 42.7 23.5 27.7 49.1z"
       className="st0"
     />
     <path
-      fill="url(#b)"
+      fill={`url(#${uid}b)`}
       d="M69.1 29.2c1.4-3.7 1.4-7.1-1.6-10.3-5-5.3-23.4-7.4-42.1 10.3-6.1 5.8-11 12.7-14.7 20.3-8 16.6-5.7 26.6-5.6 27.1C-5.6 40.9 18.3 8.8 49.7 2.7h.2c21.2-3 29 8.9 19.2 26.5z"
       className="st1"
     />
     <path
-      fill="url(#c)"
+      fill={`url(#${uid}c)`}
       d="M109.8 89.1c-.1 0-.1 0 0 0-2.6 4.4-5.9 8.6-10.1 12.4-9.2 8.5-21.1 13.5-33.5 14.8-24.8 2.6-48.2-9.8-44.5-40.2 1.2-9.7 5-18.9 10.7-26.9 1.8-2.6 4-5.2 6.4-7.2.8-.7 2-.7 2.8 0 .5.4.8 1 .8 1.6 0 .3-.1.6-.2 1-14.4 29.3-4.5 51.4 11.5 56.8 16.2 5.4 46-8.6 45.6-32.7.2-7.3-5.9-13.8-13.9-14.9 14.5-.8 31.2 16.6 24.4 35.3z"
       className="st2"
     />
     <path
-      fill="url(#d)"
+      fill={`url(#${uid}d)`}
       d="m46.2 40.4-.8.7c-.4.3-.9.4-1.3.2-.6-.2-1.2-.6-1.7-.9-.1-.1-.1-.1-.2-.1s-.1-.1-.2-.1c-.2-.2-.4-.3-.6-.5-.2-.3-.5-.5-.7-.8l-.1-.1c-.1-.2-.2-.4-.2-.7 0-.2 0-.4.1-.6l.3-.6.1-.2v-.2l1.7 1.3.1.1.3.2.5.4 1 .7 1.3 1 .1.1.3.1z"
       className="st3"
     />
@@ -109,7 +114,7 @@ export const BlouppyIcon = (props: React.SVGProps<SVGSVGElement>) => (
     />
     <g opacity={0.44} className="st10">
       <path
-        fill="url(#e)"
+        fill={`url(#${uid}e)`}
         d="M57.4 27.2c-.5 1.6-1.3 3.4-2.5 5.3-2.1 3.2-4.3 5.1-6.1 6.2-1.1.7-2.1 1.1-2.6 1.3-.1 0-.2.1-.3.1-.2.1-.3.1-.3.1-.2-.1-.4-.1-.6-.2h-.1c-.3-.1-.6-.2-.8-.4-.1 0-.1-.1-.2-.1-.3-.2-.6-.3-.9-.5-.1-.1-.3-.2-.4-.3-.1-.1-.2-.1-.3-.2-.1 0-.1-.1-.1-.1-.1-.1-.2-.1-.3-.2-.3-.3-.6-.6-.8-.9-.1-.1-.2-.3-.3-.5l-.1-.1.1-.2V36.2l.1.1c.5.5 1.1.8 1.8 1.1.1 0 .1.1.2.1.1.1.2.1.4.1.2.1.5.1.7.2.4.1.8.1 1.2.1 1 0 2-.4 2.9-.9 1.6-1.1 3.7-2.8 5.6-5.6-1.2 1-3 1.1-4.3.1-.9-.7-1.4-1.7-1.4-2.8 0-.7.3-1.5.7-2.1l.1-.1s0-.1.1-.1c.2-.2.3-.4.5-.5.2-.1.4-.3.6-.4.1 0 .1 0 .1-.1.1 0 .1-.1.2-.1h.5c.1 0 .3-.1.5-.1h.3c.7 0 1.4.1 2.1.5.1.1.2.1.2.2 1.1.9 1.6 2.3 1.3 3.6.6-1.1 1.1-2.2 1.5-3.2.8-2.5.9-4.6.8-6.1v-.4h.6v.1c0 .1.1.2.1.3-.1 1.1.2 3.7-.8 7z"
         className="st11"
       />
@@ -164,7 +169,7 @@ export const BlouppyIcon = (props: React.SVGProps<SVGSVGElement>) => (
       d="M54.6 27.7c-.1-.9-.6-1.6-1.2-2.2 0 0-.1 0-.1-.1-.7-.5-1.6-.8-2.5-.7-.9.1-1.7.6-2.2 1.3-.5.7-.8 1.5-.7 2.3v.1c.1.9.6 1.7 1.3 2.2 1.5 1.1 3.5.8 4.7-.7.6-.4.8-1.3.7-2.2zM49.1 30l-.1-.1c-.1-.2-.2-.4-.3-.5-.1-.2-.2-.5-.2-.7-.1-.8.1-1.5.6-2.1.5-.6 1.1-1 1.9-1.1.5-.1 1 0 1.5.2l.6.3c.4.3.6.6.8 1 0 .1.1.1.1.1s0 .1.1.1c.1.2.1.4.1.6.1.8-.1 1.5-.6 2.1-.9 1.2-2.7 1.5-3.9.6l-.3-.3c-.2-.1-.3-.1-.3-.2z"
       className="st14"
     />
-    <circle fill="url(#f)" r={2} cy={28.1} cx={51.3} className="st12" />
+    <circle fill={`url(#${uid}f)`} r={2} cy={28.1} cx={51.3} className="st12" />
     <g opacity={0.3} className="st16">
       <path
         fill="#FFF"
@@ -218,4 +223,5 @@ export const BlouppyIcon = (props: React.SVGProps<SVGSVGElement>) => (
       />
     </g>
   </svg>
-);
+  );
+};
