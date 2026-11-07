@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Introduction to Clean Architecture'
 date: 2023-05-28T18:24:10.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -16,7 +17,9 @@ tags:
   - C#
   - Architecture
 ---
-  
+
+> **Updated November 2026:** the sample now targets .NET 10 and C# 14 (primary constructors, records), and the API no longer accepts the entity as its request body, so a client cannot over-post fields it should not set.
+
 Clean Architecture is a software design principle introduced by **Robert C. Martin**, popularly known as Uncle Bob, in his book "[Clean Architecture: A Craftsman's Guide to Software Structure and Design](https://www.amazon.com/Clean-Architecture-Craftsmans-Software-Structure/dp/0134494164)". It provides a structured and modular approach to building software systems that are flexible, maintainable, and testable. This architectural pattern focuses on separating business logic from infrastructure concerns, enabling developers to create robust and scalable applications.
 
 In this article, we will explore the key concepts of Clean Architecture and demonstrate its implementation in C# using an example of ToDoList API.
@@ -30,18 +33,28 @@ In this article, we will explore the key concepts of Clean Architecture and demo
 
 3. **Interface Adapters**: Interface adapters convert data from the external world into a format that the use cases and entities can understand, and vice versa. They act as intermediaries between the business logic and the external frameworks or tools. Examples of interface adapters include identity, logging, mail, and repositories.
 
-4. **Frameworks and Drivers**: This layer contains the external tools, frameworks, and infrastructure components used in the application, such as databases, web servers, or user interface frameworks. In our context, the API needs a web server to handle incoming HTTP requests and route them to the appropriate endpoints. As we will use the ASP.NET Web API, the web server is provided by the ASP.NET runtime.
+4. **Frameworks and Drivers**: This layer contains the external tools, frameworks, and infrastructure components used in the application, such as databases, ## Implementing Clean Architecture in C#
+Let's now dive into the implementation of Clean Architecture in C# by building a simple ToDoList API with .NET 10. The solution has one project per ring, and references only point inward:
 
+```
+src/
+├── Core/
+│   ├── TodoList.Domain             (Entities)
+│   └── TodoList.Application        (Use Cases)  → TodoList.Domain
+├── Infrastructure/
+│   └── TodoList.Infrastructure     (Interface Adapters)  → TodoList.Application
+└── Presentation/
+    └── TodoList.Api                (Frameworks and Drivers)  → TodoList.Infrastructure
+```
 
-## Implementing Clean Architecture in C#
-Let's now dive into the implementation of Clean Architecture in C# by building a simple ToDoList API. First, we will focus on the core components: Entities and Use Cases.
+First, we will focus on the core components: Entities and Use Cases.
 
 ``` csharp
 // TodoList.Domain (Entities)
 
 namespace TodoList.Domain.Entities;
 
-public class TodoItem
+public class TodoItem : IEntity<int>
 {
     public int Id { get; set; }
     public required string Title { get; set; }
@@ -52,39 +65,36 @@ public class TodoItem
 
 // TodoList.Application (Use Cases)
 
-namespace TodoList.Application.UseCases.TodoItems;
+namespace TodoList.Application.Interfaces.Persistence.Repositories;
 
 public interface ITodoItemRepository
 {
+    Task<TodoItem?> GetByIdAsync(int id, CancellationToken cancellationToken = default);
     Task<TodoItem> AddAsync(TodoItem todoItem, CancellationToken cancellationToken = default);
 }
+
+namespace TodoList.Application.UseCases.TodoItems;
 
 public interface ICreateTodoItemUseCase
 {
     Task<TodoItem> Execute(TodoItem todoItem, CancellationToken cancellationToken = default);
 }
 
-internal class CreateTodoItemUseCase : ICreateTodoItemUseCase
+internal sealed class CreateTodoItemUseCase(ITodoItemRepository todoItemRepository) : ICreateTodoItemUseCase
 {
-    private readonly ITodoItemRepository _todoItemRepository;
-
-    public CreateTodoItemUseCase(ITodoItemRepository todoItemRepository)
-    {
-        _todoItemRepository = todoItemRepository;
-    }
-
     public async Task<TodoItem> Execute(TodoItem todoItem, CancellationToken cancellationToken = default)
     {
-        // Business logic for creating an item
-        _ = await _todoItemRepository.AddAsync(todoItem, cancellationToken);
+        ArgumentNullException.ThrowIfNull(todoItem);
 
-        return todoItem;
+        // Business logic for creating an item
+        return await todoItemRepository.AddAsync(todoItem, cancellationToken);
     }
 }
-
 ```
 
-In the above code snippet, we have defined the entities and a use case for creating an item in the ToDoList. The TodoItem class represents an entity with its properties. The CreateTodoItemUseCase class handles the logic for creating an item, relying on an interface ITaskRepository for persistence.
+In the above code snippet, we have defined the entities and a use case for creating an item in the ToDoList. The `TodoItem` class represents an entity with its properties. The `CreateTodoItemUseCase` class handles the logic for creating an item, relying on an interface `ITodoItemRepository` for persistence. Notice that this interface lives in the application layer: the use case says what it needs, and it does not care who provides it. 😉
+
+> **_Note:_** `CreateTodoItemUseCase(ITodoItemRepository todoItemRepository)` is a primary constructor (C# 12 and later): the parameter is available in the whole class, so there is no need for a private field and a constructor that only assigns it.
 
 Now, let's move on to the interface adapter layer:
 
@@ -93,19 +103,15 @@ Now, let's move on to the interface adapter layer:
 
 namespace TodoList.Infrastructure.Persistence.Repositories;
 
-internal class TodoItemRepository : ITodoItemRepository
+internal sealed class TodoItemRepository(TodoListDbContext dbContext) : ITodoItemRepository
 {
-    private readonly TodoListDbContext _dbContext;
-
-    public TodoItemRepository(TodoListDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
+    public async Task<TodoItem?> GetByIdAsync(int id, CancellationToken cancellationToken = default) =>
+        await dbContext.TodoItems.FindAsync([id], cancellationToken);
 
     public async Task<TodoItem> AddAsync(TodoItem todoItem, CancellationToken cancellationToken = default)
     {
-        await _dbContext.TodoItems.AddAsync(todoItem, cancellationToken);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        await dbContext.TodoItems.AddAsync(todoItem, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
 
         return todoItem;
     }
@@ -114,35 +120,80 @@ internal class TodoItemRepository : ITodoItemRepository
 
 In the interface adapter layer, we have implemented the `ITodoItemRepository` interface with a `TodoItemRepository` class that interacts with the data source.
 
-> **_Note:_**  In the above implementation, Entity Framework Core is used as the Object-Relational Mapping (ORM) framework, enabling seamless communication with the database.
+> **_Note:_**  In the above implementation, Entity Framework Core 10 is used as the Object-Relational Mapping (ORM) framework, enabling seamless communication with the database. The sample uses the in-memory provider to stay self-contained; swapping it for SQL Server or PostgreSQL only touches this project.
 
-Finally, let's move on to the frameworks and drivers layer:
+Finally, let's move on to the frameworks and drivers layer. The API does not expose the entity directly: it accepts a request record that only contains what a client is allowed to send, and returns a response record.
 
 ``` csharp
 // TodoList.Api (Frameworks and Drivers)
 
+namespace TodoList.Api.Dtos.TodoItems;
+
+// What a client may send: no Id, no IsCompleted, so they cannot be over-posted.
+public sealed record CreateTodoItemDto(string Title, string? Description, DateTime? DueDate);
+
+public sealed record TodoItemDto(int Id, string Title, string? Description, DateTime? DueDate, bool IsCompleted);
+
 namespace TodoList.Api.Controllers;
 
-public class TodoItemController : ApiControllerBase
+public class TodoItemController(
+    ICreateTodoItemUseCase createTodoItemUseCase,
+    IGetTodoItemByIdUseCase getTodoItemByIdUseCase) : ApiControllerBase
 {
-    private readonly ICreateTodoItemUseCase _createTodoItemUseCase;
-
-    public TodoItemController(ICreateTodoItemUseCase createTodoItemUseCase)
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<TodoItemDto>> Get(int id, CancellationToken cancellationToken)
     {
-        _createTodoItemUseCase = createTodoItemUseCase;
+        if (id <= 0) return BadRequest();
+
+        var todoItem = await getTodoItemByIdUseCase.Execute(id, cancellationToken);
+        if (todoItem is null) return NotFound();
+
+        return todoItem.ToTodoItemDto();
     }
 
     [HttpPost]
-    public async Task<ActionResult<TodoItem>> Create(TodoItem todoItem, CancellationToken cancellationToken)
+    public async Task<ActionResult<TodoItemDto>> Create(CreateTodoItemDto createTodoItemDto, CancellationToken cancellationToken)
     {
-        var response = await _createTodoItemUseCase.Execute(todoItem, cancellationToken);
-        return CreatedAtAction(nameof(Get), new { id = response.Id }, response);
+        if (string.IsNullOrWhiteSpace(createTodoItemDto.Title)) return BadRequest();
+
+        var todoItem = createTodoItemDto.ToTodoItem();
+        var createdTodoItem = await createTodoItemUseCase.Execute(todoItem, cancellationToken);
+
+        var dto = createdTodoItem.ToTodoItemDto();
+        return CreatedAtAction(nameof(Get), new { id = dto.Id }, dto);
     }
 }
-
 ```
 
-In the frameworks and drivers layer, we have the `TodoItemController` class, which acts as a web API controller responsible for handling incoming HTTP requests related to TodoItems. It depends on the `ICreateTodoItemUseCase` interface, which is implemented in the use cases layer.
+In the frameworks and drivers layer, we have the `TodoItemController` class, which acts as a web API controller responsible for handling incoming HTTP requests related to TodoItems. It depends on the `ICreateTodoItemUseCase` and `IGetTodoItemByIdUseCase` interfaces, which are implemented in the use cases layer. `CreatedAtAction(nameof(Get), ...)` points to the `Get` action, so the response carries a `Location` header to the new item.
+
+Why a request record rather than the entity? If the controller accepted `TodoItem`, a client could send `"id"` or `"isCompleted": true` and the model binder would happily set them. With `CreateTodoItemDto`, those fields simply do not exist. Let's try it:
+
+```bash
+curl -i -X POST http://localhost:5041/api/TodoItem \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Write the article","description":"Clean Architecture in C#","dueDate":"2026-11-30T00:00:00","id":42,"isCompleted":true}'
+```
+
+```
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+Location: http://localhost:5041/api/TodoItem/1
+
+{"id":1,"title":"Write the article","description":"Clean Architecture in C#","dueDate":"2026-11-30T00:00:00","isCompleted":false}
+```
+
+The `id` and `isCompleted` sent by the client were ignored. 🙂 And since `Title` is a non-nullable `string`, `[ApiController]` rejects a request without it before the action even runs:
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json; charset=utf-8
+
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Title":["The Title field is required."]},"traceId":"00-227f6d27b591166ba32b5a4e9a2172b2-35de9ff882fd3d0b-00"}
+```
+
+
+layer, we have the `TodoItemController` class, which acts as a web API controller responsible for handling incoming HTTP requests related to TodoItems. It depends on the `ICreateTodoItemUseCase` interface, which is implemented in the use cases layer.
 
 
 ## Conclusion
