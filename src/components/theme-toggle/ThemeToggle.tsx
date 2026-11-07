@@ -91,7 +91,7 @@ function useTheme() {
         }
     }, [])
 
-    return [setting, setSetting]
+    return [setting, setSetting] as const
 }
 
 interface ThemeToggleProps {
@@ -101,12 +101,8 @@ interface ThemeToggleProps {
 export function ThemeToggle({ panelClassName }: ThemeToggleProps) {
     let [setting, setSetting] = useTheme()
 
-    const listboxOnChange = (value: string) => {
-        if (typeof setSetting !== 'string')setSetting(value);
-    };
-
     return (
-        <Listbox as="div" className="relative" value={setting} onChange={listboxOnChange}>
+        <Listbox as="div" className="relative" value={setting} onChange={setSetting}>
             <Listbox.Label className="sr-only">Theme</Listbox.Label>
             <Listbox.Button type="button" className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading">
                 <span className="dark:hidden">
@@ -121,8 +117,8 @@ export function ThemeToggle({ panelClassName }: ThemeToggleProps) {
             >
                 {settings.map(({ value, label, icon: Icon }) => (
                     <Listbox.Option key={value} value={value} as={Fragment}>
-                        {({ active, selected }) => (
-                            <li className={`${selected ? 'text-accent' : ''} ${active ? 'bg-hover' : ''} py-1 px-2 flex items-center cursor-pointer`}>
+                        {({ focus, selected }) => (
+                            <li className={`${selected ? 'text-accent' : ''} ${focus ? 'bg-hover' : ''} py-1 px-2 flex items-center cursor-pointer`}>
                                 <Icon selected={selected} className="w-6 h-6 mr-2" />
                                 {label}
                             </li>

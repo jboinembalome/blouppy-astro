@@ -3,7 +3,6 @@ import { resolve } from "path";
 import _ from "lodash";
 import { createFilePath } from "gatsby-source-filesystem";
 
-const { fmImagesToRelative } = require("gatsby-remark-relative-images");
 
 export const createPages: GatsbyNode["createPages"] = async ({
   actions,
@@ -102,7 +101,6 @@ export const onCreateNode: GatsbyNode["onCreateNode"] = ({
   getNode,
 }) => {
   const { createNodeField } = actions;
-  fmImagesToRelative(node); // convert image paths for gatsby images
 
   if (node.internal.type === `MarkdownRemark`) {
     const value = createFilePath({ node, getNode });

@@ -1,5 +1,5 @@
 import React from "react";
-import { PageProps, graphql } from "gatsby";
+import { HeadProps, PageProps, graphql } from "gatsby";
 import { BlogPostTemplate } from "./blog-post-template";
 import { Seo } from "../components/seo/Seo";
 import { ImageDataLike, getSrc } from "gatsby-plugin-image";
@@ -31,14 +31,6 @@ const BlogPost = ({ data, pageContext }: PageProps<BlogPostPageQuery, { relatedT
 
   return (
     <>
-      <Head
-        title={post.frontmatter.title}
-        description={post.frontmatter.description}
-        slug={post.fields.slug}
-        siteUrl={data.site.siteMetadata.siteUrl}
-        featuredimage={post.frontmatter.featuredimage}
-        topic={post.frontmatter.topic}
-      />
       <BlogPostTemplate
         content={post.html}
         description={post.frontmatter.description}
@@ -61,31 +53,35 @@ const BlogPost = ({ data, pageContext }: PageProps<BlogPostPageQuery, { relatedT
   );
 };
 
-interface HeadProps {
-  title: string;
-  description: string;
-  slug: string;
-  siteUrl: string;
-  featuredimage?: ImageDataLike;
-  topic?: string;
-}
-
-const Head = ({ title, description, slug, siteUrl, featuredimage, topic }: HeadProps) => {
+export const Head = ({ data, location }: HeadProps<BlogPostPageQuery>) => {
+  const { frontmatter, fields } = data.markdownRemark;
+  const { siteUrl, author } = data.site.siteMetadata;
   // A shared link shows the topic's image (static/img/topics); a post without a
   // topic falls back to its own cover, if it has one.
-  const topicImage = topicByName(topic) ? `/img/topics/${topicByName(topic)!.slug}.jpg` : undefined;
-  const image = topicImage ?? (featuredimage ? getSrc(featuredimage) : undefined);
+  const topic = topicByName(frontmatter.topic);
+  const image = topic
+    ? `/img/topics/${topic.slug}.jpg`
+    : frontmatter.featuredimage
+      ? getSrc(frontmatter.featuredimage as ImageDataLike)
+      : undefined;
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: frontmatter.title,
+    description: frontmatter.description,
+    datePublished: frontmatter.isoDate,
+    author: { "@type": "Person", name: author.name, url: `${siteUrl}/about/` },
+    image: image ? `${siteUrl}${image}` : undefined,
+    url: `${siteUrl}${fields.slug}`,
+    mainEntityOfPage: `${siteUrl}${fields.slug}`,
+    keywords: frontmatter.tags?.join(", "),
+  };
 
   return (
-    <Seo
-      title={title}
-      description={description}
-      url={`${siteUrl}${slug}`}
-    >
-      {image ? <meta name="image" content={`${siteUrl}${image}`} /> : <></>}
-      {image ? <meta property="og:image" content={`${siteUrl}${image}`} /> : <></>}
-      <meta property="og:image:alt" content={title} />
-      <meta property="og:type" content="article" />
+    <Seo title={frontmatter.title} description={frontmatter.description} pathname={location.pathname} image={image} type="article">
+      <meta property="article:published_time" content={frontmatter.isoDate} />
+      {frontmatter.tags?.map((tag) => <meta key={tag} property="article:tag" content={tag} />)}
+      <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
     </Seo>
   );
 };
@@ -97,6 +93,9 @@ export const pageQuery = graphql`
     site {
       siteMetadata {
         siteUrl
+        author {
+          name
+        }
       }
     }
     markdownRemark(id: { eq: $id }) {
@@ -109,6 +108,7 @@ export const pageQuery = graphql`
       }
       frontmatter {
         date(formatString: "MMMM DD, YYYY")
+        isoDate: date
         title
         description
         category

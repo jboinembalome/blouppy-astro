@@ -1,4 +1,5 @@
 import React, { ChangeEvent, FormEvent, useState } from "react";
+import { HeadProps } from "gatsby";
 import { navigate } from "gatsby-link";
 import { GithubIcon, LinkedInIcon } from "../../components/icons/svg/social/Icons";
 import { Seo } from "../../components/seo/Seo";
@@ -6,10 +7,7 @@ import { useSiteMetadata } from "../../hooks/useSiteMetadata";
 
 const description = "A question about an article, an idea for the next one, or something you're building? Write to me.";
 
-const Head = () => {
-  const { siteUrl } = useSiteMetadata();
-  return <Seo title="Contact" description={description} url={`${siteUrl}/contact`} />;
-};
+export const Head = ({ location }: HeadProps) => <Seo title="Contact" description={description} pathname={location.pathname} />;
 
 const fieldClassName =
   "block w-full rounded-lg border-line bg-page px-3.5 py-2.5 text-heading shadow-sm placeholder:text-faint focus:border-accent focus:ring-accent";
@@ -66,7 +64,6 @@ const Index = () => {
 
   return (
     <>
-      <Head />
       <div className="mx-auto max-w-5xl">
         <header className="mb-10 max-w-2xl">
           <h1 className="text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">Contact</h1>

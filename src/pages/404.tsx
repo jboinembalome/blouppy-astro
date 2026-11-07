@@ -1,5 +1,7 @@
 import React from 'react';
+import { HeadProps } from 'gatsby';
 import { ButtonInternalLink } from '../components/button';
+import { Seo } from '../components/seo/Seo';
 
 const NotFoundPage = () => (
     <div className="flex-grow mx-auto max-w-7xl w-full flex flex-col">
@@ -13,5 +15,7 @@ const NotFoundPage = () => (
       </div>
     </div>
 )
+
+export const Head = ({ location }: HeadProps) => <Seo title="Page not found" pathname={location.pathname} noindex />
 
 export default NotFoundPage

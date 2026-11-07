@@ -1,87 +1,76 @@
-import { Link } from "gatsby"
-import { default as React } from "react"
-import {
-    connectStateResults,
-    connectHits,
-    Highlight,
-    Index,
-    Snippet,
-} from "react-instantsearch-dom"
-import { AlgoliaIcon } from "../icons/svg/library/Icons"
+import { Link } from "gatsby";
+import React from "react";
+import { Highlight, Index, Snippet, useHits, useInstantSearch } from "react-instantsearch";
+import type { Hit as AlgoliaHit } from "instantsearch.js";
+import { AlgoliaIcon } from "../icons/svg/library/Icons";
 
-const HitCount = connectStateResults(({ searchResults }) => {
-    const hitCount = searchResults && searchResults.nbHits
-    return hitCount > 0 ? (
-        <div className="flex justify-end text-heading">
-            {hitCount} result{hitCount !== 1 ? `s` : ``}
-        </div>
-    ) : <>
-        <div className="flex justify-end text-heading">
-            0 result
-        </div>
-        <p className="flex justify-start p-4 text-sm text-heading">No article found.</p>
+type ArticleHit = AlgoliaHit<{ title: string; excerpt: string; slug: string }>;
+
+const HitCount = () => {
+  const { results } = useInstantSearch();
+  const count = results?.nbHits ?? 0;
+
+  return (
+    <>
+      <div className="flex justify-end text-heading">
+        {count} result{count === 1 ? "" : "s"}
+      </div>
+      {count === 0 && <p className="flex justify-start p-4 text-sm text-heading">No article found.</p>}
     </>
-})
+  );
+};
 
+const Hits = () => {
+  const { items } = useHits<ArticleHit>();
 
-const Hits = ({ hits }: any) => (
+  return (
     <div>
-        {hits.map((hit: any) => (
-            <div key={hit.objectID} className="mb-4">
-                <div className="flex items-center justify-between">
-                    <Link to={hit.slug} className="flex items-center justify-between text-blue-700 hover:text-blue-800 dark:text-blue-500 dark:hover:text-blue-600 underline">
-                        <h4 className="mb-2">
-                            <Highlight attribute="title" hit={hit} tagName="mark" />
-                        </h4>
-                    </Link>
-                </div>
-                <Snippet attribute="excerpt" hit={hit} tagName="mark" />
-            </div>
-        ))}
+      {items.map((hit) => (
+        <div key={hit.objectID} className="mb-4">
+          <Link to={hit.slug} className="text-accent underline hover:no-underline">
+            <h4 className="mb-2">
+              <Highlight attribute="title" hit={hit} highlightedTagName="mark" />
+            </h4>
+          </Link>
+          <Snippet attribute="excerpt" hit={hit} highlightedTagName="mark" />
+        </div>
+      ))}
     </div>
-);
-
-const CustomHits = connectHits(Hits);
-
-const HitsInIndex = ({ index }: any) => {
-    return (
-        <Index indexName={index.name}>
-            <HitCount />
-            <CustomHits />
-        </Index>
-
-    )
-}
+  );
+};
 
 const PoweredBy = () => (
-    <div className="ais-PoweredBy">
-        <span className="text-heading text-md mr-2">Search by</span>
-        <a href="https://algolia.com" className="ais-PoweredBy-link w-auto" aria-label="Algolia">
-            <AlgoliaIcon />
-        </a>
-    </div>
-)
+  <div className="ais-PoweredBy">
+    <span className="text-md mr-2 text-heading">Search by</span>
+    <a href="https://algolia.com" className="ais-PoweredBy-link w-auto" aria-label="Algolia">
+      <AlgoliaIcon />
+    </a>
+  </div>
+);
 
 interface SearchResultProps {
-    indices?: {
-        name: string;
-        title: string;
-    }[];
-    query?: any;
-    className?: string;
+  indices?: {
+    name: string;
+    title: string;
+  }[];
+  className?: string;
 }
 
-const SearchResult = ({ indices, query, className }: SearchResultProps) => {
-    return query && query.length > 0 && indices && indices.length > 0 ?
-        (
-            <div className={className}>
-                {indices.map(index => (
-                    <HitsInIndex index={index} key={index.name} />
-                ))}
-                <PoweredBy />
-            </div>) : null
-}
+const SearchResult = ({ indices, className }: SearchResultProps) => {
+  const { indexUiState } = useInstantSearch();
+  const query = indexUiState.query ?? "";
 
+  return query.length > 0 && indices && indices.length > 0 ? (
+    <div className={className}>
+      {indices.map((index) => (
+        <Index indexName={index.name} key={index.name}>
+          <HitCount />
+          <Hits />
+        </Index>
+      ))}
+      <PoweredBy />
+    </div>
+  ) : null;
+};
 
-
-export default SearchResult
+export default SearchResult;

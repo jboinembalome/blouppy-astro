@@ -1,6 +1,6 @@
 import React from "react";
 import { Seo } from "../../components/seo/Seo";
-import { PageProps, graphql } from "gatsby";
+import { HeadProps, PageProps, graphql } from "gatsby";
 import { TagsPageQuery } from "../../types/graphql-queries";
 import { TagWithCount } from "../../components/tag";
 import { PageHeader } from "../../components/page-header/PageHeader";
@@ -10,7 +10,6 @@ const TagsPage = ({ data }: PageProps<TagsPageQuery>) => {
 
   return (
     <>
-      <Head siteUrl={data.site.siteMetadata.siteUrl} />
       <PageHeader kicker="Blog" title="Tags" subtitle="Every topic the articles cover, with how many posts each one has." />
       <ul className="flex flex-wrap gap-2">
         {[...group]
@@ -25,16 +24,8 @@ const TagsPage = ({ data }: PageProps<TagsPageQuery>) => {
   );
 };
 
-interface HeadProps {
-  siteUrl: string;
-}
-
-const Head = ({ siteUrl }: HeadProps) => (
-  <Seo
-    title="Tags"
-    description="List of tags for all articles."
-    url={`${siteUrl}/tags`}
-  />
+export const Head = ({ location }: HeadProps) => (
+  <Seo title="Tags" description="Every tag the articles use, with the number of posts for each." pathname={location.pathname} />
 );
 
 export default TagsPage;

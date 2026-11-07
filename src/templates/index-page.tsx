@@ -1,5 +1,5 @@
 import React from "react";
-import { graphql, PageProps } from "gatsby";
+import { graphql, HeadProps, PageProps } from "gatsby";
 import { IndexPageTemplate } from "./index-page-template";
 import { Seo } from "../components/seo/Seo";
 import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
@@ -21,11 +21,14 @@ const IndexPage = ({ data }: PageProps<IndexPageQuery>) => {
 
   return (
     <>
-      <Seo description={frontmatter.subheading} />
       <IndexPageTemplate title={frontmatter.title} subheading={frontmatter.subheading} articles={data.articles.edges} />
     </>
   );
 };
+
+export const Head = ({ data, location }: HeadProps<IndexPageQuery>) => (
+  <Seo description={data.markdownRemark.frontmatter.subheading} pathname={location.pathname} />
+);
 
 export default IndexPage;
 

@@ -16,9 +16,9 @@ const config: GatsbyConfig = {
     title: `Blouppy`,
     author: {
       name: `Jimmy Boinembalome`,
-      summary: `👋 Hi, I am @jboinembalome. I am design and development engineer from France with a passion for application development.`,
+      summary: `Software engineer from France, writing about software engineering.`,
     },
-    description: `Practical software engineering articles, written from the code of a real SaaS.`,
+    description: `Articles on software engineering: architecture, security, testing, back end and front end.`,
     siteUrl: siteUrl,
     canonicalUrl: siteUrl,
     social: {
@@ -50,8 +50,53 @@ const config: GatsbyConfig = {
         },
       },
     },
-    'gatsby-plugin-sitemap',
-    'gatsby-plugin-react-helmet',
+    {
+      resolve: 'gatsby-plugin-sitemap',
+      options: {
+        // The page after the contact form, and the CMS, are no one's landing page.
+        excludes: ['/contact/thanks/', '/admin/', '/dev-404-page/', '/404/', '/404.html'],
+      },
+    },
+    {
+      resolve: 'gatsby-plugin-feed',
+      options: {
+        feeds: [
+          {
+            serialize: ({ query: { site, allMarkdownRemark } }: any) =>
+              allMarkdownRemark.nodes.map((node: any) => {
+                const url = `${site.siteMetadata.siteUrl}${node.fields.slug}`
+                return {
+                  title: node.frontmatter.title,
+                  description: node.frontmatter.description || node.excerpt,
+                  date: node.frontmatter.date,
+                  url,
+                  guid: url,
+                  categories: [node.frontmatter.topic, ...(node.frontmatter.tags ?? [])].filter(Boolean),
+                  custom_elements: [{ 'content:encoded': node.html }],
+                }
+              }),
+            query: `
+              {
+                allMarkdownRemark(
+                  sort: { frontmatter: { date: DESC } }
+                  filter: { frontmatter: { templateKey: { eq: "blog-post" } } }
+                ) {
+                  nodes {
+                    excerpt
+                    html
+                    fields { slug }
+                    frontmatter { title description date topic tags }
+                  }
+                }
+              }
+            `,
+            output: '/rss.xml',
+            title: 'Blouppy',
+            description: `Articles on software engineering: architecture, security, testing, back end and front end.`,
+          },
+        ],
+      },
+    },
     'gatsby-plugin-catch-links',
     'gatsby-plugin-sass',
     {
@@ -86,10 +131,9 @@ const config: GatsbyConfig = {
         start_url: `/`,
         name: `Blouppy`,
         short_name: `blouppy`,
-        description:
-          'The personal website of Jimmy Boinembalome. Blouppy is a place where you can get information about tips, best practices, technologies around Microsoft such as .NET Core, WPF, ASP.NET Core but also about other topics. You can also find information about the creator of Blouppy if you wish.',
+        description: `Articles on software engineering: architecture, security, testing, back end and front end.`,
         background_color: `#ffffff`,
-        theme_color: `#b5bfeb`,
+        theme_color: `#676dcf`,
         display: `standalone`,
         icon: 'static/img/logo.png', // This path is relative to the root of the site.
       },
@@ -114,9 +158,11 @@ const config: GatsbyConfig = {
       options: {
         plugins: [
           {
+            // Turns the CMS's /img/... paths, in the body and the front matter
+            // alike, into paths gatsby-plugin-sharp can resolve.
             resolve: 'gatsby-remark-relative-images',
             options: {
-              name: 'uploads',
+              staticFolderName: 'static',
             },
           },
           {
@@ -187,16 +233,22 @@ const config: GatsbyConfig = {
         ],
       },
     },
+    // The search index is pushed only where its admin key is set (Netlify's
+    // production build): a local build or a deploy preview goes without.
+    ...(process.env.ALGOLIA_ADMIN_KEY
+      ? [
+          {
+            resolve: `gatsby-plugin-algolia`,
+            options: {
+              appId: process.env.GATSBY_ALGOLIA_APP_ID,
+              apiKey: process.env.ALGOLIA_ADMIN_KEY,
+              queries: require("./src/utils/algolia-queries"),
+            },
+          },
+        ]
+      : []),
     {
-      resolve: `gatsby-plugin-algolia`,
-      options: {
-        appId: process.env.GATSBY_ALGOLIA_APP_ID,
-        apiKey: process.env.ALGOLIA_ADMIN_KEY,
-        queries: require("./src/utils/algolia-queries")
-      },
-    },
-    {
-      resolve: 'gatsby-plugin-netlify-cms',
+      resolve: 'gatsby-plugin-decap-cms',
       options: {
         modulePath: `${__dirname}/src/cms/cms.ts`,
       },
@@ -206,8 +258,9 @@ const config: GatsbyConfig = {
     },
     // must be after other CSS plugins
     'gatsby-plugin-netlify', // make sure to keep it last in the array
-    /* Must be placed at the end */
-    `gatsby-plugin-offline`,
+    // The site used to install gatsby-plugin-offline's service worker, which
+    // served the previous deploy to returning readers. This one unregisters it.
+    'gatsby-plugin-remove-serviceworker',
   ],
 }
 
