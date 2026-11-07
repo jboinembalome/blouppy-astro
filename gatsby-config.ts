@@ -149,8 +149,9 @@ const config: GatsbyConfig = {
         background_color: `#ffffff`,
         theme_color: `#676dcf`,
         display: `standalone`,
-        // Home-screen icons, provided as files (static/icons): the logo on
-        // white, at about 70% of the square like the icons of other apps, and
+        // Home-screen icons, provided as files (static/icons): the logo on the
+        // dark theme's night blue (#020617), where its pastel gradients keep
+        // their contrast, at about 70% of the square like the icons of other apps, and
         // a maskable variant at about 60% for Android, whose adaptive icons
         // may crop anything outside a circle of 80% of the side. iOS reads
         // static/img/apple-touch-icon.png (same 70% artwork), linked from
