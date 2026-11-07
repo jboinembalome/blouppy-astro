@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Separating reads and writes in ASP.NET Core without MediatR'
 date: 2026-06-21T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -20,9 +21,9 @@ tags:
   - Architecture
 ---
 
-Separating reads from writes, a "CQRS-lite", is usually explained with **MediatR**. But the idea itself does not need a library: a screen that lists members with their names and avatars has very little in common with a request that creates a workspace, and two plain sets of interfaces are enough to keep them apart.
+Separating reads from writes, a "CQRS-lite", is usually explained with **MediatR**. The idea needs no library: a screen that lists members with their names and avatars has little in common with a request that creates a workspace, and two plain sets of interfaces are enough to keep them apart.
 
-In this article, we will build both sides in an **ASP.NET Core** API: a read side made of projections, query filters and pages, a write side made of domain services, **FluentValidation** and a `ValidationResult<T>`, and a controller that picks one or the other by HTTP verb.
+In this article, we will build both sides of an **ASP.NET Core** API: a read side of projections and pages, a write side of domain services, **FluentValidation** and a `ValidationResult<T>`, and a controller that picks one by HTTP verb.
 
 
 ## Two verticals above one domain
@@ -34,17 +35,17 @@ Here is the whole idea in one table:
 | Data access | `IXxxApiQueryRepository` | `IXxxRepository` |
 | Returns | Projections and pages | Domain entities in a `ValidationResult<T>` |
 
-Both verticals sit on the same domain model, and nothing crosses diagonally: a read service never calls a write repository, a write service never calls a read repository, and the controller never injects a repository at all.
+Both verticals sit on the same domain model, and nothing crosses diagonally: a read service never calls a write repository, a write service never calls a read repository, and the controller never injects a repository at all. It is the core of the [CQRS pattern](https://learn.microsoft.com/azure/architecture/patterns/cqrs), without separate stores or a bus.
 
-Why bother? Because much of what a screen shows has no identity, no behaviour and no invariant. A member listed with the name and e-mail joined from another table, a page of results: none of that is a domain entity, and forcing it into the model would fill the domain with shapes that only exist for display.
+Why bother? Much of what a screen shows has no identity, no behaviour and no invariant, and forcing it into the model fills the domain with shapes that exist only for display.
 
-In the code base this comes from, the read side is three projects: `Blouppy.ApiQuery.Models` (projections, filters, paging), `Blouppy.ApiQuery.Abstractions` (the interfaces) and `Blouppy.ApiQuery` (their `internal sealed` implementations). The write side is one pair per domain, such as `Blouppy.Workspaces.Abstractions` and `Blouppy.Workspaces`.
+In [Blouppy Starter](https://docs.starter.blouppy.com/architecture/reads-and-writes/), the read side is three projects: `Blouppy.ApiQuery.Models` (projections, filters, paging), `Blouppy.ApiQuery.Abstractions` (interfaces) and `Blouppy.ApiQuery` (implementations). The write side is one pair per domain, such as `Blouppy.Workspaces.Abstractions` and `Blouppy.Workspaces`.
 
 
 ## The read side
 
 ### A projection
-Let's start with what a screen actually needs. Here is the projection the organization's member list reads:
+Here is what the organization's member list reads:
 
 ```csharp
 namespace Blouppy.ApiQuery.Models.Organizations.Members;
@@ -61,47 +62,14 @@ public record DetailedOrganizationMember
 }
 ```
 
-It is a plain record with `required` properties, no constructor logic and no methods. The membership (`OrganizationId`, `MemberId`, `Role`) comes from one table, the name, e-mail and avatar from another. No entity has this shape, and none should.
+The membership comes from one table, the name, e-mail and avatar from another. No entity has this shape, and none should.
 
-### A query filter and a page
-A list endpoint needs paging and sorting, so the filters inherit them from a small base record:
+Its filter, `OrganizationMemberQueryFilter`, adds `OrganizationId` and `Search` to a base record, `OffsetAndSortQuery`, that carries `Page`, `PageSize` and `Sort`. Every list returns one of two page shapes: `OffsetPage<T>` (items, previous and next page, total count) for tables, or `CursorPage<T>` (opaque cursors) for feeds.
 
-```csharp
-public abstract record OffsetAndSortQuery : IOffsetQuery, ISortQuery
-{
-    public required int Page { get; init; }
-    public required int PageSize { get; init; }
-    public required IReadOnlyCollection<SortingKey> Sort { get; init; }
-}
-
-public sealed record OrganizationMemberQueryFilter : OffsetAndSortQuery
-{
-    public required OrganizationId OrganizationId { get; init; }
-    public required string Search { get; init; }
-}
-```
-
-And here is the page the query returns, from `Blouppy.ApiQuery.Models/Paging/OffsetPage.cs`:
-
-```csharp
-public class OffsetPage<T>
-    where T : class
-{
-    public IEnumerable<T> Items { get; set; } = [];
-    public int? NextPage { get; set; }
-    public int? PreviousPage { get; set; }
-    public int TotalCount { get; set; }
-}
-```
-
-There are two page shapes, used by every list endpoint:
-- `OffsetPage<T>` with `IOffsetQuery`: page numbers and a total, for tables.
-- `CursorPage<T>` with `ICursorQuery`: an opaque `NextCursor` / `PreviousCursor`, for feeds and infinite lists.
-
-> **_Note:_**  The page size is checked before the controller even runs: `OffsetQueryValidationFilter` (and its cursor twin) is a global `IActionFilter` that answers 400 for a `Page` below 1 or a `PageSize` above 1000.
+> **_Note:_**  The page size is checked before the controller runs: `OffsetQueryValidationFilter` (and its cursor twin) is a global action filter that answers 400 for a `Page` below 1 or a `PageSize` outside 1 to 1000.
 
 ### The repository: straight to SQL
-Now the interesting part. The read repository is an EF Core query that selects exactly the columns of the projection, joined on `users_view`, the local projection of the people the identity host owns:
+The read repository selects exactly the columns of the projection, joined on `users_view`, the local projection of the people the identity host owns:
 
 ```csharp
 internal sealed class OrganizationMembersApiQueryRepository(
@@ -139,44 +107,18 @@ internal sealed class OrganizationMembersApiQueryRepository(
 }
 ```
 
-Let's look at what it does:
-- `AsNoTracking()`: a read never changes anything, so the change tracker has nothing to do.
-- The `join` and the `select new DetailedOrganizationMember` are translated to one SQL query: no entity is materialised, only the seven columns the screen needs.
-- `EF.Functions.ILike` is PostgreSQL's case-insensitive `LIKE`, so the search runs in the database.
-- `ToOffsetPageAsync`, an extension method of the database project, counts the rows, takes one page with `Skip`/`Take` and fills `NextPage` and `PreviousPage`.
+- [`AsNoTracking()`](https://learn.microsoft.com/ef/core/querying/tracking): a read changes nothing, so the change tracker has nothing to do.
+- The `join` and the `select new` translate to one SQL query that returns seven columns; no entity is materialized.
+- [`EF.Functions.ILike`](https://www.npgsql.org/efcore/mapping/translations.html) is PostgreSQL's case-insensitive `LIKE`, so the search runs in the database.
+- `ToOffsetPageAsync` counts the rows, takes one page with `Skip`/`Take` and fills the page numbers.
 
-The interface itself, `IOrganizationMembersApiQueryRepository`, lives in `Blouppy.Infrastructure.Database.Abstractions`, next to the write repositories. A feature's data access is described in one place; only what the read ports *return* lives elsewhere.
-
-### The read service
-The service on top is almost empty, and that is fine:
-
-```csharp
-internal sealed class OrganizationMembersApiQueryService(
-    IOrganizationMembersApiQueryRepository organizationMembersApiQueryRepository,
-    IOrganizationMembershipsApiQueryRepository organizationMembershipsApiQueryRepository) : IOrganizationMembersApiQueryService
-{
-    public Task<OffsetPage<DetailedOrganizationMember>> GetAsync(
-        OrganizationMemberQueryFilter filter,
-        CancellationToken cancellationToken = default)
-        => organizationMembersApiQueryRepository.GetAsync(filter, cancellationToken);
-}
-```
-
-Why keep a layer that only forwards? Because the controller never depends on a repository: the day a read combines two queries, the change stays inside `Blouppy.ApiQuery`. And there is **one read service per feature**: a view that needs its own shape gets a projection and a method here, not a second entry point.
+The read service on top, `OrganizationMembersApiQueryService`, only forwards to the repository. It still earns its place: the controller never depends on a repository, so the day a read combines two queries, the change stays inside `Blouppy.ApiQuery`.
 
 
 ## The write side
-A write has rules to enforce, so it goes through the domain. Here is the contract the Web calls in through:
+A write has rules to enforce, so it goes through the domain. Here is the contract the Web calls:
 
 ```csharp
-namespace Blouppy.Workspaces.Abstractions;
-
-public sealed record WorkspaceCreation(
-    string Name,
-    Colour Colour,
-    UserId OwnerId,
-    OrganizationId OrganizationId);
-
 public interface IWorkspacesService
 {
     Task<ValidationResult<Workspace>> TryAddAsync(WorkspaceCreation workspaceCreation, CancellationToken cancellationToken = default);
@@ -185,10 +127,10 @@ public interface IWorkspacesService
 }
 ```
 
-Nothing is thrown for a rule the user broke: the outcome is a value.
+`WorkspaceCreation` is a positional record (`Name`, `Colour`, `OwnerId`, `OrganizationId`). Nothing is thrown for a rule the user broke: the outcome is a value.
 
-### ValidationResult<T>
-Here is the result type, from `Blouppy.SharedKernel/Results/ValidationResult.cs` (trimmed):
+### The `ValidationResult<T>` type
+Here is the result type, from `Blouppy.SharedKernel/Results/ValidationResult.cs` (trimmed to the generic case):
 
 ```csharp
 public class ValidationResult
@@ -217,34 +159,18 @@ public sealed class ValidationResult<T>(
 }
 ```
 
-- `Errors` is an `IDictionary<string, string[]>`, the exact shape `ValidationProblemDetails` takes, so a failure becomes a standard 400 response with no conversion.
-- `Value` throws if we read it after a failure: a forgotten check fails at once instead of passing a `null` along.
+`Errors` has the shape [`ValidationProblemDetails`](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.mvc.validationproblemdetails) takes, so a failure becomes a standard 400 with no conversion. `Value` throws when read after a failure, so a forgotten check fails at once.
 
 ### The validator
-The validator is an ordinary FluentValidation `AbstractValidator<T>`. The interesting rule is the plan limit:
+`WorkspaceCreationValidator` is an ordinary [FluentValidation](https://docs.fluentvalidation.net/en/latest/) `AbstractValidator<WorkspaceCreation>`: `Name` is not empty and at most 50 characters, `Colour` is in the enum. The interesting rule is the plan limit, an [asynchronous rule](https://docs.fluentvalidation.net/en/latest/async.html):
 
 ```csharp
-internal sealed class WorkspaceCreationValidator : AbstractValidator<WorkspaceCreation>
-{
-    public WorkspaceCreationValidator(
-        IOrganizationsPublicDataService organizationsPublicDataService,
-        IWorkspacesRepository workspacesRepository)
-    {
-        RuleFor(p => p.Name)
-            .NotEmpty()
-            .MaximumLength(50);
-
-        RuleFor(x => x.OrganizationId)
-            .MustAsync(HaveRoomForAnotherWorkspaceAsync)
-            .WithMessage("The organization has reached the number of workspaces its plan allows.");
-    }
-
-    // HaveRoomForAnotherWorkspaceAsync reads the plan's MaxWorkspaces, then
-    // compares it with workspacesRepository.CountByOrganizationAsync(...).
-}
+RuleFor(x => x.OrganizationId)
+    .MustAsync(HaveRoomForAnotherWorkspaceAsync)
+    .WithMessage("The organization has reached the number of workspaces its plan allows.");
 ```
 
-Notice where the count comes from: `IWorkspacesRepository`, the **write** repository the validator already has. Validators belong to the write side, and the write side never reaches into a read port, even for a number that looks like "a read".
+`HaveRoomForAnotherWorkspaceAsync` reads the plan's `MaxWorkspaces` through the Organizations domain's public contract, then compares it with `IWorkspacesRepository.CountByOrganizationAsync`. The count comes from the **write** repository: validators belong to the write side, which never reaches into a read port, even for a number that looks like "a read".
 
 ### The service
 Here is the domain service, trimmed to the creation:
@@ -287,68 +213,43 @@ internal sealed class WorkspacesService(
 }
 ```
 
-- The owner is never trusted from the request: it is overwritten with the current user before validation.
-- `result.ToDictionary()` is FluentValidation's own method, and it already returns the `IDictionary<string, string[]>` our result expects.
-- `MarkAsCreated()` raises a domain event on the entity.
-- And the service **does not commit**. It adds the entity to the repository and returns. Who commits, then? The controller.
+The owner is never trusted from the request: it is overwritten with the current user before validation. FluentValidation's `ToDictionary()` already returns the dictionary the result expects. And the service **does not commit**: the controller does.
 
 
 ## The controller picks a side by HTTP verb
-`WorkspacesController` injects both contracts. Its GETs call the read side, its POST, PUT and DELETE the write side:
+`WorkspacesController` injects both contracts: its `GET` actions call `IWorkspacesApiQueryService`, its `POST`, `PUT` and `DELETE` actions call `IWorkspacesService`. Here is the creation:
 
 ```csharp
-public class WorkspacesController(
-    IWorkspacesService workspacesService,
-    IWorkspacesApiQueryService workspacesApiQueryService,
-    IWorkspaceDtoFactory workspaceDtoFactory,
-    IAuthorizationService authorizationService,
-    IUnitOfWork unitOfWork) : ControllerBase
+[HttpPost(Name = RouteNames.Api.Workspaces.Create)]
+public async Task<ActionResult<WorkspaceDto>> CreateAsync(
+    WorkspaceCreationDto workspaceCreationDto,
+    CancellationToken cancellationToken)
 {
-    [HttpGet(Name = RouteNames.Api.Workspaces.GetAll)]
-    public async Task<ActionResult<IEnumerable<WorkspaceDto>>> GetAllAsync(
-        [FromQuery] WorkspaceQueryFilterDto filterDto,
-        CancellationToken cancellationToken)
+    if (!await authorizationService.IsAuthorizedAsync(User, new OrganizationId(workspaceCreationDto.OrganizationId), Policies.Manage))
     {
-        var filter = WorkspaceMapper.MapToQueryFilter(filterDto);
-
-        var workspaces = await workspacesApiQueryService.GetAsync(filter, cancellationToken);
-
-        var dtos = await workspaceDtoFactory.CreateAsync(workspaces, cancellationToken);
-
-        return Ok(dtos);
+        return Forbid();
     }
 
-    [HttpPost(Name = RouteNames.Api.Workspaces.Create)]
-    public async Task<ActionResult<WorkspaceDto>> CreateAsync(
-        WorkspaceCreationDto workspaceCreationDto,
-        CancellationToken cancellationToken)
-    {
-        if (!await authorizationService.IsAuthorizedAsync(User, new OrganizationId(workspaceCreationDto.OrganizationId), Policies.Manage))
+    var workspaceCreation = WorkspaceMapper.MapToCreation(workspaceCreationDto);
+
+    var result = await workspacesService.TryAddAsync(workspaceCreation, cancellationToken);
+
+    return await result.MatchAsync(
+        onSuccess: async workspace =>
         {
-            return Forbid();
-        }
+            await unitOfWork.CommitAsync(cancellationToken);
 
-        var workspaceCreation = WorkspaceMapper.MapToCreation(workspaceCreationDto);
+            var dto = await workspaceDtoFactory.CreateAsync(workspace, cancellationToken);
 
-        var result = await workspacesService.TryAddAsync(workspaceCreation, cancellationToken);
-
-        return await result.MatchAsync(
-            onSuccess: async workspace =>
-            {
-                await unitOfWork.CommitAsync(cancellationToken);
-
-                var dto = await workspaceDtoFactory.CreateAsync(workspace, cancellationToken);
-
-                return CreatedAtRoute(RouteNames.Api.Workspaces.Get, new { id = dto.Id }, dto);
-            },
-            onFailed: BadRequest);
-    }
+            return CreatedAtRoute(RouteNames.Api.Workspaces.Get, new { id = dto.Id }, dto);
+        },
+        onFailed: BadRequest);
 }
 ```
 
-The controller does four small things, in this order: it checks the caller's right, maps a DTO to an input record, calls **one** port, and maps the result to a status code. `IUnitOfWork.CommitAsync` is called only on success, so nothing reaches the database for a refused request: one request, one commit.
+The action checks the caller's right with [resource-based authorization](https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased), maps a DTO to an input record, calls **one** port and maps the result to a status code. `IUnitOfWork.CommitAsync` runs only on success, so a refused request writes nothing: one request, one commit.
 
-`MatchAsync` is a tiny extension method in the Web project:
+`MatchAsync` is a small extension method in the Web project:
 
 ```csharp
 internal static class ValidationResultExtensions
@@ -364,26 +265,29 @@ internal static class ValidationResultExtensions
 }
 ```
 
-`GetValidationProblemDetails` builds a 400 `ValidationProblemDetails` from `Errors`, which `onFailed: BadRequest` hands to `ControllerBase.BadRequest`. The same pattern exists for `SearchResult<T>` and `DeletionResult`.
+`GetValidationProblemDetails` builds a 400 [problem details](https://learn.microsoft.com/aspnet/core/web-api/handle-errors) body from `Errors`. The same pattern exists for `SearchResult<T>` and `DeletionResult`.
 
-> **_Note:_**  This is the whole "dispatch": a constructor parameter and a method call. "Go to definition" on `TryAddAsync` lands on the interface, and "Go to implementation" on `WorkspacesService`. 😉
+That is the whole "dispatch": a constructor parameter and a method call, which "Go to implementation" follows.
 
 
 ## Keeping the two sides apart
-A split like this erodes quietly: one day a validator injects a read repository "just for a count". So the rules are tests. `ReadSideBoundaryTests` (built on NetArchTest) checks that only `Blouppy.ApiQuery` depends on an `IXxxApiQueryRepository`, that `Blouppy.ApiQuery.Models` stays a leaf depending on the domain models only, that the read contracts do not depend on the write side, and that the read services stay `internal`.
+A split like this erodes quietly: one day a validator injects a read repository "just for a count". So the rules are tests. `ReadSideBoundaryTests`, built on [NetArchTest](https://www.nuget.org/packages/NetArchTest.Rules), checks that only `Blouppy.ApiQuery` depends on an `IXxxApiQueryRepository`, that `Blouppy.ApiQuery.Models` depends on the domain models only, that the read contracts do not depend on the write side, and that the read services stay `internal`.
 
-The leaf rule is what makes the rest possible: because `Blouppy.ApiQuery.Models` depends on the domain models only, the database ports can return `DetailedOrganizationMember` or `OffsetPage<T>` without referencing the read layer. For the same reason, `SearchResult<T>`, which the write repositories use too, lives in `Blouppy.SharedKernel`.
-
-What it costs:
-- **More types.** A list gets a projection, a filter, a service and a repository interface: the price of each screen getting exactly its shape.
-- **The queries are not in the read project.** The EF Core implementations stay in `Blouppy.Infrastructure.Database`, because they need `BlouppyDbContext`. Moving them was deliberately not done: it would mean exposing or moving the context.
+That leaf rule is what lets the database ports return `DetailedOrganizationMember` without referencing the read layer. The cost is more types (a projection, a filter, a service and a repository interface per list), and queries that live in `Blouppy.Infrastructure.Database`, next to `BlouppyDbContext`, rather than in the read project.
 
 
 ## Conclusion
-Separating reads and writes does not need a mediator. Two sets of plain interfaces are enough: `IXxxApiQueryService` returns projections and pages straight from SQL, `IXxxService` validates with FluentValidation and returns a `ValidationResult<T>`, and the controller picks one by HTTP verb, then commits only on success.
+Separating reads and writes does not need a mediator. `IXxxApiQueryService` returns projections straight from SQL, `IXxxService` validates and returns a `ValidationResult<T>`, and the controller picks one by HTTP verb and commits only on success. A few architecture tests keep the two sides apart.
 
-Everything stays navigable in the IDE, with plain constructor injection, and a handful of architecture tests keep the two sides from leaking into each other.
+This is how reads and writes are separated across every domain and module of [Blouppy Starter](https://starter.blouppy.com/).
 
-This is how reads and writes are separated in [Blouppy Starter](https://starter.blouppy.com/), across every domain and module of its ASP.NET Core API. The [reads and writes page](https://docs.starter.blouppy.com/architecture/reads-and-writes/) of its documentation sums up the rules.
 
-*Thanks for reading! 🙂*
+## References
+- [CQRS pattern](https://learn.microsoft.com/azure/architecture/patterns/cqrs) (Azure Architecture Center) — the pattern and when to use it.
+- [Tracking vs. no-tracking queries](https://learn.microsoft.com/ef/core/querying/tracking) (Microsoft Learn) — `AsNoTracking` and untracked projections.
+- [Translations](https://www.npgsql.org/efcore/mapping/translations.html) (Npgsql EF Core provider) — `EF.Functions.ILike` and other PostgreSQL functions.
+- [Resource-based authorization](https://learn.microsoft.com/aspnet/core/security/authorization/resourcebased) (Microsoft Learn) — imperative checks with `IAuthorizationService`.
+- [Handle errors in ASP.NET Core APIs](https://learn.microsoft.com/aspnet/core/web-api/handle-errors) (Microsoft Learn) — problem details and `ValidationProblemDetails`.
+- [FluentValidation](https://docs.fluentvalidation.net/en/latest/) and [Asynchronous validation](https://docs.fluentvalidation.net/en/latest/async.html) — validators and `MustAsync`.
+- [NetArchTest.Rules](https://www.nuget.org/packages/NetArchTest.Rules) (NuGet) — the library behind the boundary tests.
+- [Reads and writes](https://docs.starter.blouppy.com/architecture/reads-and-writes/) (Blouppy Starter docs) — the rules of the two verticals.
