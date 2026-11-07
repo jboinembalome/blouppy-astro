@@ -22,20 +22,17 @@ tags:
   - Testing
 ---
 
-Sooner or later, a B2B customer asks: *who changed this member's role, when, and from where?* So we add an audit log, and the first version usually lies in one of three ways: it records a change that was rolled back, it misses a change that was committed, or it never hears about the feature someone shipped last month.
-
-The first two are a transaction problem. The third is a process problem, and no code review catches it reliably.
+Sooner or later, a B2B customer asks: *who changed this member's role, when, and from where?* The first audit log usually lies in one of three ways: it records a change that was rolled back, misses one that was committed, or never hears about the feature shipped last month. The first two are a transaction problem; the third is a process problem no code review reliably catches.
 
 In this article, we will build an audit log written from integration events through a [transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html), so an entry exists if and only if the change committed. Then we will add an **architecture test** that turns a forgotten entry into a red build.
 
 
 ## Why the obvious approaches fail
 - **An EF Core [`SaveChangesInterceptor`](https://learn.microsoft.com/ef/core/logging-events-diagnostics/interceptors) that records every changed column.** It records columns, not intents (*"Alice changed Bob's role from Member to Admin"*), and only sees the `DbContext` it is plugged into, so a module with its own context stays invisible.
-- **Writing the entry in the same transaction, through a port each domain calls.** Every domain would write a model it does not own, and a module with its own `DbContext` could not take part.
-- **One generic `AuditEntryRequestedIntegrationEvent`, built by each producer.** Every domain would learn the log's format.
+- **A port each domain calls to write the entry**, or **one generic `AuditEntryRequestedIntegrationEvent`**: every domain would learn the log's model and format.
 - **The application logs.** The customer cannot query them, and the operations team decides how long they are kept.
 
-Instead, each producer publishes a **fact** (*a member's role changed*), and one audit module is the only place that knows how an entry is shaped.
+Instead, each producer publishes a **fact** (*a member's role changed*), and only the audit module knows how an entry is shaped.
 
 
 ## The path of an entry
@@ -52,34 +49,30 @@ request ── service ── aggregate raises XxxDomainEvent
            commit ── the bus delivers ── Blouppy.Audit handler ── AuditEntry ── commit
 ```
 
-The integration event is not sent to the broker right away: it is written as an **outbox row** ([Wolverine's](https://wolverinefx.net/guide/durability/), on PostgreSQL) in the same transaction as the change. If the change rolls back, the outbox row goes with it. If it commits, the message will be delivered, even if the broker is down for a minute. The entry is therefore **atomic with the change, but not synchronous with it**: it lands a moment later.
+The integration event is written as an **outbox row** ([Wolverine's](https://wolverinefx.net/guide/durability/), on PostgreSQL) in the same transaction as the change: if the change rolls back, the row goes with it; if it commits, the message will be delivered, even if the broker is down for a minute. The entry is **atomic with the change, but not synchronous with it**.
 
 
 ## Step 1: the aggregate says what happened
-A role change is an `Update` on `OrganizationMember`, which raises a domain event only when the role actually differs (guard clauses omitted):
+A role change is an `Update` on `OrganizationMember`, which raises a domain event only when the role actually differs (the body of `Update(OrganizationRole role)`, guard clauses omitted):
 
 ```csharp
-public void Update(
-    OrganizationRole role)
+if (Role == role)
 {
-    if (Role == role)
-    {
-        return;
-    }
-
-    var previousRole = Role;
-
-    Role = role;
-
-    AddDomainEvent(new OrganizationMemberRoleChangedDomainEvent(OrganizationId, MemberId, previousRole, role));
+    return;
 }
+
+var previousRole = Role;
+
+Role = role;
+
+AddDomainEvent(new OrganizationMemberRoleChangedDomainEvent(OrganizationId, MemberId, previousRole, role));
 ```
 
-Saving a form without changing anything records nothing, and that rule lives in the aggregate. `PublishDomainEventsInterceptor` dispatches the domain events in `SavingChangesAsync`, right **before** EF Core commits, so the handlers share the scoped `DbContext` and its transaction. It dispatches what the aggregate chose to raise; it never guesses an intent from columns.
+Saving a form without changing anything records nothing. `PublishDomainEventsInterceptor` dispatches the domain events in `SavingChangesAsync`, right **before** EF Core commits, so the handlers share the `DbContext` and its transaction; it dispatches what the aggregate raised, never an intent guessed from columns.
 
 
 ## Step 2: capture the actor where the change is made
-The consumer that writes the entry runs off the request, where there is no current user, so the actor must be captured **before** the message leaves. Here is `AuditActor` (one more static actor, for account erasure, omitted):
+The consumer that writes the entry runs off the request, where there is no current user, so the actor must be captured **before** the message leaves. Here is `AuditActor` (abridged):
 
 ```csharp
 public sealed record AuditActor(
@@ -88,11 +81,11 @@ public sealed record AuditActor(
     string? IpAddress = null,
     string? UserAgent = null)
 {
-    public static AuditActor System { get; } = new(UserId.ExternalIntegration, ActorChannel.App);
+    // ... AuditActor.System and AuditActor.Erasure, for changes nobody's request makes
 
     public static AuditActor Of(ICurrentUserService currentUserService)
     {
-        ArgumentNullException.ThrowIfNull(currentUserService);
+        // ... argument check
 
         var origin = currentUserService.Origin;
 
@@ -105,9 +98,9 @@ public sealed record AuditActor(
 }
 ```
 
-`Channel` says *how*: the browser (`App`), a token (`Api`) or the in-app assistant (`Assistant`). `IpAddress` and `UserAgent` say *from where*. `AuditActor.System` covers changes nobody's request makes, such as the payment provider's confirmations.
+`Channel` says *how*: the browser (`App`), a token (`Api`) or the in-app assistant (`Assistant`); `IpAddress` and `UserAgent` say *from where*.
 
-> **_Note:_**  The IP address comes from `X-Forwarded-For`, which the [forwarded headers middleware](https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer) only believes from the configured proxy networks (the gateway, or the load balancer in front), so a client cannot claim another address.
+The IP address comes from `X-Forwarded-For`, which the [forwarded headers middleware](https://learn.microsoft.com/aspnet/core/host-and-deploy/proxy-load-balancer) only believes from the configured proxy networks, so a client cannot claim another address.
 
 Every audited event implements one small contract, `IAuditableIntegrationEvent`, which exposes `Actor`, `OrganizationId` and `OccurredAt`:
 
@@ -121,30 +114,9 @@ public sealed record OrganizationMemberRoleChangedIntegrationEvent(
     DateTimeOffset OccurredAt) : IAuditableIntegrationEvent;
 ```
 
-`Actor` is a **required positional parameter**, so no publisher can forget it. The roles travel as `string` because the audit module may not reference the Organizations models.
+`Actor` is a **required positional parameter**, so no publisher can forget it, and the roles travel as `string` because the audit module may not reference the Organizations models.
 
-The producer's domain event handler, in the Organizations domain, publishes the fact:
-
-```csharp
-internal sealed class PublishIntegrationEventWhenOrganizationMemberRoleChangedDomainEventHandler(
-    IIntegrationEventPublisher<OrganizationMemberRoleChangedIntegrationEvent> integrationEventPublisher,
-    ICurrentUserService currentUserService)
-    : IDomainEventHandler<OrganizationMemberRoleChangedDomainEvent>
-{
-    public async Task HandleAsync(OrganizationMemberRoleChangedDomainEvent @event, CancellationToken cancellationToken)
-        => await integrationEventPublisher.PublishAsync(
-            new OrganizationMemberRoleChangedIntegrationEvent(
-                @event.OrganizationId,
-                @event.MemberId,
-                @event.PreviousRole.ToString(),
-                @event.Role.ToString(),
-                AuditActor.Of(currentUserService),
-                @event.DateOccurred.ToUniversalTime()),
-            cancellationToken);
-}
-```
-
-The Organizations domain knows nothing about audit entries.
+The producer's `PublishIntegrationEventWhenOrganizationMemberRoleChangedDomainEventHandler`, in the Organizations domain, injects `ICurrentUserService` and publishes the event with `AuditActor.Of(currentUserService)` and `@event.DateOccurred.ToUniversalTime()`. The Organizations domain knows nothing about audit entries.
 
 
 ## Step 3: the audit module writes the entry
@@ -159,9 +131,7 @@ internal sealed class RecordWhenOrganizationMemberRoleChangedIntegrationEventHan
 
     public static IReadOnlyCollection<AuditEventType> RecordedEventTypes { get; } = [AuditEventType.MemberRoleChanged];
 
-    public Task HandleAsync(
-        OrganizationMemberRoleChangedIntegrationEvent @event,
-        CancellationToken cancellationToken = default)
+    public Task HandleAsync(OrganizationMemberRoleChangedIntegrationEvent @event, CancellationToken cancellationToken = default)
         => recorder.RecordAsync(
             @event,
             AuditEventType.MemberRoleChanged,
@@ -171,7 +141,7 @@ internal sealed class RecordWhenOrganizationMemberRoleChangedIntegrationEventHan
 }
 ```
 
-The `changes` are an **allow-list in code**: a field not named here is not written. A property added to the event later (a token for an e-mail, say) stays out of the log until somebody decides it belongs there. That is how secrets stay out. `RecordedEventTypes` is for the coverage test, further down.
+The `changes` are an **allow-list in code**: a property added to the event later (a token for an e-mail, say) stays out of the log until somebody names it here, which is how secrets stay out. `RecordedEventTypes` is for the coverage test, further down.
 
 The shared part lives in `AuditEntryRecorder` (abridged):
 
@@ -189,14 +159,7 @@ var entry = new AuditEntry(
     organizationId: organizationId,
     occurredAt: @event.OccurredAt,
     eventType: eventType,
-    actorId: @event.Actor.UserId,
-    channel: @event.Actor.Channel,
-    ipAddress: @event.Actor.IpAddress,
-    userAgent: @event.Actor.UserAgent,
-    targetType: target.Type,
-    targetId: target.Id,
-    targetLabel: target.Label, // cut to AuditRules.MaxTargetLabelLength
-    changes: changes,
+    // ... the actor's id, channel, IP address and user agent; the target's type, id and label; the changes
     sourceMessageId: messageId);
 
 await auditEntriesRepository.AddAsync(entry, cancellationToken);
@@ -204,18 +167,16 @@ await auditEntriesRepository.AddAsync(entry, cancellationToken);
 await unitOfWork.CommitAsync(cancellationToken);
 ```
 
-An outbox gives **at-least-once** delivery, so the consumer must be idempotent. The recorder checks the message id first, and a unique index on `(SourceMessageId, OrganizationId)` refuses what two concurrent deliveries might still race to insert. [Idempotent message handlers](https://www.blouppy.com/blog/2026-08-20-idempotent-message-handlers-with-deterministic-ids/) covers this technique in more depth. `occurredAt` is the **event's** time, not the insert's, so a late delivery still sorts where it happened.
+An outbox gives **at-least-once** delivery, so the recorder checks the message id first, and a unique index on `(SourceMessageId, OrganizationId)` refuses what two concurrent deliveries might still race to insert (see [idempotent message handlers](https://www.blouppy.com/blog/2026-08-20-idempotent-message-handlers-with-deterministic-ids/)). `occurredAt` is the **event's** time, so a late delivery still sorts where it happened.
 
-
-## The shape of an entry
-The constructor above lists every column of the `audit_entries` row. `AuditEntry` has no method that changes it: it is append-only by design.
+`AuditEntry` has no method that changes it: it is append-only by design.
 - **A person is never a label.** The actor is an id, resolved to a name at read time: a renamed person reads under their current name, and an erased account reads as *Deleted user*.
-- **A target that may disappear keeps a snapshot.** A deleted workspace's name is stored in `TargetLabel`.
+- **A target that may disappear keeps a snapshot**, such as a deleted workspace's name, in `TargetLabel`.
 - **`Changes` is JSON**, `[{ "field", "from", "to" }]`, stored as [`jsonb`](https://www.npgsql.org/efcore/mapping/json.html) in PostgreSQL.
 
 
 ## Nothing forgotten: the coverage test
-Now the third lie: the feature nobody wired to the log. Every write a driving port offers (every method of an `I…Service` in a domain's `.Abstractions` project) must be **declared**, as audited or as not audited with a reason:
+The third lie is the feature nobody wired to the log. Every write a driving port offers (every method of an `I…Service` in a domain's `.Abstractions` project) must be **declared**, as audited or as not audited with a reason:
 
 ```csharp
 internal static class AuditCoverage
@@ -229,9 +190,7 @@ internal static class AuditCoverage
     public static readonly IReadOnlyDictionary<string, Row> Rows = new Dictionary<string, Row>
     {
         ["IOrganizationMembersService.TryUpdateAsync"] = new Audited(AuditEventType.MemberRoleChanged),
-        ["IOrganizationMembersService.TryDeleteAsync"] = new Audited(AuditEventType.MemberRemoved),
         ["IOrganizationsService.TryDeleteAsync"] = new NotAudited("The organization's audit log is deleted with it: there is no log left to record it in"),
-        ["IWorkspacesService.TryDeleteAsync"] = new Audited(AuditEventType.WorkspaceDeleted),
         ["IUserSettingsService.TryUpdateAsync"] = new NotAudited(Personal),
         // ...
     };
@@ -260,48 +219,23 @@ public void Every_write_of_a_driving_port_should_have_a_row()
         .Should()
         .BeEmpty($"each write is audited or excluded with a reason in AuditCoverage, and these say neither: {string.Join(", ", missing)}");
 }
-
-// A prefix only when a word follows it: CancelAsync is not a Can.
-private static bool IsRead(string methodName)
-    => ReadPrefixes.Any(prefix =>
-        methodName.Length > prefix.Length
-        && methodName.StartsWith(prefix, StringComparison.Ordinal)
-        && char.IsUpper(methodName[prefix.Length]));
 ```
 
-- **Anything not named like a read is a write.** A misnamed read costs one `NotAudited` row; a misnamed write would cost a missing entry.
-- **The sanity check** (`Contain("IOrganizationMembersService.TryUpdateAsync")`) makes sure the scan finds the ports at all. A test that scans nothing would pass forever.
+- **Anything not named like a read is a write**: a method is a read only when one of `ReadPrefixes` is followed by an upper-case letter (`CancelAsync` is not a `Can`). A misnamed read costs one `NotAudited` row; a misnamed write would cost a missing entry.
+- **The sanity check** (`Contain(...)`) makes sure the scan finds the ports at all: a test that scans nothing would pass forever.
 
-When someone adds `IWebhooksService.TryRotateSecretAsync`, the build stays red until they decide, in the pull request, whether an administrator would be asked about it.
-
-The same test class holds the other side of the contract:
+A new `IWebhooksService.TryRotateSecretAsync` keeps the build red until its author decides, in the pull request, whether an administrator would be asked about it. The same test class holds the other side of the contract:
 - A row for a renamed or deleted method fails (`Every_row_should_name_a_write_that_exists`).
 - Every `IAuditableIntegrationEvent` needs a handler in the audit module, and the handlers' `RecordedEventTypes` must cover every audited row, so a row cannot claim an entry nobody writes.
-- `Only_the_module_its_repository_and_erasure_should_reach_an_audit_entry`: with [NetArchTest](https://www.nuget.org/packages/NetArchTest.Rules), only the audit module, its repository, the `DbContext` and the account erasure may depend on `AuditEntry`. Append-only is held at the boundary.
+- With [NetArchTest](https://www.nuget.org/packages/NetArchTest.Rules), only the audit module, its repository, the `DbContext` and the account erasure may depend on `AuditEntry`, which holds append-only at the boundary.
 
 
 ## Retention and purge
-An audit log that grows forever is a liability too. Entries are kept 13 months (`AuditRules.RetentionInMonths`). `IAuditLogService.PurgeExpiredAsync` calls `DeleteOccurredBeforeAsync(retainedSince, AuditRules.PurgeBatchSize, cancellationToken)` in a `do … while` loop until a batch comes back short. The repository deletes the 5,000 oldest rows per statement with [`ExecuteDeleteAsync`](https://learn.microsoft.com/ef/core/saving/execute-insert-update-delete), on an index on `OccurredAt`, so there is no giant `DELETE`.
-
-Once a day, `AuditEntryPurgeJob`, a Quartz.NET `IJob` marked `[DisallowConcurrentExecution]` on a clustered store, calls it from a single replica. `IAuditLogService.PurgeExpiredAsync` is itself a write of a driving port, so it has its own row in `AuditCoverage`: `NotAudited(Retention)`.
+Entries are kept 13 months (`AuditRules.RetentionInMonths`). Once a day, a Quartz.NET job marked `[DisallowConcurrentExecution]` calls `IAuditLogService.PurgeExpiredAsync`, which deletes the 5,000 oldest expired rows per statement with [`ExecuteDeleteAsync`](https://learn.microsoft.com/ef/core/saving/execute-insert-update-delete) until a batch comes back short: no giant `DELETE`. Being a write of a driving port, the purge has its own `AuditCoverage` row, `NotAudited(Retention)`.
 
 
 ## The export is an entry too
-Customers import the log into their own tools, so the CSV export uses stable codes as headers (`occurred_at`, `event_type`, ...) rather than translated labels, and every cell goes through a [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection) guard, `CsvCells.Neutralize`. The order in the controller matters:
-
-```csharp
-// Recorded before a byte leaves: an export cut short has still taken the log out of Blouppy.
-await auditLogService.RecordExportAsync(AuditLogMapper.MapToExport(filter), cancellationToken);
-await unitOfWork.CommitAsync(cancellationToken);
-
-// ...the file name...
-
-return this.GeneratedFileDownload(
-    auditLogFileGenerator,
-    AuditLogMapper.MapToFile(fileBaseName, auditLogApiQueryService.StreamAsync(filter, cancellationToken)));
-```
-
-The export publishes `AuditLogExportedIntegrationEvent` with the filters that were set, commits, and only then streams the file. Reading the page is not recorded; taking the data away is.
+The CSV export uses stable codes as headers (`occurred_at`, `event_type`, ...), since customers import it into their tools, and every cell goes through a [CSV injection](https://owasp.org/www-community/attacks/CSV_Injection) guard, `CsvCells.Neutralize`. The controller calls `auditLogService.RecordExportAsync(...)` and commits **before** it streams the file, because "an export cut short has still taken the log out": the export publishes `AuditLogExportedIntegrationEvent` with the filters set. Reading the page is not recorded; taking the data away is.
 
 
 ## Conclusion

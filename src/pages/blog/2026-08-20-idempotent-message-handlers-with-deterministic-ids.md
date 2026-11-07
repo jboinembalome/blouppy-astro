@@ -22,23 +22,15 @@ tags:
   - PostgreSQL
 ---
 
-A message broker rarely promises "exactly once". It promises **at least once**: if a handler throws, the message comes back, as a whole. When several handlers react to the same event, a failure in *any* of them replays *all* of them. A handler that inserts a row with `Guid.NewGuid()` therefore writes a duplicate on every retry, even though it succeeded the first time.
+A message broker promises **at least once**, not exactly once: if a handler throws, the message comes back, and a failure in *any* of its handlers replays *all* of them. A handler that inserts a row with `Guid.NewGuid()` writes a duplicate on every retry, even though it succeeded the first time.
 
 In this article, we will make such a handler [idempotent](https://www.enterpriseintegrationpatterns.com/patterns/messaging/IdempotentReceiver.html) without a locking table or a deduplication cache: each row's id is derived from the bus message's id, so a retry recomputes the same ids, finds its rows already there, and adds nothing.
 
 
 ## Why the handler runs again
-The retry policy decides how many times a handler sees the same message. In the code base this comes from, the bus is [Wolverine](https://wolverinefx.net/), and the policy is plain options in `MessagingServiceOptions`:
+The retry policy decides how many times a handler sees the same message. In the code base this comes from, the bus is [Wolverine](https://wolverinefx.net/), and the policy is plain options in `MessagingServiceOptions`: `RetryLimit` (5), `MinRetryInterval` (1 s), `RetryIntervalDelta` (5 s) and `MaxRetryInterval` (1 min), turned into pauses by:
 
 ```csharp
-public int RetryLimit { get; set; } = 5;
-
-public TimeSpan MinRetryInterval { get; set; } = TimeSpan.FromSeconds(1);
-
-public TimeSpan MaxRetryInterval { get; set; } = TimeSpan.FromMinutes(1);
-
-public TimeSpan RetryIntervalDelta { get; set; } = TimeSpan.FromSeconds(5);
-
 public IReadOnlyList<TimeSpan> RetryIntervals()
     => Enumerable.Range(0, RetryLimit)
         .Select(attempt => MinRetryInterval + RetryIntervalDelta * (Math.Pow(2, attempt) - 1))
@@ -57,7 +49,7 @@ wolverine
 
 With the defaults, the pauses are **1 s, 6 s, 16 s, 36 s and 1 min**, so one message can be handled **up to six times** before it lands in the error queue.
 
-The retries are not only triggered by our own handler. One integration event usually has several handlers, from several modules, and the consumer runs every one of them. Here is the heart of `IntegrationEventDispatcher` (logging omitted):
+One integration event usually has several handlers, from several modules, and the consumer runs every one of them. Here is the heart of `IntegrationEventDispatcher` (logging omitted):
 
 ```csharp
 foreach (var handler in handlers)
@@ -81,15 +73,13 @@ if (failures is not null)
 }
 ```
 
-Failures are aggregated rather than short-circuited, so one broken handler does not stop the others. The price is in the comment: on a retry, **every** handler runs again. For example, an `organization.member_removed` event is handled by the Workspaces domain (which drops the member's team memberships) and by the Webhooks module (which queues one delivery per subscribed webhook). If the Workspaces handler fails once, the Webhooks handler runs twice.
+Failures are aggregated, so one broken handler does not stop the others, but on a retry **every** handler runs again. An `organization.member_removed` event, for example, is handled by the Workspaces domain and by the Webhooks module: if the Workspaces handler fails once, the Webhooks handler queues its deliveries twice.
 
 > **_Note:_**  Wolverine's [durable inbox](https://wolverinefx.net/guide/durability/idempotency.html) discards a message the broker delivers twice, but a retry after a failure is meant to run the handlers again. Whatever the transport, the fix belongs in the handler.
 
 
 ## The one thing that stays the same: the message id
-A redelivered message keeps its payload, and also its **envelope id**: Wolverine keeps the same id for every redelivery. An integration test of the messaging adapter, `ConsumerTests`, asserts it: "every redelivery keeps the message's id, which handlers derive their idempotency keys from".
-
-The message id is our idempotency key. A domain handler should not depend on Wolverine to read it, so a small port in `Blouppy.Infrastructure.Messaging.Abstractions` exposes it:
+Wolverine keeps the same **envelope id** for every redelivery, which the messaging adapter's `ConsumerTests` assert. That id is our idempotency key. A domain handler should not depend on Wolverine to read it, so a small port in `Blouppy.Infrastructure.Messaging.Abstractions` exposes it:
 
 ```csharp
 namespace Blouppy.Infrastructure.Messaging.Abstractions;
@@ -113,7 +103,7 @@ internal sealed class IntegrationEventContext(
 }
 ```
 
-It is registered as **scoped** (`services.TryAddScoped<IIntegrationEventContext, IntegrationEventContext>()`). The consumer creates a DI scope per delivery and primes the scoped `IMessageContext` with it, so inside a consumer `Envelope.Id` is the message id. Outside one (a controller, a background job), there is no envelope and `MessageId` is `null`: there is no message to be idempotent against.
+It is registered as **scoped**. The consumer creates a DI scope per delivery and primes the scoped `IMessageContext` with it, so inside a consumer `Envelope.Id` is the message id; outside one (a controller, a job), `MessageId` is `null`.
 
 
 ## Derive the row id from the message id
@@ -137,9 +127,9 @@ internal static WebhookDeliveryId CreateDeliveryId(Guid? messageId, WebhookId we
 - **The input is the pair (message id, webhook id)**, because one message fans out to several webhooks, and each needs its own row.
 - [`SHA256.HashData`](https://learn.microsoft.com/dotnet/api/system.security.cryptography.sha256.hashdata) turns the pair into 32 bytes that are always the same for the same input. A hash rather than the raw string keeps the id fixed-size and opaque, which matters since subscribers see it.
 - [`new Guid(hash.AsSpan(0, 16))`](https://learn.microsoft.com/dotnet/api/system.guid.-ctor) keeps the first 16 bytes. Formatted with `"N"`, that is 32 hexadecimal characters, the same shape as `WebhookDeliveryId.Create()` (`Guid.NewGuid().ToString("N")`) and the column's `MaxLength` of 32.
-- **No message, no determinism.** Without a message id, the dispatcher falls back to a random id: there is nothing to deduplicate against, and inventing a key would be worse than having none.
+- **No message, no determinism.** Without a message id, there is nothing to deduplicate against, so the dispatcher falls back to a random id.
 
-On the database side, the key must not be generated there: in `WebhookDeliveryConfiguration`, the primary key is marked [`ValueGeneratedNever()`](https://learn.microsoft.com/ef/core/modeling/generated-properties).
+The database must not generate the key: `WebhookDeliveryConfiguration` marks it [`ValueGeneratedNever()`](https://learn.microsoft.com/ef/core/modeling/generated-properties).
 
 
 ## Skip what is already written
@@ -200,35 +190,11 @@ What if two attempts run at the same time? The check-then-insert is not atomic, 
 
 
 ## Give the same id to the subscriber
-Idempotency does not stop at our database. A webhook subscriber also lives in an at-least-once world: our sender retries failed attempts, and a person can redeliver by hand. The subscriber needs a key too, and we already have a stable one: the dispatcher writes `deliveryId.Value` into the `Delivery` property of the `WebhookEventEnvelope` that is signed and sent. The same value travels in the `X-Blouppy-Delivery` header, but the envelope repeats it because "headers are not signed". A subscriber deduplicates on `delivery` and can trust it, since the signature covers it. [Signed outgoing webhooks in ASP.NET Core](https://www.blouppy.com/blog/2026-09-19-signed-outgoing-webhooks-in-aspnet-core/) covers the signature.
+A webhook subscriber also lives in an at-least-once world: our sender retries, and a person can redeliver by hand. The dispatcher writes `deliveryId.Value` into the `Delivery` property of the `WebhookEventEnvelope` that is signed and sent. The same value travels in the `X-Blouppy-Delivery` header, but the envelope repeats it because "headers are not signed". A subscriber deduplicates on `delivery` and can trust it, since the signature covers it. [Signed outgoing webhooks in ASP.NET Core](https://www.blouppy.com/blog/2026-09-19-signed-outgoing-webhooks-in-aspnet-core/) covers the signature.
 
 
 ## Test it
-A pure function is trivial to test. Here is one of the unit tests in `WebhookEventDispatcherTests`:
-
-```csharp
-[Fact]
-public void Should_derive_the_same_delivery_id_when_the_message_and_webhook_are_the_same()
-{
-    // Arrange
-    var messageId = Guid.NewGuid();
-
-    // Act
-    var first = WebhookEventDispatcher.CreateDeliveryId(messageId, new WebhookId(1));
-    var second = WebhookEventDispatcher.CreateDeliveryId(messageId, new WebhookId(1));
-
-    // Assert
-    second
-        .Should()
-        .Be(first);
-
-    first.Value
-        .Should()
-        .HaveLength(WebhookDeliveryId.MaxLength);
-}
-```
-
-Its siblings check that two messages give two ids and that no message gives a random one. The behaviour test, `Should_not_queue_a_second_delivery_when_the_same_message_is_handled_again`, mocks `IIntegrationEventContext` to return a fixed message id, dispatches twice, and asserts that a single row was added and that the second run neither published nor committed. No broker, no Wolverine, just a mocked `MessageId`.
+A pure function is trivial to test: `WebhookEventDispatcherTests` asserts that the same message and webhook give the same 32-character id, that two messages give two ids, and that no message gives a random one. The behaviour test, `Should_not_queue_a_second_delivery_when_the_same_message_is_handled_again`, mocks `IIntegrationEventContext` to return a fixed message id, dispatches twice, and asserts that a single row was added and that the second run neither published nor committed. No broker, no Wolverine, just a mocked `MessageId`.
 
 
 ## Other ways to be idempotent
@@ -262,9 +228,9 @@ Applying the same event twice gives the same row, so no key is needed. The times
 
 
 ## Conclusion
-With at-least-once delivery, a handler runs again whenever *any* handler for the same message fails. The message id is the one thing that stays the same across retries, and a small scoped port, `IIntegrationEventContext`, hands it to the domain without leaking the bus library.
+With at-least-once delivery, a handler runs again whenever *any* handler for the same message fails. The message id stays the same across retries, and `IIntegrationEventContext` hands it to the domain without leaking the bus library.
 
-The recipe fits in a few lines: hash the message id with whatever makes each row unique, keep 16 bytes as the row's id, find the existing ids in one query, and write only the missing rows. Fall back to a random id when there is no message, and send the same id to the outside world so the next hop can deduplicate too.
+Hash the message id with whatever makes each row unique, keep 16 bytes as the row's id, find the existing ids in one query, write only the missing rows, and send the same id onward so the next hop can deduplicate too.
 
 This is how the webhook dispatch of [Blouppy Starter](https://starter.blouppy.com/) stays idempotent across retries; the [Webhooks module page](https://docs.starter.blouppy.com/modules/webhooks/) describes the full delivery pipeline.
 

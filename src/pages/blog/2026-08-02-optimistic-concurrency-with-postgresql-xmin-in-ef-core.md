@@ -21,15 +21,13 @@ tags:
   - Concurrency
 ---
 
-Some rows have more than one writer. Take an outgoing webhook delivery waiting for its next attempt: a scheduled sweep wants to re-queue it, a person clicks **Redeliver** at the same moment, and the dispatcher that created the row has already queued it once. If two of them win, the subscriber receives the same event twice. If the last one silently overwrites the others, nobody knows which attempt is real.
-
-A `SELECT ... FOR UPDATE` lock would work, but every writer must remember to take it, and a slow writer blocks the others. The lighter way is to let everyone try and make the database refuse every commit but the first.
+Some rows have more than one writer. A webhook delivery waiting for its next attempt can be re-queued by a scheduled sweep while a person clicks **Redeliver**: if both win, the subscriber receives the event twice. Rather than a `SELECT ... FOR UPDATE` lock every writer must remember, we let everyone try and make the database refuse every commit but the first.
 
 In this article, we will use PostgreSQL's `xmin` system column as an [optimistic concurrency](https://learn.microsoft.com/ef/core/saving/concurrency) token in EF Core, add a **claim** and a **lease** on top of it, and see how a failed commit also rolls back the messages written in the same transaction.
 
 
 ## What is xmin?
-Every PostgreSQL row has hidden [system columns](https://www.postgresql.org/docs/current/ddl-system-columns.html). One of them, `xmin`, holds the id of the transaction that wrote the current version of the row. Each `UPDATE` creates a new row version, so `xmin` changes every time the row changes. It is a row version that every table already has: no column to add, no trigger, no value to bump in our code.
+Every PostgreSQL row has hidden [system columns](https://www.postgresql.org/docs/current/ddl-system-columns.html). One of them, `xmin`, holds the id of the transaction that wrote the current version of the row. Each `UPDATE` creates a new row version, so `xmin` changes every time the row changes: a row version every table already has.
 
 Optimistic concurrency then works like this:
 - EF Core reads the row and remembers its `xmin`.
@@ -57,7 +55,7 @@ builder.Property<uint>(VersionPropertyName)
     .IsRowVersion();
 ```
 
-- `Property<uint>(VersionPropertyName)` declares a [shadow property](https://learn.microsoft.com/ef/core/modeling/shadow-properties): it exists in the EF model, not on the entity. `xmin` is a storage detail, so the domain class `WebhookDelivery` knows nothing about it.
+- `Property<uint>(VersionPropertyName)` declares a [shadow property](https://learn.microsoft.com/ef/core/modeling/shadow-properties), in the EF model but not on the entity: the domain class knows nothing about `xmin`.
 - `.HasColumnType("xid")` is PostgreSQL's transaction id type, a `uint`; `.IsRowVersion()` says the database generates it on every update and that it is a concurrency token.
 - `.HasColumnName("xmin")` is the critical line. The code base uses a snake-case naming convention, so without it the property `Version` becomes a new `version` column that nothing ever updates. The check would compare a value that never changes, and always pass.
 
@@ -93,37 +91,29 @@ The lease, `WebhookRules.ClaimLease`, is two minutes: longer than the ten-second
 
 
 ## Claim and publish in one commit
-The sweep job calls `IWebhookDeliveryService.DispatchDueAsync` (logging omitted):
+The sweep job calls `IWebhookDeliveryService.DispatchDueAsync` (abridged):
 
 ```csharp
-public async Task<int> DispatchDueAsync(
-    int maximumCount,
-    CancellationToken cancellationToken = default)
+var due = await webhookDeliveriesRepository.GetDueAsync(
+    DateTimeOffsetProvider.UtcNow,
+    maximumCount,
+    cancellationToken);
+
+// ... returns 0 when nothing is due
+
+foreach (var delivery in due)
 {
-    var due = await webhookDeliveriesRepository.GetDueAsync(
-        DateTimeOffsetProvider.UtcNow,
-        maximumCount,
+    var claimId = delivery.Claim();
+
+    await deliveryRequestedPublisher.PublishAsync(
+        new WebhookDeliveryRequestedIntegrationEvent(delivery.Id, claimId),
         cancellationToken);
-
-    if (due.Count == 0)
-    {
-        return 0;
-    }
-
-    foreach (var delivery in due)
-    {
-        var claimId = delivery.Claim();
-
-        await deliveryRequestedPublisher.PublishAsync(
-            new WebhookDeliveryRequestedIntegrationEvent(delivery.Id, claimId),
-            cancellationToken);
-    }
-
-    // Claims and outbox messages commit together; a replica that claimed the same rows first makes this throw and roll back.
-    await unitOfWork.CommitAsync(cancellationToken);
-
-    return due.Count;
 }
+
+// Claims and outbox messages commit together; a replica that claimed the same rows first makes this throw and roll back.
+await unitOfWork.CommitAsync(cancellationToken);
+
+return due.Count;
 ```
 
 Each due row is claimed, and an event carrying the **new** `ClaimId` is published. The publish does not reach RabbitMQ yet: it joins the [Wolverine transactional outbox](https://wolverinefx.net/guide/durability/efcore/), as a row in the same PostgreSQL transaction as the claims. If a redelivery claimed one of these rows in between, its `UPDATE ... AND xmin = ...` matches nothing, EF Core throws, and the **whole** transaction rolls back: the claims *and* the outbox messages. A losing writer leaves nothing behind.
@@ -167,7 +157,7 @@ if (!delivery.IsClaimedBy(claimId))
 }
 ```
 
-A message is stale when the broker delivered it twice, or when a sweep or a redelivery re-claimed the row since. Either way, a newer message holds the current token. A stale copy costs one read, not one HTTP request.
+A message is stale when the broker delivered it twice or the row was re-claimed since; either way, a newer message holds the current token, and the stale copy costs one read, not one HTTP request.
 
 After the attempt, `MarkAsSucceeded` or `MarkAsFailed` clears `ClaimId`, and the result is committed with the same `xmin` check, so a writer that touched the row in between makes this commit fail instead of being overwritten.
 
@@ -178,7 +168,7 @@ Each mechanism has one role:
 
 
 ## Testing it on a real database
-The in-memory provider knows nothing about `xmin`, so this needs PostgreSQL. The integration test `Should_refuse_the_second_claim_when_two_replicas_claim_the_same_row`, in `WebhookDeliveriesRepositoryTests`, simulates two replicas with two `DbContext` instances (the seeding of a due delivery is omitted):
+The in-memory provider knows nothing about `xmin`, so this needs PostgreSQL. The integration test `Should_refuse_the_second_claim_when_two_replicas_claim_the_same_row`, in `WebhookDeliveriesRepositoryTests`, simulates two replicas with two `DbContext` instances (abridged):
 
 ```csharp
 await using var otherReplica = _databaseFixture.CreateBlouppyDbContext();
@@ -186,8 +176,7 @@ await using var otherReplica = _databaseFixture.CreateBlouppyDbContext();
 var ours = await ActDbContext.WebhookDeliveries
     .SingleAsync(x => x.Id == delivery.Id, TestContext.Current.CancellationToken);
 
-var theirs = await otherReplica.WebhookDeliveries
-    .SingleAsync(x => x.Id == delivery.Id, TestContext.Current.CancellationToken);
+var theirs = // ... the same row, read through otherReplica
 
 theirs.Claim();
 await otherReplica.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -201,15 +190,10 @@ var act = () => ActDbContext.SaveChangesAsync(TestContext.Current.CancellationTo
 await act.Should()
     .ThrowAsync<DbUpdateConcurrencyException>();
 
-var stored = await AssertDbContext.WebhookDeliveries
-    .SingleAsync(x => x.Id == delivery.Id, TestContext.Current.CancellationToken);
-
-stored.ClaimId
-    .Should()
-    .Be(theirs.ClaimId);
+// ... and a fresh context reads theirs.ClaimId as the stored token
 ```
 
-The other replica commits first, ours fails, and a fresh context confirms that the stored token is the winner's. The test also catches the mapping mistake described earlier: with a real `version` column, both saves would succeed.
+The other replica commits first, ours fails, and the winner's token is the one stored. The test also catches the mapping mistake described earlier: with a real `version` column, both saves would succeed.
 
 
 ## When xmin is not the right token
@@ -221,13 +205,11 @@ private static bool IsAssistantProposalDecidedTwice(Exception exception)
        && concurrency.Entries.Any(x => x.Entity is AssistantProposal);
 ```
 
-`DbUpdateConcurrencyException.Entries` lists the entries that failed, so one global handler can tell "this proposal was already decided" from any other conflict.
+`DbUpdateConcurrencyException.Entries` lists the failed entries, so one global handler can tell this conflict from any other.
 
 
 ## Conclusion
-Optimistic concurrency lets every writer read freely and makes the database pick one winner at commit time. With PostgreSQL, the row version already exists: map a `uint` shadow property to `xmin` with `IsRowVersion()`, name the column explicitly, and EF Core does the rest.
-
-When the winner acts later through a message, the token is not enough. A claim token in the message lets a consumer skip anything stale, a lease lets a forgotten claim be taken back, and one transaction for the claims and the outbox means a losing writer leaves nothing behind.
+With PostgreSQL, the row version already exists: map a `uint` shadow property to `xmin` with `IsRowVersion()`, name the column explicitly, and the database picks one winner at commit time. When the winner acts later through a message, add a claim token the consumer checks, a lease that lets a forgotten claim be taken back, and one transaction for the claims and the outbox.
 
 This is how webhook deliveries are claimed and sent in [Blouppy Starter](https://starter.blouppy.com/). The [webhooks documentation](https://docs.starter.blouppy.com/modules/webhooks/) covers the rest of the delivery pipeline.
 

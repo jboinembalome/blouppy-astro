@@ -23,15 +23,11 @@ tags:
 
 A [Content Security Policy](https://developer.mozilla.org/docs/Web/HTTP/Guides/CSP) (CSP) is the header that tells the browser what a page may load and run. Done well, it turns an injected `<script>` into a console error instead of a breach. Done badly, it is `default-src *`, or a strict policy copied from a blog post that leaves the Angular app blank on the first deploy.
 
-The hard part is knowing which relaxations Angular really forces on us, and how to roll a change out without breaking production. In this article, we will build a small immutable policy type in ASP.NET Core, write the header from a middleware at the front of the pipeline, go through a real policy for an Angular SPA, and see what the front end had to give up to live under it.
+In this article, we will build a small immutable policy type in ASP.NET Core, write the header from a middleware at the front of the pipeline, go through a real policy for an Angular SPA, and see what the front end had to give up to live under it.
 
 
 ## Where the policy has to be sent
-The application this comes from serves the Angular bundle through a gateway, a YARP-based BFF with [its own article](https://www.blouppy.com/blog/2026-05-10-keep-the-access-token-out-of-the-browser-bff-angular-yarp/). The browser loads everything from **one origin, the gateway**, so that is where the policy that matters is sent.
-
-The API behind it sends its own, stricter policy. The browser never loads the SPA from the API, but an API response can still render in a tab (the Scalar reference UI, an error page), and neither host should ever be framed by someone else.
-
-Both policies are built from the same pieces in the shared service defaults: an immutable `ContentSecurityPolicy` type, its `ContentSecurityPolicyOptions`, a `ContentSecurityPolicyMiddleware`, and two extension methods, `AddContentSecurityPolicy()` and `UseContentSecurityPolicy()`.
+The application this comes from serves the Angular bundle through a gateway, a YARP-based BFF with [its own article](https://www.blouppy.com/blog/2026-05-10-keep-the-access-token-out-of-the-browser-bff-angular-yarp/). The browser loads everything from **one origin, the gateway**, so that is where the policy that matters is sent. The API sends its own, stricter one, because a response can still render in a tab (the Scalar reference UI, an error page) and neither host should be framed. Both are built from the same pieces in the shared service defaults: an immutable `ContentSecurityPolicy` type, its `ContentSecurityPolicyOptions`, a `ContentSecurityPolicyMiddleware`, and two extension methods, `AddContentSecurityPolicy()` and `UseContentSecurityPolicy()`.
 
 ## An immutable policy type
 `ContentSecurityPolicy` is an ordered list of directives. Sources are written exactly as they appear in the header, quotes included (`'self'`, `'none'`), so the code reads the way the browser reports a violation. `Create()` starts an empty policy, and `With(directive, params string[] sources)` returns a **new** policy, so the static policy a host declares cannot be mutated at runtime. Declaring a directive twice **appends** to it, which lets configuration widen a policy without replacing it.
@@ -48,10 +44,7 @@ public string ToHeaderValue(string? scriptNonce = null)
 
     var index = IndexOf(_directives, ScriptSourceDirective);
 
-    if (index < 0)
-    {
-        return _headerValue ??= Render(_directives);
-    }
+    // ... returns the cached value when index < 0 (no script-src)
 
     var directives = new List<Directive>(_directives);
 
@@ -61,9 +54,9 @@ public string ToHeaderValue(string? scriptNonce = null)
 }
 ```
 
-- Without a nonce, the value is rendered once and cached in `_headerValue`.
-- The nonce is only added when the policy declares `script-src`. Adding it to a policy that falls back to `default-src` would **narrow** what scripts may run instead of widening it.
-- A nonce holding anything but base64 characters is dropped. Otherwise a value like `nonce'; script-src *` could close the directive and rewrite the rest of the header.
+- Without a nonce, the value is rendered once and cached.
+- The nonce is only added when the policy declares `script-src`: added to a policy that falls back to `default-src`, it would **narrow** what scripts may run.
+- A nonce holding anything but base64 characters is dropped, or a value like `nonce'; script-src *` could rewrite the rest of the header.
 
 
 ## The middleware and its options
@@ -95,21 +88,15 @@ internal sealed class ContentSecurityPolicyMiddleware(
         return Task.CompletedTask;
     }
 
-    private string? GetNonce(HttpContext context)
-        => header.NonceHttpContextItemKey is { } key && context.Items.TryGetValue(key, out var nonce)
-            ? nonce as string
-            : null;
+    // ... GetNonce reads HttpContext.Items[header.NonceHttpContextItemKey]
 }
 ```
 
-The header is written from [`Response.OnStarting`](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.http.httpresponse.onstarting) rather than on the way in, for two reasons:
-- **A response that already carries a policy keeps it.** The gateway proxies API responses that send their own, stricter policy, and must not replace it with a looser one.
-- **The endpoint has run by then**, so a per-request nonce it published in `HttpContext.Items` is available.
+The header is written from [`Response.OnStarting`](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.http.httpresponse.onstarting) rather than on the way in, for two reasons: **a response that already carries a policy keeps it** (the gateway proxies API responses with their own, stricter one), and **the endpoint has run by then**, so a nonce it published in `HttpContext.Items` is available.
 
 `UseContentSecurityPolicy(policy, nonceHttpContextItemKey)` builds the header once, at startup. It does nothing when `Enabled` is false, widens the policy with `WithAdditionalSources(options.AdditionalSources)` and `WithReportUri(options.ReportUri)`, picks [`Content-Security-Policy-Report-Only`](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only) when `ReportOnly` is set, and registers the middleware.
 
-## Register it first
-The [middleware order](https://learn.microsoft.com/aspnet/core/fundamentals/middleware/) matters: after routing or the exception handler, redirects, 404s and error pages would leave without a policy. Here is the API:
+It must be registered first: in a later [middleware position](https://learn.microsoft.com/aspnet/core/fundamentals/middleware/), after routing or the exception handler, redirects, 404s and error pages would leave without a policy. Here is the API:
 
 ```csharp
 // First in the pipeline: the policy is on the redirects, the 404s and the error
@@ -119,7 +106,7 @@ app.UseContentSecurityPolicy(
     nonceHttpContextItemKey: ScalarOptions.NonceHttpContextItemKey);
 ```
 
-On the gateway, only the client-origin forwarding comes before it, since it touches no response; then `app.UseContentSecurityPolicy(ContentSecurityPolicies.SinglePageApplication)`. Both hosts call `services.AddContentSecurityPolicy(configuration)` to bind the options.
+On the gateway, only the client-origin forwarding, which touches no response, comes before `app.UseContentSecurityPolicy(ContentSecurityPolicies.SinglePageApplication)`.
 
 
 ## The gateway policy, line by line
@@ -140,22 +127,15 @@ public static ContentSecurityPolicy SinglePageApplication { get; } = ContentSecu
     .With("frame-ancestors", "'none'");
 ```
 
-- `default-src 'self'`: anything not listed falls back to the gateway's origin.
-- `script-src 'self'`: only the bundle's own `<script src>` files run. No `'unsafe-inline'`, no `'unsafe-eval'`, no CDN. This is the line that stops XSS.
-- `style-src 'self' 'unsafe-inline'` and `img-src ... https:`: the two deliberate concessions, explained below.
-- `connect-src 'self'`: `fetch`, XHR and `EventSource` only reach the gateway. With a BFF, the API, the session endpoints and the event stream are all on that origin anyway.
-- `object-src 'none'` blocks plugins, `base-uri 'self'` stops an injected `<base>` tag from redirecting relative URLs, and `form-action 'self'` keeps forms posting to the gateway.
-- `frame-src 'self'` frames nothing third-party, and `frame-ancestors 'none'` keeps the application out of anyone's iframe, which closes clickjacking.
+- `script-src 'self'`: only the bundle's own `<script src>` files run, with no `'unsafe-inline'`, `'unsafe-eval'` or CDN. This is the line that stops XSS.
+- `connect-src 'self'`: `fetch`, XHR and `EventSource` only reach the gateway, where a BFF puts the API, the session and the event stream anyway.
+- `object-src 'none'`, `base-uri 'self'` and `form-action 'self'` block plugins, injected `<base>` tags and forms posting elsewhere; `frame-ancestors 'none'` closes clickjacking.
+- `frame-src 'self'` was opened for a silent-login iframe the cookie session no longer has; `'none'` would hold as well.
 
-### Why `style-src 'unsafe-inline'`
-Angular adds component styles to the document **at runtime**, as `<style>` elements. The [Angular security guide](https://angular.dev/best-practices/security#content-security-policy) offers a nonce through the `ngCspNonce` attribute, but a nonce must be fresh per response and written into the page, and here `index.html` is served unchanged. So the policy allows inline styles. It is a bounded concession: styles execute nothing.
+### The two concessions
+**`style-src 'unsafe-inline'`**: Angular adds component styles **at runtime**, as `<style>` elements. The [Angular security guide](https://angular.dev/best-practices/security#content-security-policy) offers a nonce through `ngCspNonce`, but a nonce must be fresh per response and written into the page, and here `index.html` is served unchanged. **`img-src https:`**: profile pictures come from the GitHub CDN, and the rich-text editor stores whatever image URL a user pastes, which no host list can cover.
 
-### Why `img-src https:`
-Profile pictures come from the GitHub CDN, and the rich-text editor stores whatever image URL a user pastes, which no host list can cover. Images execute nothing either; drop that feature and you can narrow the directive.
-
-> **_Note:_**  `frame-src 'self'` was originally opened for a silent-login iframe, which disappeared when the session moved to ASP.NET Core's cookie and OpenID Connect handlers. Nothing frames a page today, so `'none'` would hold as well.
-
-Everything that can **execute** (scripts, workers, plugins) is limited to one origin; the two wide directives only cover things that cannot run code. [Google's strict CSP guidance](https://web.dev/articles/strict-csp) prefers nonces or hashes with `'strict-dynamic'` over host allowlists; `'self'` alone holds here because the origin serves only the bundle and the BFF endpoints, and no user-uploaded script.
+Everything that can **execute** (scripts, workers, plugins) is limited to one origin; the two wide directives cover styles and images, which cannot run code. [Google's strict CSP guidance](https://web.dev/articles/strict-csp) prefers nonces or hashes with `'strict-dynamic'` over host allowlists; `'self'` alone holds here because the origin serves only the bundle and the BFF endpoints, and no user-uploaded script.
 
 
 ## The stricter API policy
@@ -185,7 +165,7 @@ options
     .DisableDefaultFonts();
 ```
 
-`WithNonce()` makes Scalar generate a nonce per request and publish it in `HttpContext.Items` under `ScalarOptions.NonceHttpContextItemKey`, the key passed to `UseContentSecurityPolicy`. The middleware then appends `'nonce-…'` to `script-src` on that response only. Unlike the SPA's `index.html`, this page is rendered per request, which is why a nonce works here and not there.
+`WithNonce()` publishes a per-request nonce in `HttpContext.Items` under `ScalarOptions.NonceHttpContextItemKey`, the key passed to `UseContentSecurityPolicy`, and the middleware appends `'nonce-…'` to `script-src` on that response only. This page is rendered per request, which is why a nonce works here and not for the SPA.
 
 
 ## What the front end had to give up
@@ -198,17 +178,13 @@ The policy broke one thing in the Angular build: **critical CSS inlining**. With
 That `onload` is an inline event handler, and `script-src 'self'` blocks it, so the app renders with only the critical CSS. The fix is the [`inlineCritical`](https://angular.dev/reference/configs/workspace-config) option in `front/application/angular.json`:
 
 ```json
-"optimization": {
-  "scripts": true,
-  "fonts": true,
-  "styles": {
-    "minify": true,
-    "inlineCritical": false
-  }
+"styles": {
+  "minify": true,
+  "inlineCritical": false
 }
 ```
 
-It costs a little first-paint time, and `index.html` now carries only same-origin `<link>` and `<script src>` tags. A dead `<link rel="preconnect" href="https://fonts.gstatic.com">` went at the same time, since every font is served from the bundle.
+It costs a little first-paint time, and `index.html` now carries only same-origin `<link>` and `<script src>` tags.
 
 > **_Note:_**  Angular's `security.autoCsp` option is the alternative: the CLI hashes every inline script in `index.html`, critical CSS inlining included, and adds a hash-based policy in a `<meta>` tag. It only covers scripts, and browsers ignore `frame-ancestors` and `report-uri` in a `<meta>` tag, so a header is still needed; this code base keeps a single header policy instead.
 
@@ -217,14 +193,9 @@ It costs a little first-paint time, and `index.html` now carries only same-origi
 A directive change goes in the host's `ContentSecurityPolicies` class, with a comment saying why. An environment can widen it from configuration, without a rebuild:
 
 ```json
-{
-  "ContentSecurityPolicy": {
-    "Enabled": true,
-    "ReportOnly": false,
-    "ReportUri": "",
-    "AdditionalSources": {
-      "connect-src": ["https://analytics.example"]
-    }
+"ContentSecurityPolicy": {
+  "AdditionalSources": {
+    "connect-src": ["https://analytics.example"]
   }
 }
 ```
@@ -233,17 +204,15 @@ A directive change goes in the host's `ContentSecurityPolicies` class, with a co
 - `ReportUri` sends violation reports to a collector; without it, they only show in the browser console. CSP Level 3 deprecates [`report-uri`](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-uri) in favour of [`report-to`](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/report-to), but browsers still honour it.
 - `Enabled: false` is the break-glass switch, not a configuration choice.
 
-Every change follows the same path: report-only, watch the reports, then enforce.
+Every change follows the same path: report-only, watch the reports, enforce.
 
 
 ## How to verify
-The policy type and the middleware have unit tests, such as `Should_write_the_policy_on_a_response_the_pipeline_never_reached`, `Should_keep_the_policy_the_response_already_carries` and `Should_ignore_the_nonce_when_it_is_not_a_base64_value`, which feeds it `nonce'; script-src *`.
-
-On the API, an integration test asserts the exact header string on `/api/v1/billing/plans`, and another checks that an unknown route carries it too. By hand, `curl -I https://localhost:5071/` and `curl -I https://localhost:5001/api/v1/billing/plans` show the headers of both hosts; then click through the app with the browser console open, where every violation is logged.
+Unit tests cover the type and the middleware (a response the pipeline never reached, a policy already present, a nonce of `nonce'; script-src *`). On the API, an integration test asserts the exact header string on `/api/v1/billing/plans` and on an unknown route, so a widened directive fails a test. By hand, `curl -I https://localhost:5071/` and `curl -I https://localhost:5001/api/v1/billing/plans` show the headers of both hosts; then click through the app with the browser console open, where every violation is logged.
 
 
 ## Conclusion
-A strict CSP for an Angular SPA is mostly a matter of being honest about the exceptions: scripts, connections, frames and forms are locked to one origin, while inline styles and images stay open, and neither can execute code. On the server side, a small immutable policy type, a middleware that writes from `OnStarting` without overwriting an existing header, registered first, and a report-only switch are enough to send a policy on every response and change it safely.
+A strict CSP for an Angular SPA locks scripts, connections, frames and forms to one origin and is honest about the two exceptions, which cannot execute code. On the server side, a small immutable policy type, a middleware that writes from `OnStarting` without overwriting an existing header, registered first, and a report-only switch are enough to send a policy on every response and change it safely.
 
 This is how the gateway and the API send their policies in [Blouppy Starter](https://starter.blouppy.com/); the [gateway documentation](https://docs.starter.blouppy.com/architecture/gateway/) describes the host the SPA is served from.
 

@@ -21,34 +21,25 @@ tags:
   - CSS
 ---
 
-Our unit specs are green, and yet the dark theme ships washed out, or a page silently stops scrolling inside the application shell. The specs run in **jsdom** and render one component at a time: nothing in them looks at the layout.
+Our unit specs are green, and yet the dark theme ships washed out, or a page stops scrolling inside the shell: specs in **jsdom** render one component at a time and never look at the layout. A pixel-diff [snapshot suite](https://playwright.dev/docs/test-snapshots) asks the wrong question, "is this the same as yesterday?", when most changes are *meant* to change pixels.
 
-The usual answer is a pixel-diff [snapshot suite](https://playwright.dev/docs/test-snapshots). It asks "is this the same as yesterday?", the wrong question for layout: most changes are *meant* to change pixels, and a diff cannot tell an improvement from a regression. The simpler option is to photograph every page, in both themes and at three widths, put the shots side by side, and let a human ask "does this look right?".
+In this article, we will build a **gallery** with [Playwright](https://playwright.dev/docs/library) instead: a script that photographs every page of the built Angular application, in both themes and three widths, answers its API calls with fixtures, and lays the shots out on contact sheets for a human to review.
 
-In this article, we will build that **gallery** with [Playwright](https://playwright.dev/docs/library): a script that serves the built Angular application, answers its API calls with fixtures, and writes a contact sheet per theme. Its only job is to make sure the reviewer sees **everything**.
-
-
-## Prerequisites
-Before you start, you will need:
-- An Angular application that [builds](https://angular.dev/tools/cli/build) to `dist/`.
-- [Node.js](https://nodejs.org/) and Playwright, with a Chromium browser:
+You need an Angular application that [builds](https://angular.dev/tools/cli/build) to `dist/`, [Node.js](https://nodejs.org/), and Playwright with Chromium:
 
 ```bash
 npm install --save-dev playwright
 npx playwright install chromium
 ```
 
-> **_Note:_**  The code base this comes from uses `playwright-core` and passes a `CHROMIUM_PATH` variable to `chromium.launch({ executablePath })` instead. Either works.
+The code base this comes from uses `playwright-core` and passes a `CHROMIUM_PATH` variable to `chromium.launch({ executablePath })` instead; either works.
 
 
 ## Serve the build, not the dev server
 The gallery photographs `dist/`, the files we deploy. A small static server is enough, with the fallback to `index.html` that a routed single-page application needs:
 
 ```typescript
-import { createServer } from 'node:http';
-import { createReadStream } from 'node:fs';
-import { stat } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+// ... imports from node:http, node:fs, node:fs/promises and node:path
 
 const DIST = join(process.cwd(), 'dist/browser');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
@@ -76,10 +67,10 @@ const server = createServer(async (request, response) => {
 server.listen(4597, '127.0.0.1');
 ```
 
-A path with an extension (`main.js`, a font) is served from `dist/browser`; anything else (`/workspaces/1/team`) gets `index.html`, and the Angular router takes over. The `content-type` matters: the browser refuses a module script served with the wrong one. The real script maps more extensions (fonts, images) and tries the next port when one is taken.
+A path with an extension (`main.js`, a font) is served from `dist/browser`; anything else (`/workspaces/1/team`) gets `index.html`, and the Angular router takes over. The `content-type` matters: the browser refuses a module script served with the wrong one. The real script maps more extensions and tries the next port when one is taken.
 
 ## Answer the back end with fixtures
-A real application is signed in and calls an API. Starting the back end for a screenshot is the job of an end-to-end suite, not of a gallery. Instead, Playwright [intercepts every request](https://playwright.dev/docs/mock) and fulfils it. Here is a simplified version of the code base's `stubApi`:
+The application is signed in and calls an API, but starting the back end is the job of an end-to-end suite. Instead, Playwright [intercepts every request](https://playwright.dev/docs/mock) and fulfils it. Here is a simplified version of the code base's `stubApi`:
 
 ```typescript
 async function stubApi(context) {
@@ -97,9 +88,7 @@ async function stubApi(context) {
 
     const matched = respondTo(url.pathname, url.searchParams);
 
-    if (!matched && process.env.GALLERY_TRACE) {
-      console.log(`      · no fixture: ${url.pathname}${url.search}`);
-    }
+    // ... logs the unmatched path when GALLERY_TRACE is set
 
     await json(route, matched ?? fallbackFor(url.pathname));
   });
@@ -126,7 +115,7 @@ const WORKSPACE_NAMES = [
 ];
 ```
 
-Eleven rows, so the page must scroll. Two organizations. Names longer than the triggers that show them. And **every page is expected to render full**: a shot of an empty state is a missing fixture, not a finding.
+Eleven rows, so the page must scroll; two organizations; names longer than the triggers that show them. **Every page is expected to render full**: a shot of an empty state is a missing fixture, not a finding.
 
 
 ## Capture every page, in both themes and three widths
@@ -168,10 +157,9 @@ await browser.close();
 ```
 
 - [`emulateMedia({ colorScheme })`](https://playwright.dev/docs/api/class-page#page-emulate-media) covers an application that follows [`prefers-color-scheme`](https://developer.mozilla.org/docs/Web/CSS/@media/prefers-color-scheme). If yours stores the user's choice, write it before the app boots instead, as the code base does with `context.addInitScript(([key, mode]) => localStorage.setItem(key, mode), ['darkMode', theme])`, so the first paint is already in the right scheme.
-- `about:blank` between shots tears the application down, so the next `goto` boots it again instead of routing inside a live one.
-- The mobile width, 410px, sits below the shell's 720px breakpoint, where the sidenav becomes a modal.
+- `about:blank` between shots tears the application down, so the next `goto` boots it afresh. The 410px width sits below the shell's 720px breakpoint, where the sidenav becomes a modal.
 
-> **_Note:_**  Playwright marks `networkidle` as discouraged and advises against fixed timeouts in tests. A gallery is not a test, and the code base accepts both to let animations settle; it also waits for its spinners and skeletons to detach, which is the more reliable signal.
+> **_Note:_**  Playwright discourages `networkidle` and fixed timeouts in tests. The code base accepts both to let animations settle, but also waits for its spinners and skeletons to detach, which is the more reliable signal.
 
 
 ## Scenes: the states a URL cannot reach
@@ -186,32 +174,26 @@ An open select, a toast, a filled-in dialog, a scrolled page: no URL leads there
   act: async page => {
     await page.locator('ui-page-header').getByRole('button', { name: /new workspace/i }).click();
     await settle(page, 700);
-
-    const dialog = page.getByRole('dialog');
-
-    await dialog.locator('#workspaceName').fill('Customer platform engineering and reliability, Europe');
+    await page.getByRole('dialog').locator('#workspaceName').fill('Customer platform engineering and reliability, Europe');
+    // ... picks a colour too
     return {};
   },
 },
 ```
 
-The runner refuses, before capturing anything, an entry whose `about` or `keeps` is empty: a shot nobody knows how to read is not a review. The caption turns a picture into a review: the reviewer knows what to check, and the author had to decide what the shot is for.
+The runner refuses, before capturing anything, an entry whose `about` or `keeps` is empty: the caption tells the reviewer what to check, and forces the author to decide what the shot is for.
 
-A scene can also return a `note`, printed as a warning under the shot. The scroll scene uses one: it scrolls with [`page.mouse.wheel(0, 400)`](https://playwright.dev/docs/api/class-mouse#mouse-wheel) in a loop, not `scrollTop = …`, because an element with `overflow: hidden` accepts a written `scrollTop`, so a programmatic scroll moves a page a reader could not move. When nothing moved, it returns a note saying so instead of failing.
+A scene can also return a `note`, printed as a warning under the shot. The scroll scene scrolls with [`page.mouse.wheel(0, 400)`](https://playwright.dev/docs/api/class-mouse#mouse-wheel), not `scrollTop = …`, because an element with `overflow: hidden` accepts a written `scrollTop`, and returns a note when nothing moved.
 
 
 ## The contact sheet
-Dozens of separate PNG files do not get reviewed. One tall image with every page side by side does, and it is what catches a token change: the one dark page lighter than its neighbours jumps out. The sheet is itself an HTML page, photographed by the same browser: a two-column CSS grid of `<figure>` elements, each holding a shot, its id and width, and its caption, written to a file, opened with `page.goto('file://…')` and captured with `fullPage: true`.
+Dozens of PNG files do not get reviewed; one tall image with every page side by side does, and it is what catches a token change, because the one dark page lighter than its neighbours jumps out. The sheet is itself an HTML page, a two-column grid of `<figure>` elements (shot, id, width, HTML-escaped caption), opened with `page.goto('file://…')` and captured with [`fullPage: true`](https://playwright.dev/docs/screenshots). There is one per theme and per list (`contact-sheet-routes-dark.png`, `contact-sheet-scenes-light.png`), with the widest shot of each page, so it reads as a checklist.
 
-There is one sheet per theme and per list (`contact-sheet-routes-dark.png`, `contact-sheet-scenes-light.png`), with the widest shot of each page and its `about` or `keeps` sentence underneath, so the sheet reads as a checklist. Captions are HTML-escaped first. See [Screenshots](https://playwright.dev/docs/screenshots) for the `fullPage` and `clip` options.
-
-
-## Narrow it while iterating
 A full run takes a few minutes. While fixing one page, flags narrow it: `--page=`, `--scene=`, `--only=pages|scenes`, `--theme=`, `--width=` and `--no-sheet`, as in `npm run gallery -- --page=workspaces --theme=dark --no-sheet`. An unknown id fails the run rather than silently capturing nothing.
 
 
 ## Check that the gallery still catches what it caught
-How do we know a scene is useful and not decoration? We break the application on purpose and look. The code base keeps the regressions the gallery caught as CSS that puts the app back into the broken state:
+To know a scene is useful and not decoration, break the application on purpose and look. The code base keeps the regressions the gallery caught as CSS that puts the app back into the broken state:
 
 ```typescript
 export const REGRESSIONS = {
@@ -229,7 +211,7 @@ export const REGRESSIONS = {
 
 
 ## Conclusion
-Unit specs in jsdom answer "does this component behave?", not "does this page look right?". A gallery fills that gap without the brittleness of pixel diffs: serve the build, fulfil the API with `context.route`, loop over themes and widths, and put every shot on a contact sheet for a human to read. Run it after any change to the shell, a theme token or a shared component, since those touch every page at once.
+A gallery answers what jsdom specs cannot, "does this page look right?", without the brittleness of pixel diffs: serve the build, fulfil the API with `context.route`, loop over themes and widths, and put every shot on a contact sheet. Run it after any change to the shell, a theme token or a shared component, since those touch every page at once.
 
 This is how visual review works in [Blouppy Starter](https://starter.blouppy.com/). The [visual review guide](https://docs.starter.blouppy.com/guides/testing/visual-review/) describes how to run it.
 
