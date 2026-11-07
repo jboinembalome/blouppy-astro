@@ -11,7 +11,7 @@ illustration: 3
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/configure-husky-with-angular.jpg
-description: Quick steps to install Husky in an Angular project.
+description: Run lint-staged (ESLint and Prettier) and commitlint before every commit in an Angular 22 project with Husky 9 Git hooks.
 tags:
   - Development
   - Angular
@@ -20,200 +20,74 @@ tags:
   - Lint-staged
 ---
 
-> **Updated November 2026:** rewritten for Angular 22 and Husky 9. `husky install` and `husky add` are gone, so the hooks are now plain files that we write ourselves; I also fixed the lint-staged configuration (its `.html` pattern never matched) and every output below comes from real commits. 🙂
+> **Updated November 2026:** rewritten for Angular 22 and Husky 9. `husky install` and `husky add` are gone, so the hooks are now plain files that we write ourselves. I also fixed the lint-staged configuration (its `.html` pattern never matched), and every output below comes from real commits.
 
-[Husky](https://typicode.github.io/husky/) is a powerful tool that allows you to add [Git hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) to your project. These hooks can be used to run scripts or commands before or after certain Git actions, such as committing changes or pushing commits to a remote repository. [Commitlint](https://commitlint.js.org/) and [lint-staged](https://github.com/lint-staged/lint-staged) are two popular tools that can be used in conjunction with Husky to enforce code quality and formatting standards in your Angular project.
+[Husky](https://typicode.github.io/husky/) manages [Git hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks): scripts that Git runs before or after an action such as a commit or a push. Combined with [commitlint](https://commitlint.js.org/) and [lint-staged](https://github.com/lint-staged/lint-staged), it enforces commit message conventions and code quality before anything reaches the repository.
 
-In this article, we will install **Husky**, **Commitlint** and **Lint-staged** in an **Angular 22** project.
+In this article, we install **Husky**, **commitlint** and **lint-staged** in an **Angular 22** project. It is the last article of a series: it relies on the Prettier and ESLint setups of [Configure Prettier with Angular](https://www.blouppy.com/blog/2023-01-29-configure-prettier-with-angular/) and [Configure ESLint with Angular](https://www.blouppy.com/blog/2023-04-03-configure-eslint-with-angular/).
 
 ## Prerequisites
-Before to start you will need:
-- [Node.js](https://nodejs.org/en/): Angular **requires an active LTS (Long Term Support) or maintenance LTS version** of **Node.js** (for Angular 22: `^22.22.3`, `^24.15.0` or `>=26.0.0`; commitlint 21 needs Node.js 22.12 or later).
-- [Angular CLI](https://angular.dev/tools/cli): We will use the **Angular CLI** to create an Angular project.
-- [Git](https://git-scm.com/): Husky manages Git hooks, so the project must be a Git repository (`ng new` initializes one for us).
-- [Visual Studio Code](https://code.visualstudio.com/): The editor to open the project. (You can choose your favourite editor or IDE as well 🙂)
-
-
-## Create an Angular project
-Let's create a new project with the Angular CLI by running the following command in a terminal:
-```bash
-ng new angular-husky
-```
-After running the command, Angular CLI will ask you few questions to configure your new Angular project. Here are my answers (CSS, no SSR, no AI tools) and what the CLI did next:
-```text
-√ Which stylesheet system would you like to use? CSS             [ https://developer.mozilla.org/docs/Web/CSS ]
-√ Do you want to enable Server-Side Rendering (SSR) and Static Site Generation (SSG/Prerendering)? No
-√ Which AI tools should Angular integrate with? https://angular.dev/ai/develop-with-ai None
-CREATE angular-husky/.prettierrc (161 bytes)
-CREATE angular-husky/README.md (1465 bytes)
-CREATE angular-husky/.editorconfig (314 bytes)
-CREATE angular-husky/.gitignore (622 bytes)
-CREATE angular-husky/angular.json (1924 bytes)
-CREATE angular-husky/package.json (788 bytes)
-CREATE angular-husky/tsconfig.json (908 bytes)
-CREATE angular-husky/tsconfig.app.json (398 bytes)
-CREATE angular-husky/tsconfig.spec.json (409 bytes)
-CREATE angular-husky/.vscode/extensions.json (130 bytes)
-CREATE angular-husky/.vscode/launch.json (470 bytes)
-CREATE angular-husky/.vscode/tasks.json (978 bytes)
-CREATE angular-husky/src/main.ts (222 bytes)
-CREATE angular-husky/src/index.html (298 bytes)
-CREATE angular-husky/src/styles.css (80 bytes)
-CREATE angular-husky/src/app/app.css (0 bytes)
-CREATE angular-husky/src/app/app.spec.ts (687 bytes)
-CREATE angular-husky/src/app/app.ts (296 bytes)
-CREATE angular-husky/src/app/app.html (20144 bytes)
-CREATE angular-husky/src/app/app.config.ts (312 bytes)
-CREATE angular-husky/src/app/app.routes.ts (77 bytes)
-CREATE angular-husky/public/favicon.ico (15086 bytes)
-- Installing packages (npm)...
-√ Packages installed successfully.
-    Successfully initialized git.
-```
-
-Then go inside the project with the command:
-```bash
-cd angular-husky
-```
-
-And open the project with Visual Studio Code:
-```bash
-code .
-```
-
-If all has gone well so far, you should have the following architecture (without `node_modules`):
-```text
-angular-husky/
-├── .vscode/
-│   ├── extensions.json
-│   ├── launch.json
-│   └── tasks.json
-├── public/
-│   └── favicon.ico
-├── src/
-│   ├── app/
-│   │   ├── app.config.ts
-│   │   ├── app.css
-│   │   ├── app.html
-│   │   ├── app.routes.ts
-│   │   ├── app.spec.ts
-│   │   └── app.ts
-│   ├── index.html
-│   ├── main.ts
-│   └── styles.css
-├── .editorconfig
-├── .gitignore
-├── .prettierrc
-├── angular.json
-├── package-lock.json
-├── package.json
-├── README.md
-├── tsconfig.app.json
-├── tsconfig.json
-└── tsconfig.spec.json
-```
-
-> **_Note:_**  Prettier is already installed by the Angular CLI, and we will also need ESLint later. In the sample project, I added ESLint with `ng add angular-eslint` and used the Prettier configuration of the previous articles:
->
-> - [Configure ESLint with Angular](https://blouppy.com/blog/2023-04-03-configure-eslint-with-angular/)
-> - [Configure Prettier with Angular](https://blouppy.com/blog/2023-01-29-configure-prettier-with-angular/)
-
+- [Node.js](https://nodejs.org/en/): Angular 22 requires `^22.22.3`, `^24.15.0` or `^26.0.0` (see [Version compatibility](https://angular.dev/reference/versions)); commitlint 21 needs Node.js 22.12 or later.
+- [Angular CLI](https://angular.dev/tools/cli) and [Git](https://git-scm.com/): Husky manages Git hooks, so the project must be a Git repository (`ng new` initializes one).
+- An Angular project with Prettier and ESLint. Create it with `ng new angular-husky` as in [the Prettier article](https://www.blouppy.com/blog/2023-01-29-configure-prettier-with-angular/#create-an-angular-project), keep its `.prettierrc` and `.prettierignore`, and run `ng add angular-eslint` as in [the ESLint article](https://www.blouppy.com/blog/2023-04-03-configure-eslint-with-angular/#install-eslint).
 
 ## Install Husky
-Now, we will install Husky in our project.
-
-To do this, run the following command:
+Install Husky as a development dependency:
 ```bash
 npm install husky --save-dev
 ```
 
-> **_Note:_**  The `--save-dev` option will install Husky as devDependency as the application does not need Husky to run.
-
-Then let's initialize Husky with the following command:
+Then initialize it, as the [Husky documentation](https://typicode.github.io/husky/get-started.html) shows:
 ```bash
 npx husky init
 ```
 
-This command does everything that `husky install` and `npm pkg set scripts.prepare` did in the first version of this article. It:
-- adds a `prepare` script to the **package.json** file, so the Git hooks are enabled automatically after every `npm install` (or `npm ci`):
+This single command replaces `husky install` and `npm pkg set scripts.prepare` from the first version of this article. It:
+- adds a `prepare` script to **package.json**. npm runs it after every `npm install` or `npm ci`, so every developer gets the hooks:
 ```json
 "scripts": {
   "prepare": "husky"
 }
 ```
-- creates a **.husky/pre-commit** hook which runs `npm test` (we will replace it in a moment);
+- creates a **.husky/pre-commit** hook that runs `npm test` (we replace it below);
 - points Git to the hooks of the project (`git config core.hooksPath` now returns `.husky/_`).
 
-> **_Note:_**  With Husky 9, a hook is a plain shell file in the **.husky** directory, named after the Git hook. There is no `husky add` command anymore, and no more `#!/usr/bin/env sh` and `. "$(dirname -- "$0")/_/husky.sh"` lines at the top of the files.
+> **_Note:_** With Husky 9, a hook is a plain shell file in the **.husky** directory, named after the Git hook. There is no `husky add` command anymore, and no `#!/usr/bin/env sh` or `. "$(dirname -- "$0")/_/husky.sh"` lines at the top of the files.
 
-
-## Install commitlint
-Next, we will install commitlint, which is a tool that enforces commit message conventions. To install commitlint, run the following command:
+## Install and configure commitlint
+commitlint checks that commit messages follow a convention. Install the CLI and the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) configuration:
 ```bash
 npm install @commitlint/cli @commitlint/config-conventional --save-dev
 ```
 
-
-## Configure commitlint
-After installing commitlint, we will need to configure it to enforce commit message conventions in our project.
-
-The commitlint documentation now writes the configuration as an ES module (`export default`). But the **package.json** of an Angular project has no `"type": "module"`, so a **commitlint.config.js** containing `export default` works but Node.js prints a warning on every commit:
+The [commitlint documentation](https://commitlint.js.org/guides/getting-started.html) writes the configuration as an ES module (`export default`). But the **package.json** of an Angular project has no `"type": "module"`, so a **commitlint.config.js** file with `export default` works, but Node.js prints a warning on every commit:
 ```text
 (node:12956) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file://~/angular-husky/commitlint.config.js is not specified and it doesn't parse as CommonJS.
 Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
 To eliminate this warning, add "type": "module" to ~/angular-husky/package.json.
-(Use `node --trace-warnings ...` to show where the warning was created)
 ```
 
-And adding `"type": "module"` would break the **eslint.config.js** generated by `angular-eslint`, which uses `require`. So let's use the `.mjs` extension, which tells Node.js that the file is an ES module. Create a **commitlint.config.mjs** file at the root of the project:
+Adding `"type": "module"` would break the **eslint.config.js** generated by `angular-eslint`, which uses `require`. Use the `.mjs` extension instead: it [tells Node.js](https://nodejs.org/api/packages.html#determining-module-system) that the file is an ES module. Create **commitlint.config.mjs** at the root of the project:
 ```js
 export default {
   extends: ['@commitlint/config-conventional'],
 };
 ```
 
-Now let's add our Git hook. Create a **.husky/commit-msg** file containing a single line:
+Then create the hook, **.husky/commit-msg**, with a single line (from the [commitlint local setup guide](https://commitlint.js.org/guides/local-setup.html)):
 ```bash
 npx --no -- commitlint --edit "$1"
 ```
 
-This hook runs commitlint to validate the commit message (Git passes the path of the message file as `$1`) according to the configured rules.
+Git passes the path of the commit message file as `$1`, and commitlint validates the message against the configured rules. To try it without committing, run `echo "add a greeting" | npx commitlint`: the message has no type, so commitlint exits with an error, and the hook would reject the commit. A message like `feat: add a greeting` passes.
 
-Let's test to make sure it works. We can give a message to commitlint directly, without committing anything:
-```text
-$ echo "add a greeting" | npx commitlint
-⧗   --- input ---
-add a greeting
-✖   subject may not be empty [subject-empty]
-✖   type may not be empty [type-empty]
-
-✖   found 2 problems, 0 warnings
-ⓘ   Get help: https://github.com/conventional-changelog/commitlint/#what-is-commitlint
-
-```
-
-As we can see, the message does not respect the [convention](https://www.conventionalcommits.org/), so commitlint exits with an error and the commit-msg hook will reject the commit (we will see it for real below). A message like `feat: add a greeting` passes without a word.
-
-
-## Install lint-staged
-Now that we have installed and configured Husky and commitlint, we will install lint-staged, which is a tool that allows us to run tools like [ESLint](https://eslint.org/) and [Prettier](https://prettier.io/) on staged files.
-
-To install lint-staged, run the following command:
+## Install and configure lint-staged
+lint-staged runs tools such as ESLint and Prettier on the **staged** files only, so a commit never waits for the whole project to be linted. Install it, with [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier), which turns off the ESLint rules that are unnecessary or might conflict with Prettier:
 ```bash
-npm install lint-staged --save-dev
+npm install lint-staged eslint-config-prettier --save-dev
 ```
 
-> **_Note:_**  If you don't know how to install ESLint and Prettier in an Angular project, you can take a look to these articles
->
-> - [Configure ESLint with Angular](https://blouppy.com/blog/2023-04-03-configure-eslint-with-angular/)
-> - [Configure Prettier with Angular](https://blouppy.com/blog/2023-01-29-configure-prettier-with-angular/)
-
-Since ESLint and Prettier will both touch our files, let's also install [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier), which turns off the ESLint rules that are unnecessary or might conflict with Prettier:
-```bash
-npm install eslint-config-prettier --save-dev
-```
-
-And add it **last** in **eslint.config.js**, so it overrides the configurations before it:
+Add eslint-config-prettier **last** in **eslint.config.js**, so it overrides the configurations before it:
 ```js
 const angular = require('angular-eslint');
 const eslintConfigPrettier = require('eslint-config-prettier/flat');
@@ -224,9 +98,7 @@ module.exports = defineConfig([
 ]);
 ```
 
-
-## Configure lint-staged
-After installing lint-staged, we will configure it to run the linters on staged files. Therefore, create a new file named **.lintstagedrc.json** in the root of the project and add the following code:
+Then create **.lintstagedrc.json** at the root of the project:
 ```json
 {
   "*.{ts,html}": ["eslint --fix", "prettier --write"],
@@ -234,26 +106,22 @@ After installing lint-staged, we will configure it to run the linters on staged 
 }
 ```
 
-Two things changed since the first version of this article:
-- The pattern was `"*.{ts, html}"`. With the space, the second extension is `" html"`, so the **.html** files never matched and were never linted. 😅
-- The two patterns no longer overlap. lint-staged runs the patterns at the same time, so with `.ts` files in both, `eslint --fix` and `prettier --write` could edit the same file simultaneously. Inside an array, the commands run one after the other: ESLint first, then Prettier.
+Three things changed since the first version of this article:
+- The pattern was `"*.{ts, html}"`. With the space, the second extension is `" html"`, so **.html** files never matched and were never linted.
+- The two patterns no longer overlap. lint-staged runs different patterns concurrently, so with `.ts` in both, `eslint --fix` and `prettier --write` could edit the same file at the same time. Inside an array, the commands run in order: ESLint first, then Prettier.
+- The file was named **.lintstagedrc.js** while it contained JSON. A JSON configuration goes in **.lintstagedrc.json** (or in a `"lint-staged"` key of **package.json**).
 
-> **_Note:_**  The file was named **.lintstagedrc.js** while it contained JSON. A `.js` file must be JavaScript, so a JSON configuration goes in **.lintstagedrc.json** (or in a `"lint-staged"` key of the **package.json** file).
-
-Finally, we can configure Husky to run lint-staged. Replace the content of the **.husky/pre-commit** file created by `husky init` with:
+Finally, replace the content of **.husky/pre-commit** with:
 ```bash
 npx lint-staged
 ```
 
-Now, if we commit one or more files, **Husky will first run the pre-commit hook**, which will **execute lint-staged** to format files and check for linting errors. If there are any issues found, the commit will be **aborted**.
+On each commit, Git now runs the **pre-commit** hook first: lint-staged fixes and checks the staged files, and aborts the commit on an error it cannot fix. Then Git runs the **commit-msg** hook: commitlint validates the message and aborts the commit if it is invalid. The commit is created only if both hooks pass.
 
-Assuming lint-staged passes, **Husky will then run the commit-msg hook**. **The commit message will then be validated by commitlint**. If the commit message fails validation, the commit will be **aborted**.
-
-If both hooks pass, **the commit will be created and the changes will be added to the Git repository**. 🙂
-
+> **_Note:_** `npm ci` in a CI pipeline also runs `prepare`. Set the `HUSKY=0` environment variable to skip installing the hooks where nobody commits (see [How to](https://typicode.github.io/husky/how-to.html)).
 
 ## Let's try it
-Let's add a small function in the **app.ts** file, written a bit carelessly (`let`, double quotes, no semicolons):
+Let's add a method to **app.ts**, written carelessly (`let`, double quotes, no semicolons):
 ```ts
   protected sayHello(): string {
     let hello = "Hello"
@@ -261,12 +129,12 @@ Let's add a small function in the **app.ts** file, written a bit carelessly (`le
   }
 ```
 
-Then let's stage it and commit it, first with a message that does not respect the convention:
+Stage it and commit it with a message that does not follow the convention:
 ```text
 $ git add src/app/app.ts
 $ git commit -m "add a greeting"
 ⋯ Backing up original state…
-✔ Done backing up original state (c32cf2b)!
+✔ Done backing up original state (5507c60)!
 ⋯ Running tasks for staged files…
     *.{ts,html} — 1 file
       ⋯ eslint --fix
@@ -291,30 +159,16 @@ add a greeting
 husky - commit-msg script failed (code 1)
 ```
 
-lint-staged ran (the pre-commit hook passed), then commitlint rejected the message: no commit was created. Let's stage the same careless function again and use a valid message:
+The pre-commit hook passed, then commitlint rejected the message: no commit was created. The fixes made by lint-staged stay staged, so we only have to commit again with a valid message. lint-staged runs again, then:
 ```text
-$ git add src/app/app.ts
 $ git commit -m "feat: add a greeting"
-⋯ Backing up original state…
-✔ Done backing up original state (2aaf23c)!
-⋯ Running tasks for staged files…
-    *.{ts,html} — 1 file
-      ⋯ eslint --fix
-      ⋯ prettier --write
-
-✔ eslint --fix
-✔ prettier --write
-
-✔ Done running tasks for staged files!
-⋯ Staging changes from tasks…
-✔ Done staging changes from tasks!
-⋯ Cleaning up temporary files…
+...
 ✔ Done cleaning up temporary files!
-[chore/update-2026 94fae7f] feat: add a greeting
+[demo 6ab3bac] feat: add a greeting
  1 file changed, 5 insertions(+)
 ```
 
-And here is what was committed:
+Here is what was committed:
 ```ts
   protected sayHello(): string {
     const hello = 'Hello';
@@ -322,13 +176,13 @@ And here is what was committed:
   }
 ```
 
-ESLint replaced `let` by `const`, then Prettier added the single quotes and the semicolons. 😉
+ESLint replaced `let` with `const`, then Prettier added the single quotes and the semicolons.
 
 What if ESLint finds a problem that it cannot fix? Let's add `protected data: any = {};` to the component and commit again:
 ```text
 $ git commit -m "feat: keep some data"
 ⋯ Backing up original state…
-✔ Done backing up original state (2326025)!
+✔ Done backing up original state (e46d5b3)!
 ⋯ Running tasks for staged files…
     *.{ts,html} — 1 file
       ⋯ eslint --fix
@@ -353,16 +207,24 @@ $ git commit -m "feat: keep some data"
 husky - pre-commit script failed (code 1)
 ```
 
-The commit is aborted and our files are back to their original state. We just have to give `data` a real type. 🙂
-
+The commit is aborted and the files are back to their original state. We only have to give `data` a real type.
 
 ## Conclusion
-In this article, we have learned how to set up Husky with commitlint and lint-staged for an Angular project. By using Husky, we can run the pre-commit and commit-msg hooks to enforce our code quality and commit message conventions in our project.
+In this article, we set up Husky with commitlint and lint-staged in an Angular project: the pre-commit hook fixes and checks the staged files, and the commit-msg hook enforces Conventional Commits.
 
-In addition, Husky can be used for a variety of use cases beyond those mentioned here. For example, it is also possible to use Husky to run tests before committing your changes or to run a script in a pre-push hook: just create a **.husky/pre-push** file with the command to run.
+Husky can run any command on any Git hook. For example, to run the tests before each push, create a **.husky/pre-push** file containing `npm test -- --watch=false`.
 
-I hope you found this article useful! 👍
+Source code of the article: [GitHub source code](https://github.com/jboinembalome/angular-husky)
 
-Source code of the article: [Github source code](https://github.com/jboinembalome/angular-husky)
-
-*Thanks for reading! 🙂*
+## References
+- [Husky: Get started](https://typicode.github.io/husky/get-started.html) — `husky init`, the `prepare` script and hook files.
+- [Husky: How to](https://typicode.github.io/husky/how-to.html) — skipping hooks in CI with `HUSKY=0`, and other recipes.
+- [Git: Git hooks](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks) — the client-side hooks, `pre-commit` and `commit-msg` included.
+- [commitlint: Getting started](https://commitlint.js.org/guides/getting-started.html) — installation and configuration.
+- [commitlint: Local setup](https://commitlint.js.org/guides/local-setup.html) — the `commit-msg` hook with Husky.
+- [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) — the commit message specification.
+- [lint-staged](https://github.com/lint-staged/lint-staged) — configuration, glob patterns and task order.
+- [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier) — turning off the ESLint rules that conflict with Prettier.
+- [Node.js: Determining module system](https://nodejs.org/api/packages.html#determining-module-system) — `.mjs`, `.cjs` and `"type"`.
+- [npm: Scripts](https://docs.npmjs.com/cli/using-npm/scripts) — the `prepare` lifecycle script.
+- [Angular: Version compatibility](https://angular.dev/reference/versions) — the Node.js versions Angular 22 supports.
