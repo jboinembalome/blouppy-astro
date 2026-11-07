@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Signed outgoing webhooks in ASP.NET Core'
 date: 2026-09-19T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -21,13 +22,11 @@ tags:
   - EF Core
 ---
 
-Sooner or later, a customer asks for webhooks: "when a workspace is created, call my provisioning script". It looks like one `HttpClient.PostAsync` in an event handler. It is not: the subscriber must be able to prove the request came from us, a deploy in the middle must not lose the delivery, a failing endpoint must be retried for hours, and somebody must be able to see what was sent and send it again.
-
-In this article, we will walk through the whole feature as it exists in the code base this comes from: the envelope, the signature and its verification, the secret, the delivery pipeline, retries, history, test deliveries and retention.
+A customer asks: "when a workspace is created, call my provisioning script". It looks like one `HttpClient.PostAsync` in an event handler. It is not: the subscriber must be able to prove the request came from us, a deploy must not lose the delivery, a failing endpoint must be retried for hours, and someone must be able to see what was sent and send it again. In this article, we will walk through the whole feature, from the envelope to retention.
 
 
 ## The envelope
-Every body has the same shape, and only `data` varies by event. Here is `WebhookEventEnvelope`, in `Blouppy.Webhooks.Models/Events/`:
+Every body has the same shape; only `data` varies by event. Here is `WebhookEventEnvelope`, in `Blouppy.Webhooks.Models/Events/`:
 
 ```csharp
 public sealed record WebhookEventEnvelope
@@ -45,11 +44,9 @@ public sealed record WebhookEventEnvelope
 }
 ```
 
-- `Event` is the **wire name**, such as `workspace.created`. It is spelled out in a `switch` (`WebhookEventTypeExtensions.ToWireName()`) rather than derived from the enum member's name, because renaming a C# member must never change a public contract.
-- `Delivery` is the delivery id. It is also sent as a header, but the copy that counts is this one: the signature covers the body, not the headers, so this is the id a subscriber should deduplicate on.
-- `Data` holds **identifiers only**: for `workspace.created`, a `WebhookEventData.Workspace(int Id, string ActorId)`.
-
-The invitation event once carried the invitee's e-mail; it no longer does, and it never carries the invitation token, a bearer credential. A subscriber reads the details from the API with its own credentials, which also stops a webhook from handing out data its owner could not otherwise read. 👍
+- `Event` is the **wire name**, such as `workspace.created`, spelled out in a `switch` (`ToWireName()`) so that renaming an enum member never changes a public contract.
+- `Delivery` is also sent as a header, but only the body is signed, so this is the id to deduplicate on.
+- `Data` holds **identifiers only**, such as `WebhookEventData.Workspace(int Id, string ActorId)`: never an e-mail or a token. A subscriber reads the details from the API with its own credentials.
 
 The envelope is serialized with options that live next to it, not with the MVC ones:
 
@@ -66,24 +63,15 @@ internal static class WebhookPayloadSerialization
 }
 ```
 
-If someone changes the API's JSON settings next year, our controllers should follow. The webhook bodies must not: subscribers have parsers, and the bytes are what gets signed. Here is what a subscriber receives:
+If the API's JSON settings change, the controllers should follow; the webhook bodies must not, because subscribers have parsers and the bytes are what gets signed:
 
 ```json
-{
-  "event": "workspace.created",
-  "delivery": "9f2c41e07b8d4a5e9c3f16d284b70a5c",
-  "organizationId": 1,
-  "occurredAt": "2026-09-20T20:44:28.740Z",
-  "data": {
-    "id": 12,
-    "actorId": "u1"
-  }
-}
+{"event":"workspace.created","delivery":"9f2c41e07b8d4a5e9c3f16d284b70a5c","organizationId":1,"occurredAt":"2026-09-20T20:44:28.740Z","data":{"id":12,"actorId":"u1"}}
 ```
 
 
 ## Signing the request
-Five headers go with each request, all constants in `WebhookRules` (the one class that holds every number and name the feature agrees on): `X-Blouppy-Signature`, `X-Blouppy-Timestamp`, `X-Blouppy-Event`, `X-Blouppy-Delivery` and `X-Blouppy-Webhook-Id`. The signature is an HMAC-SHA256 over the timestamp **and** the body. Here is `WebhookSignature`, in `Blouppy.Infrastructure.Webhooks`:
+Five headers go with each request, all constants in `WebhookRules`: `X-Blouppy-Signature`, `X-Blouppy-Timestamp`, `X-Blouppy-Event`, `X-Blouppy-Delivery` and `X-Blouppy-Webhook-Id`. The signature is an [HMAC-SHA256](https://learn.microsoft.com/dotnet/api/system.security.cryptography.hmacsha256) over the timestamp **and** the body:
 
 ```csharp
 // The timestamp is signed with the body so a captured delivery cannot be replayed with a fresh timestamp.
@@ -93,6 +81,10 @@ internal static class WebhookSignature
 
     public static string Compute(string secret, string timestamp, string payload)
     {
+        ArgumentNullException.ThrowIfNull(secret);
+        ArgumentNullException.ThrowIfNull(timestamp);
+        ArgumentNullException.ThrowIfNull(payload);
+
         var key = Encoding.UTF8.GetBytes(secret);
         var message = Encoding.UTF8.GetBytes($"{timestamp}.{payload}");
 
@@ -101,10 +93,9 @@ internal static class WebhookSignature
 }
 ```
 
-- The key is the secret string as the administrator sees it, taken as UTF-8.
-- The signed message is `{unix seconds}.{raw body}`. Signing only the body would let an attacker replay a captured request with a fresh timestamp header.
+The key is the secret string in UTF-8, and the signed message is `{unix seconds}.{raw body}`, the scheme [Stripe](https://docs.stripe.com/webhooks) uses; the [Standard Webhooks](https://www.standardwebhooks.com/) specification also signs the message id, which the envelope's signed `delivery` covers here.
 
-`HttpWebhookSender` builds the request. Custom headers (an API key the subscriber's gateway expects, say) are added first, and ours win any collision:
+`HttpWebhookSender` builds the request. Custom headers (an API key the subscriber's gateway expects, say) go on first, and ours win any collision:
 
 ```csharp
 var timestamp = DateTimeOffsetProvider.UtcNow.ToUnixTimeSeconds()
@@ -125,19 +116,19 @@ httpRequest.Headers.TryAddWithoutValidation(
 httpRequest.Headers.TryAddWithoutValidation(WebhookRules.TimestampHeaderName, timestamp);
 ```
 
-The domain already refuses a custom header named like one of ours (`WebhookRules.ReservedHeaderNames`), so the `Remove` calls are a second belt: a subscription must never be able to rewrite its own signature or event name.
+The domain already refuses a custom header named like one of ours (`WebhookRules.ReservedHeaderNames`); the `Remove` calls are a second safeguard.
 
-> **_Note:_**  The timestamp is taken at the moment of **each attempt**, not when the event happened. A retry six hours later carries a fresh timestamp and a fresh signature, so a subscriber rejecting old timestamps does not reject our retries.
+> **_Note:_**  The timestamp is taken at **each attempt**, not when the event happened. A retry six hours later carries a fresh timestamp and signature, so a subscriber that rejects old timestamps still accepts our retries.
 
 
 ## Verifying it on the subscriber's side
-The subscriber does the same computation over the **raw bytes** it received, before any JSON parsing: re-serializing the body changes it, and the signature with it. Here is a minimal ASP.NET Core receiver, a C# port of the Node.js and Python samples in the public guide:
+The subscriber repeats the computation over the **raw body**, before any JSON parsing: re-serializing changes the bytes. Here is a minimal ASP.NET Core receiver, a C# port of the Node.js and Python samples in the public guide:
 
 ```csharp
-app.MapPost("/hooks/blouppy", async (HttpRequest request, IConfiguration configuration) =>
+app.MapPost("/hooks/blouppy", async (HttpRequest request, IConfiguration configuration, CancellationToken cancellationToken) =>
 {
     using var reader = new StreamReader(request.Body, Encoding.UTF8);
-    var rawBody = await reader.ReadToEndAsync();
+    var rawBody = await reader.ReadToEndAsync(cancellationToken);
 
     var timestamp = request.Headers["X-Blouppy-Timestamp"].ToString();
     var signature = request.Headers["X-Blouppy-Signature"].ToString();
@@ -149,9 +140,11 @@ app.MapPost("/hooks/blouppy", async (HttpRequest request, IConfiguration configu
         return Results.Unauthorized();
     }
 
-    var key = Encoding.UTF8.GetBytes(configuration["Webhooks:SigningSecret"]!);
+    var secret = configuration["Webhooks:SigningSecret"]
+        ?? throw new InvalidOperationException("Webhooks:SigningSecret is not configured.");
+
     var expected = "sha256=" + Convert.ToHexStringLower(
-        HMACSHA256.HashData(key, Encoding.UTF8.GetBytes($"{timestamp}.{rawBody}")));
+        HMACSHA256.HashData(Encoding.UTF8.GetBytes(secret), Encoding.UTF8.GetBytes($"{timestamp}.{rawBody}")));
 
     // Constant time: a plain == leaks how much of the signature was right.
     if (!CryptographicOperations.FixedTimeEquals(
@@ -161,40 +154,28 @@ app.MapPost("/hooks/blouppy", async (HttpRequest request, IConfiguration configu
         return Results.Unauthorized();
     }
 
-    // Deduplicate on the "delivery" of the body, queue the work, answer fast.
+    // Deduplicate on the body's "delivery", queue the work, answer fast.
     return Results.Ok();
 });
 ```
 
-- `CryptographicOperations.FixedTimeEquals` returns `false` for spans of different lengths, so a truncated or missing signature fails safely.
-- The receiver answers quickly and does its work afterwards: the sender gives each attempt `WebhookRules.SendTimeout`, ten seconds, and anything slower counts as a failure.
+- [`CryptographicOperations.FixedTimeEquals`](https://learn.microsoft.com/dotnet/api/system.security.cryptography.cryptographicoperations.fixedtimeequals) returns `false` for spans of different lengths, so a truncated or missing signature fails safely.
+- The receiver must answer within `WebhookRules.SendTimeout`, ten seconds, so it queues the work and answers first.
+
+Tested with a body signed by `openssl dgst -sha256 -hmac`, it answers 200 to the right signature and 401 to a wrong one.
 
 
 ## The secret: shown once, rotatable
-A webhook's secret is 32 random bytes, Base64-encoded, generated by the entity itself:
+A webhook's secret is 32 random bytes, Base64-encoded, generated by the entity:
 
 ```csharp
 private static string GenerateSecret()
     => Convert.ToBase64String(RandomNumberGenerator.GetBytes(WebhookRules.SecretLengthInBytes));
 ```
 
-Unlike a password, it cannot be hashed: the server needs it in clear to compute every signature. So it is encrypted **at rest** instead, with ASP.NET Core Data Protection behind an `ISecretProtector` port, applied by an EF Core value converter so the model never sees ciphertext.
+Unlike a password, it cannot be hashed: the server needs it in clear to sign. So it is encrypted **at rest** with [ASP.NET Core Data Protection](https://learn.microsoft.com/aspnet/core/security/data-protection/introduction), behind an `ISecretProtector` port applied by an EF Core value converter.
 
-The API returns it in exactly two places, creation and rotation, both through a dedicated `WebhookSecretDto`:
-
-```csharp
-/// <summary>
-/// Returned by creation and rotation only: no read returns the secret, so a lost one is rotated.
-/// </summary>
-public sealed record WebhookSecretDto
-{
-    public required WebhookDto Webhook { get; init; }
-
-    public required string Secret { get; init; }
-}
-```
-
-Rotation is `Webhook.RotateSecret()`, which raises `WebhookSecretRotatedDomainEvent` (the fact, never the secret) for the audit log. Because the sender reads the secret from the webhook row at send time, a rotation applies to the very next attempt, retries of deliveries queued before it included.
+Only creation and rotation return it, through a dedicated `WebhookSecretDto`; a lost secret is rotated. `Webhook.RotateSecret()` raises `WebhookSecretRotatedDomainEvent` (the fact, never the secret) for the audit log. The sender reads the secret at send time, so a rotation applies to the next attempt, retries included.
 
 
 ## The delivery, in three hops
@@ -208,32 +189,15 @@ Here is the path from a change in the application to the subscriber's endpoint:
    makes exactly one HTTP request, records the attempt, commits
 ```
 
-The rule that makes it hold together: **the row is the source of truth; the message is only a nudge.** The dispatcher writes the exact serialized envelope into the row, and the message carries two ids and nothing else. At send time, the URL, the secret and the custom headers are read from the webhook, so nothing sensitive ever sits in a queue. A few things protect this path, and each has its own article:
-- The delivery id is derived from the bus message id and the webhook id, so a retried event finds its rows instead of writing new ones ([idempotent message handlers](https://www.blouppy.com/blog/2026-08-20-idempotent-message-handlers-with-deterministic-ids/)).
-- Each row is claimed with a token and a lease, and `xmin` makes two concurrent claims impossible to commit ([optimistic concurrency with xmin](https://www.blouppy.com/blog/2026-08-02-optimistic-concurrency-with-postgresql-xmin-in-ef-core/)).
-- The `webhooks` client resolves and checks every address itself before connecting ([SSRF-proof outgoing HTTP calls](https://www.blouppy.com/blog/2026-07-09-ssrf-proof-outgoing-http-calls-in-dotnet/)).
-- That client clears Aspire's default resilience handler, so one attempt is exactly one request ([the AddStandardResilienceHandler trap](https://www.blouppy.com/blog/2026-06-15-the-addstandardresiliencehandler-trap/)).
-
-Hop 3 has its own queue, capped at 16 concurrent attempts per replica (`WebhookDeliveryRequestedConsumer.MaxConcurrentAttempts`).
+**The row is the source of truth; the message is only a nudge** carrying two ids. The URL, the secret and the headers are read at send time, so nothing sensitive sits in a queue. Hop 3 has its own queue, capped at 16 concurrent attempts per replica. Four safeguards have their own articles:
+- The delivery id is derived from the bus message id and the webhook id, so a retried event finds its rows ([idempotent message handlers](https://www.blouppy.com/blog/2026-08-20-idempotent-message-handlers-with-deterministic-ids/)).
+- Each row is claimed with a token and a lease, guarded by `xmin` ([optimistic concurrency with xmin](https://www.blouppy.com/blog/2026-08-02-optimistic-concurrency-with-postgresql-xmin-in-ef-core/)).
+- The HTTP client checks every address before connecting ([SSRF-proof outgoing HTTP calls](https://www.blouppy.com/blog/2026-07-09-ssrf-proof-outgoing-http-calls-in-dotnet/)).
+- It has no resilience handler, so one attempt is one request ([the AddStandardResilienceHandler trap](https://www.blouppy.com/blog/2026-06-15-the-addstandardresiliencehandler-trap/)).
 
 
 ## Retries: the schedule lives in the row
-`SendAsync` never throws because a subscriber said no. It records the outcome:
-
-```csharp
-if (result.Succeeded)
-{
-    delivery.MarkAsSucceeded(result.StatusCode!.Value, result.ResponseBody);
-}
-else
-{
-    delivery.MarkAsFailed(result.StatusCode, result.ResponseBody, result.Error);
-}
-
-await unitOfWork.CommitAsync(cancellationToken);
-```
-
-A `2xx` is a success; anything else, a timeout or a refused connection is a failed attempt. `MarkAsFailed` then writes the next due time from `WebhookRules.RetryBackoff`:
+`SendAsync` never throws because a subscriber said no. A `2xx` is a success; anything else, a timeout or a refused connection is recorded by `delivery.MarkAsFailed(...)`, which computes the next due time from `WebhookRules.RetryBackoff`:
 
 ```csharp
 public static readonly IReadOnlyList<TimeSpan> RetryBackoff =
@@ -248,15 +212,13 @@ public static readonly IReadOnlyList<TimeSpan> RetryBackoff =
 public static int MaxAttempts => RetryBackoff.Count + 1;
 ```
 
-Six attempts in all, spread over almost nine hours. No timer survives that long, and none is needed: a Quartz.NET job, `WebhookDeliverySweepJob`, asks every 30 seconds which rows are due and queues them through the outbox. A deploy in the middle costs a delay, never the delivery.
-
-Why not let the bus retry? A message retry is measured in seconds and dies with the process; the row's budget is measured in hours and survives a restart.
+Six attempts over almost nine hours. No timer is needed: a [Quartz.NET](https://www.quartz-scheduler.net/documentation/) job, `WebhookDeliverySweepJob`, queues the due rows every 30 seconds through the outbox, so a deploy costs a delay, never a delivery. A bus retry would not do: it lasts seconds and dies with the process.
 
 
 ## Delivery history and redelivery
-Since every attempt is written into its row, the history is just a read. `IWebhooksApiQueryService` exposes `GetDeliveriesAsync` (an `OffsetPage<WebhookDelivery>`, newest first) and `TryGetDeliveryAsync`, and a delivery shows the exact signed payload, the status, the attempt count, the response code, the first 64 KiB of the response body (`WebhookRules.MaxStoredResponseLength`) and, while it is pending, when the next attempt is due.
+Every attempt is written into its row, so the history is a read (`IWebhooksApiQueryService.GetDeliveriesAsync`, newest first). A delivery shows the signed payload, the status, the attempt count, the response code, the first 64 KiB of the response body and, while pending, the next due time.
 
-A settled delivery can be sent again with `POST .../webhooks/{id}/deliveries/{deliveryId}/redeliver`. Here is the domain side:
+A settled delivery can be sent again with `POST .../webhooks/{id}/deliveries/{deliveryId}/redeliver`:
 
 ```csharp
 public void Redeliver()
@@ -268,44 +230,38 @@ public void Redeliver()
 }
 ```
 
-- `TryRedeliverAsync` refuses a delivery that is still `Pending`: it is already being attempted.
-- `RetriedFrom` remembers where this round started, so `MarkAsFailed` gives the redelivery a **full budget** without resetting `AttemptCount`. The history stays true: an attempt that happened is never rewritten.
+`TryRedeliverAsync` refuses a delivery that is still `Pending`. `RetriedFrom` records where this round started, so the redelivery gets a **full budget** without resetting `AttemptCount`: an attempt that happened is never rewritten.
 
 
 ## Test deliveries
-`IWebhooksService.TryTestAsync` builds a delivery like any other, with its own random id and a body that says what it is:
+`IWebhooksService.TryTestAsync` builds a delivery like any other, with its own random id, the webhook's first event name and a body that says what it is:
 
 ```csharp
-var payload = JsonSerializer.Serialize(
-    new WebhookEventEnvelope
-    {
-        Event = eventType.ToWireName(),
-        Delivery = deliveryId.Value,
-        OrganizationId = organizationId.Value,
-        OccurredAt = DateTimeOffsetProvider.UtcNow,
-        Data = new WebhookEventData.Test(
-            IsTest: true,
-            Message: "This is a test delivery from Blouppy. No event occurred.")
-    },
-    WebhookPayloadSerialization.Options);
+Data = new WebhookEventData.Test(
+    IsTest: true,
+    Message: "This is a test delivery from Blouppy. No event occurred.")
 ```
 
-It uses the webhook's first event name, the same options, signature and history. A test that took a different path would prove nothing about the real one. 😉
+It goes through the same serialization options, signature and history: a test that took a different path would prove nothing about the real one.
 
 
 ## Retention
-The history cannot grow forever. A settled delivery (succeeded, or failed with its budget spent) is deleted 30 days after it completed (`WebhookRules.DeliveryRetention`), by `WebhookDeliveryPurgeJob`. It runs hourly rather than on every sweep: it is a bulk delete across every organization, and nothing about it is urgent.
+`WebhookDeliveryPurgeJob` deletes a settled delivery 30 days after it completed (`WebhookRules.DeliveryRetention`). It runs hourly, since a bulk delete across organizations is never urgent. A pending row is never purged, and deleting a webhook deletes its deliveries (`ON DELETE CASCADE`).
 
-A pending row is never purged, whatever its age. Deleting a webhook takes its deliveries with it (`ON DELETE CASCADE`), and deleting an organization takes its webhooks.
-
-> **_Note:_**  Tell subscribers that events are **not ordered** (read the current state from the API) and that a paused webhook **drops** events rather than buffering them.
+> **_Note:_**  Tell subscribers that events are **not ordered** (they should read the current state from the API) and that a paused webhook **drops** events rather than buffering them.
 
 
 ## Conclusion
-A signed webhook is a small contract with large consequences: an envelope whose serialization is frozen because its bytes are signed, an HMAC over the timestamp and the body that any subscriber can check in a dozen lines, and a secret that is shown once, encrypted at rest and rotated rather than recovered.
+A signed webhook is a small contract: a frozen envelope, an HMAC over the timestamp and the body that a subscriber checks in a dozen lines, and a secret shown once and rotated rather than recovered. Behind it, a delivery is a row, not a message, carrying its retry schedule, history and retention.
 
-Behind it, the delivery is a row, not a message: the dispatcher writes it, a nudge on the bus makes one attempt, and the row carries its own retry schedule (1 min, 5 min, 30 min, 2 h, 6 h), its history, its redelivery and its 30-day retention. Test deliveries take the exact same path, so they prove something.
+This is how outgoing webhooks work in [Blouppy Starter](https://starter.blouppy.com/); the [webhooks module's documentation](https://docs.starter.blouppy.com/modules/webhooks/) covers the configuration and how to offer a new event.
 
-This is how outgoing webhooks are built in [Blouppy Starter](https://starter.blouppy.com/); the [webhooks module's documentation](https://docs.starter.blouppy.com/modules/webhooks/) covers the configuration and how to offer a new event.
-
-*Thanks for reading! 🙂*
+## References
+- [`HMACSHA256` (Microsoft Learn)](https://learn.microsoft.com/dotnet/api/system.security.cryptography.hmacsha256) — the keyed hash, including the static `HashData`.
+- [`CryptographicOperations.FixedTimeEquals` (Microsoft Learn)](https://learn.microsoft.com/dotnet/api/system.security.cryptography.cryptographicoperations.fixedtimeequals) — constant-time comparison of signatures.
+- [ASP.NET Core Data Protection (Microsoft Learn)](https://learn.microsoft.com/aspnet/core/security/data-protection/introduction) — the API that encrypts the secrets at rest.
+- [Standard Webhooks](https://www.standardwebhooks.com/) — an open specification for webhook signatures, ids and timestamps.
+- [Receive Stripe events in your webhook endpoint (Stripe)](https://docs.stripe.com/webhooks) — signature verification and timestamp tolerance in a widely used implementation.
+- [Server-Side Request Forgery Prevention Cheat Sheet (OWASP)](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html) — why the sender checks every address it calls.
+- [Quartz.NET documentation](https://www.quartz-scheduler.net/documentation/) — the scheduler behind the sweep and purge jobs.
+- [Blouppy Starter documentation: webhooks](https://docs.starter.blouppy.com/modules/webhooks/) — the module's configuration and how to add an event.
