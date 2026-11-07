@@ -15,7 +15,7 @@ const Meta = ({ article }: { article: ArticleSummary }) => (
 const summaryOf = (article: ArticleSummary) => article.frontmatter.description || article.excerpt;
 
 const cardClassName =
-  "group flex overflow-hidden rounded-xl border border-line bg-card transition duration-200 hover:-translate-y-0.5 hover:border-accent-border hover:shadow-sm";
+  "group flex overflow-hidden rounded-xl border border-line bg-card transition duration-200 hover:-translate-y-0.5 hover:border-accent-border hover:shadow-xs";
 
 interface ArticleCardProps {
   article: ArticleSummary;
@@ -47,10 +47,16 @@ export const FeaturedArticleCard = ({ article }: { article: ArticleSummary }) =>
 
   return (
     <Link to={article.fields.slug} className={`${cardClassName} flex-col md:grid md:grid-cols-[1.05fr_1fr]`}>
-      <TopicIllustration topic={topic} variant={illustration} className="h-52 border-b border-line p-8 md:h-full md:min-h-[18rem] md:border-b-0 md:border-r" />
+      <TopicIllustration
+        topic={topic}
+        variant={illustration}
+        className="h-52 border-b border-line p-8 md:h-full md:min-h-72 md:border-b-0 md:border-r"
+      />
       <div className="flex flex-col justify-center gap-3 p-6 md:p-9">
         {topic && <span className="text-sm font-semibold text-accent">{topic}</span>}
-        <h3 className="text-2xl font-bold leading-tight tracking-tight text-heading group-hover:text-accent md:text-[1.7rem]">{title}</h3>
+        <h3 className="text-2xl font-bold leading-tight tracking-tight text-heading group-hover:text-accent md:text-[1.7rem]">
+          {title}
+        </h3>
         <p className="line-clamp-3 text-base leading-relaxed text-muted">{summaryOf(article)}</p>
         <Meta article={article} />
       </div>

@@ -1,25 +1,35 @@
-import React from 'react';
+import React from "react";
 
-export interface ButtonLinkProps extends React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement>, React.AriaAttributes {
+export interface ButtonLinkProps
+  extends
+    React.DetailedHTMLProps<React.AnchorHTMLAttributes<HTMLAnchorElement>, HTMLAnchorElement>,
+    React.AriaAttributes {
   text?: string;
   link?: string;
   className?: string;
-  color?: 'primary' | 'basic';
-  size?: 'sm' | 'md' | 'lg';
+  color?: "primary" | "basic";
+  size?: "sm" | "md" | "lg";
 }
 
-export const ButtonLink = ({ text = "Button 1", link = "#", color = 'primary', size = 'md', className, ...rest }: ButtonLinkProps) => {
-  const buttonColor = color === 'primary' ? "btn" : "btn-white-sm";
+export const ButtonLink = ({
+  text = "Button 1",
+  link = "#",
+  color = "primary",
+  size = "md",
+  className,
+  ...rest
+}: ButtonLinkProps) => {
+  const buttonColor = color === "primary" ? "btn" : "btn-white-sm";
 
-  let buttonSize = '';
+  let buttonSize = "";
   switch (size) {
-    case 'sm':
+    case "sm":
       buttonSize = "text-sm";
       break;
-    case 'md':
+    case "md":
       buttonSize = "text-base";
       break;
-    case 'lg':
+    case "lg":
       buttonSize = "text-lg";
       break;
   }

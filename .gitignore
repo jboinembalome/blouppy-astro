@@ -9,3 +9,5 @@ dist/
 .env
 # Visual Studio
 .vs/
+test-results/
+playwright-report/

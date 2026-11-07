@@ -2,11 +2,11 @@ import React, { type ChangeEvent, type FormEvent, useState } from "react";
 import { GithubIcon, LinkedInIcon } from "../icons/svg/social/Icons";
 import { site } from "../../lib/site";
 
-export const contactDescription = "A question about an article, an idea for the next one, or something you're building? Write to me.";
-
+export const contactDescription =
+  "A question about an article, an idea for the next one, or something you're building? Write to me.";
 
 const fieldClassName =
-  "block w-full rounded-lg border-line bg-page px-3.5 py-2.5 text-heading shadow-sm placeholder:text-faint focus:border-accent focus:ring-accent";
+  "block w-full rounded-lg border-line bg-page px-3.5 py-2.5 text-heading shadow-xs placeholder:text-faint focus:border-accent focus:ring-accent";
 
 const labelClassName = "mb-1.5 block text-sm font-medium text-heading";
 
@@ -26,7 +26,10 @@ const Channel = ({ href, icon, label, value, external }: ChannelProps) => (
       {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       className="group flex items-center gap-3 rounded-xl border border-line bg-card p-3 transition-colors hover:border-accent-border"
     >
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-accent-soft text-accent" aria-hidden="true">
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-accent-soft text-accent"
+        aria-hidden="true"
+      >
         {icon}
       </span>
       <span className="min-w-0">
@@ -75,7 +78,7 @@ export const ContactPage = () => {
             data-netlify="true"
             data-netlify-honeypot="bot-field"
             onSubmit={handleSubmit}
-            className="grid gap-5 rounded-xl border border-line bg-card p-5 shadow-sm sm:grid-cols-2 sm:p-8"
+            className="grid gap-5 rounded-xl border border-line bg-card p-5 shadow-xs sm:grid-cols-2 sm:p-8"
           >
             {/* The `form-name` hidden field lets the form be submitted without JavaScript. */}
             <input type="hidden" name="form-name" value="contact" />
@@ -88,13 +91,29 @@ export const ContactPage = () => {
               <label htmlFor="name" className={labelClassName}>
                 Name
               </label>
-              <input type="text" id="name" name="name" autoComplete="name" onChange={handleChange} required className={fieldClassName} />
+              <input
+                type="text"
+                id="name"
+                name="name"
+                autoComplete="name"
+                onChange={handleChange}
+                required
+                className={fieldClassName}
+              />
             </div>
             <div>
               <label htmlFor="email" className={labelClassName}>
                 Email
               </label>
-              <input type="email" id="email" name="email" autoComplete="email" onChange={handleChange} required className={fieldClassName} />
+              <input
+                type="email"
+                id="email"
+                name="email"
+                autoComplete="email"
+                onChange={handleChange}
+                required
+                className={fieldClassName}
+              />
             </div>
             <div className="sm:col-span-2">
               <div className="mb-1.5 flex items-baseline justify-between">
@@ -129,8 +148,20 @@ export const ContactPage = () => {
             </h2>
             <p className="mb-4 text-sm text-muted">Or reach me where you already are.</p>
             <ul className="grid gap-3">
-              <Channel href={social?.linkedinUrl ?? ""} icon={<LinkedInIcon className="h-5 w-5" />} label="LinkedIn" value="Jimmy Boinembalome" external />
-              <Channel href={social?.githubUrl ?? ""} icon={<GithubIcon className="h-5 w-5" />} label="GitHub" value="jboinembalome" external />
+              <Channel
+                href={social?.linkedinUrl ?? ""}
+                icon={<LinkedInIcon className="h-5 w-5" />}
+                label="LinkedIn"
+                value="Jimmy Boinembalome"
+                external
+              />
+              <Channel
+                href={social?.githubUrl ?? ""}
+                icon={<GithubIcon className="h-5 w-5" />}
+                label="GitHub"
+                value="jboinembalome"
+                external
+              />
             </ul>
           </aside>
         </div>
@@ -138,7 +169,6 @@ export const ContactPage = () => {
     </>
   );
 };
-
 
 function encode(data: Record<string, string>) {
   return Object.keys(data)

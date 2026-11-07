@@ -5,7 +5,11 @@ import { renderMarkdown } from "./markdown";
 // The Markdown files, read through the bundler so the dev server reloads when
 // one changes (src/content/blog/<yyyy-mm-dd-slug>.md, edited by Decap CMS).
 const postFiles = import.meta.glob<string>("/src/content/blog/*.md", { query: "?raw", import: "default", eager: true });
-const pageFiles = import.meta.glob<string>("/src/content/pages/*.md", { query: "?raw", import: "default", eager: true });
+const pageFiles = import.meta.glob<string>("/src/content/pages/*.md", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
 
 export interface PostFrontmatter {
   templateKey?: string;
@@ -49,8 +53,18 @@ export interface ArticleSummary {
 }
 
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 // Gatsby's `formatString: "MMMM DD, YYYY"`, in UTC.

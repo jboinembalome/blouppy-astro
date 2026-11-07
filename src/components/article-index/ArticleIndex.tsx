@@ -38,7 +38,7 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
   const active = topicBySlug(topicSlug);
   const pool = useMemo(
     () => (active ? articles.filter(({ node }) => node.frontmatter.topic === active.name) : articles),
-    [articles, active]
+    [articles, active],
   );
   const shown = pool.slice(0, visible);
   const hasMore = visible < pool.length;
@@ -49,6 +49,8 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
   };
 
   useEffect(() => {
+    // Deliberately after hydration (see above): the query string is not in the HTML.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTopicSlug(readTopicFromUrl());
     setUrlRead(true);
   }, []);
@@ -69,7 +71,7 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) setVisible((count) => count + PAGE_SIZE);
       },
-      { rootMargin: "600px 0px" }
+      { rootMargin: "600px 0px" },
     );
     observer.observe(element);
     return () => observer.disconnect();
@@ -77,7 +79,9 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
 
   const chipClassName = (isActive: boolean) =>
     `inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ${
-      isActive ? "border-accent-border bg-accent-soft text-accent" : "border-line bg-card text-body hover:border-accent-border hover:text-accent"
+      isActive
+        ? "border-accent-border bg-accent-soft text-accent"
+        : "border-line bg-card text-body hover:border-accent-border hover:text-accent"
     }`;
 
   return (
@@ -85,16 +89,24 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
       <section aria-labelledby="articles-title" id="articles" className="scroll-mt-24">
         <div className={`mb-6 flex flex-col gap-4 lg:flex-row lg:items-center ${active ? "lg:justify-between" : ""}`}>
           {/* The page title already says "Articles": the heading shows only for a topic. */}
-          <h2 id="articles-title" className={active ? "text-3xl font-extrabold tracking-tight text-heading" : "sr-only"}>
+          <h2
+            id="articles-title"
+            className={active ? "text-3xl font-extrabold tracking-tight text-heading" : "sr-only"}
+          >
             {active ? active.name : "All articles"}
           </h2>
           {/* On a phone the topics scroll sideways rather than wrap. */}
           <ul
-            className={`-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 ${active ? "lg:justify-end" : ""}`}
+            className={`-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 scrollbar-none md:mx-0 md:flex-wrap md:overflow-visible md:px-0 ${active ? "lg:justify-end" : ""}`}
             aria-label="Filter by topic"
           >
             <li className="shrink-0">
-              <button type="button" className={chipClassName(!active)} aria-pressed={!active} onClick={() => selectTopic(null)}>
+              <button
+                type="button"
+                className={chipClassName(!active)}
+                aria-pressed={!active}
+                onClick={() => selectTopic(null)}
+              >
                 All
               </button>
             </li>
@@ -128,7 +140,11 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
 
         {hasMore && (
           <div ref={sentinel} className="mt-10 flex justify-center">
-            <button type="button" className="btn-outline btn-sm" onClick={() => setVisible((count) => count + PAGE_SIZE)}>
+            <button
+              type="button"
+              className="btn-outline btn-sm"
+              onClick={() => setVisible((count) => count + PAGE_SIZE)}
+            >
               Show more
             </button>
           </div>

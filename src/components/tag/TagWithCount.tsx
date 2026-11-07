@@ -1,6 +1,6 @@
-import { Link } from '../link/Link';
-import React from 'react';
-import kebabCase from 'lodash/kebabCase';
+import { Link } from "../link/Link";
+import React from "react";
+import kebabCase from "lodash/kebabCase";
 
 export interface TagCount {
   tag: string;

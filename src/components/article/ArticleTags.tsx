@@ -7,10 +7,7 @@ interface ArticleTagsProps {
   title?: string;
 }
 
-export const ArticleTags = ({
-  tags,
-  title = 'Tagged'
-}: ArticleTagsProps) => {
+export const ArticleTags = ({ tags, title = "Tagged" }: ArticleTagsProps) => {
   return (
     <div className="mt-12 flex flex-wrap items-center gap-2">
       <h2 className="mr-1 text-sm font-semibold text-muted">{title}</h2>

@@ -1,12 +1,17 @@
-import React from 'react'
-import { AboutPageTemplate } from '../../templates/about-page-template'
+import React from "react";
+import type { PreviewTemplateComponentProps } from "decap-cms-core";
+import { AboutPageTemplate } from "../../templates/about-page-template";
+import { textField } from "../entry";
 
-const AboutPagePreview = ({ entry, widgetFor, getAsset }: any) => (
-  <AboutPageTemplate
-    title={entry.getIn(['data', 'title'])}
-    aboutimage={entry.getIn(['data', 'aboutimage']) ? { src: getAsset(entry.getIn(['data', 'aboutimage'])).toString() } : undefined}
-    content={widgetFor('body')}
-  />
-)
+const AboutPagePreview = ({ entry, widgetFor, getAsset }: PreviewTemplateComponentProps) => {
+  const image = textField(entry, "aboutimage");
+  return (
+    <AboutPageTemplate
+      title={textField(entry, "title")}
+      aboutimage={image ? { src: getAsset(image).toString() } : undefined}
+      content={widgetFor("body") ?? ""}
+    />
+  );
+};
 
-export default AboutPagePreview
+export default AboutPagePreview;

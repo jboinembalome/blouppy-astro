@@ -1,5 +1,5 @@
-import { Link } from '../link/Link';
-import React from 'react';
+import { Link } from "../link/Link";
+import React from "react";
 
 export interface TagProps {
   text?: string;
@@ -11,11 +11,15 @@ export interface TagProps {
   className?: string;
 }
 
-export const Tag = ({ text, link, className = '' }: TagProps) => {
-  const concatClassName = `chip ${link ? 'transition-colors hover:border-accent' : ''} ${className}`;
+export const Tag = ({ text, link, className = "" }: TagProps) => {
+  const concatClassName = `chip ${link ? "transition-colors hover:border-accent" : ""} ${className}`;
 
   if (link)
-    return <Link to={link} className={concatClassName}>{text}</Link>
+    return (
+      <Link to={link} className={concatClassName}>
+        {text}
+      </Link>
+    );
 
-  return <span className={concatClassName}>{text}</span>
+  return <span className={concatClassName}>{text}</span>;
 };

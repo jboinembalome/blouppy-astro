@@ -1,30 +1,35 @@
-// Global styles. Colours, radii and shadows follow the Blouppy Starter's
-// DESIGN.md through the tokens in tokens.css: borders and a subtle blur rather
-// than heavy shadows, `rounded-lg` for surfaces, the indigo primary for the one
-// action that matters on a screen.
+/* Global styles. Colours, radii and shadows follow the Blouppy Starter's */
+/* DESIGN.md through the tokens in tokens.css: borders and a subtle blur rather */
+/* than heavy shadows, `rounded-lg` for surfaces, the indigo primary for the one */
+/* action that matters on a screen. */
 
-body {
-  font-family: var(--blouppy-font-sans);
-  background: var(--blouppy-bg);
-  color: var(--blouppy-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* In the base layer, beside Tailwind's preflight and the forms plugin: as with
+   Tailwind 3, a more specific rule there (the search field's `:focus`) still
+   wins over these. */
+@layer base {
+  body {
+    font-family: var(--blouppy-font-sans);
+    background: var(--blouppy-bg);
+    color: var(--blouppy-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .changing-theme,
+  .changing-theme * {
+    transition: none !important;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--blouppy-focus-ring-color);
+    outline-offset: 2px;
+  }
 }
 
-.changing-theme,
-.changing-theme * {
-  transition: none !important;
-}
-
-:focus-visible {
-  outline: 2px solid var(--blouppy-focus-ring-color);
-  outline-offset: 2px;
-}
-
-// Component classes live in the components layer, so a utility on the same
-// element (`bg-white` on a `.btn`) still wins.
+/* Component classes live in the components layer, so a utility on the same */
+/* element (`bg-white` on a `.btn`) still wins. */
 @layer components {
-  // Buttons, as on the Starter's landing page.
+  /* Buttons, as on the Starter's landing page. */
   .btn,
   .btn-outline,
   .btn-white-sm {
@@ -32,7 +37,7 @@ body {
   }
 
   .btn {
-    @apply border-transparent bg-fill text-fill-contrast shadow-sm hover:bg-fill-hover;
+    @apply border-transparent bg-fill text-fill-contrast shadow-xs hover:bg-fill-hover;
   }
 
   .btn-outline,
@@ -48,24 +53,24 @@ body {
     @apply px-7 py-3.5 text-base;
   }
 
-  // A small uppercase label above a section title.
+  /* A small uppercase label above a section title. */
   .section-kicker {
     @apply mb-3 block text-[0.84375rem] font-bold uppercase tracking-widest text-accent;
   }
 
-  // A tinted pill: categories, tech chips, the hero badge.
+  /* A tinted pill: categories, tech chips, the hero badge. */
   .chip {
     @apply inline-flex items-center gap-1.5 rounded-full border border-accent-border bg-accent-soft px-3 py-0.5 text-sm font-medium text-accent;
   }
 }
 
-// ---------------------------------------------------------------------------
-// Articles
-// ---------------------------------------------------------------------------
+/* --------------------------------------------------------------------------- */
+/* Articles */
+/* --------------------------------------------------------------------------- */
 
 .article-body {
-  // Headings get an anchor from gatsby-remark-autolink-headers; leave room for
-  // the sticky navbar when one is followed.
+  /* Headings get an anchor from gatsby-remark-autolink-headers; leave room for */
+  /* the sticky navbar when one is followed. */
   h2,
   h3,
   h4 {
@@ -100,7 +105,7 @@ body {
     @apply font-medium underline decoration-accent-border underline-offset-2 hover:decoration-current;
   }
 
-  // The "> **_Note:_**" asides of the posts read as a callout, not a quote.
+  /* The "> **_Note:_**" asides of the posts read as a callout, not a quote. */
   blockquote {
     @apply my-6 rounded-lg border border-l-4 border-accent-border bg-accent-soft px-5 py-4 font-normal not-italic;
 
@@ -118,9 +123,9 @@ body {
     }
   }
 
-  // Inline code: a quiet chip, without the backticks the typography plugin adds.
-  // Prism's theme gives inline code `white-space: pre`; a long identifier must
-  // still wrap on a phone rather than widen the page.
+  /* Inline code: a quiet chip, without the backticks the typography plugin adds. */
+  /* Prism's theme gives inline code `white-space: pre`; a long identifier must */
+  /* still wrap on a phone rather than widen the page. */
   :not(pre) > code {
     @apply rounded-md border border-line bg-subtle px-1.5 py-0.5 text-[0.875em] font-medium;
     white-space: normal !important;
@@ -146,9 +151,9 @@ body {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Code blocks (PrismJS via gatsby-remark-prismjs)
-// ---------------------------------------------------------------------------
+/* --------------------------------------------------------------------------- */
+/* Code blocks (PrismJS via gatsby-remark-prismjs) */
+/* --------------------------------------------------------------------------- */
 
 .gatsby-highlight {
   @apply mb-8 overflow-hidden rounded-lg border border-line;
@@ -179,7 +184,7 @@ body {
   @apply -ml-6 block border-l-4 border-solid border-l-primary-400 bg-primary-500/10 pl-3;
 }
 
-// The copy button of gatsby-remark-code-buttons sits on the frame's edge.
+/* The copy button of gatsby-remark-code-buttons sits on the frame's edge. */
 .gatsby-code-button-container {
   @apply pointer-events-none top-0 z-30 flex touch-none justify-end;
   max-width: 100%;
@@ -211,9 +216,9 @@ body {
   @apply w-auto rounded-md bg-fill text-fill-contrast;
 }
 
-// ---------------------------------------------------------------------------
-// The table of contents gatsby-transformer-remark builds for an article.
-// ---------------------------------------------------------------------------
+/* --------------------------------------------------------------------------- */
+/* The table of contents gatsby-transformer-remark builds for an article. */
+/* --------------------------------------------------------------------------- */
 
 .toc {
   ul {
@@ -241,7 +246,7 @@ body {
   }
 }
 
-// unreset is used to define a default style for pages with markdown (About).
+/* unreset is used to define a default style for pages with markdown (About). */
 .unreset {
   a:not(.not-unreset) {
     @apply text-accent underline;
@@ -266,7 +271,7 @@ body {
   }
 }
 
-// style for algolia search
+/* style for algolia search */
 .ais-SearchBox {
   margin: 1em 0;
 }
@@ -283,7 +288,7 @@ body {
   }
 }
 
-// override style for gatsby-remark-images
+/* override style for gatsby-remark-images */
 .gatsby-resp-image-wrapper .gatsby-resp-image-background-image,
 .gatsby-resp-image-wrapper .gatsby-resp-image-image {
   border-radius: 0.5rem;

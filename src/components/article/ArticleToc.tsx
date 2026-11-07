@@ -37,7 +37,7 @@ export const ArticleToc = ({ html }: ArticleTocProps) => {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (visible.length > 0) setActive(visible[0].target.id);
       },
-      { rootMargin: "0px 0px -80% 0px" }
+      { rootMargin: "0px 0px -80% 0px" },
     );
 
     headings.forEach((heading) => observer.observe(heading));

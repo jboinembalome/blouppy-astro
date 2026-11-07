@@ -6,7 +6,9 @@ import React from "react";
 // points at the page being shown.
 export const withTrailingSlash = (to: string): string => {
   if (!to.startsWith("/")) return to;
-  const [, path, rest] = to.match(/^([^?#]*)(.*)$/) ?? [, to, ""];
+  const match = to.match(/^([^?#]*)(.*)$/);
+  const path = match?.[1] ?? to;
+  const rest = match?.[2] ?? "";
   const lastSegment = path.slice(path.lastIndexOf("/") + 1);
   return path.endsWith("/") || lastSegment.includes(".") ? to : `${path}/${rest}`;
 };
@@ -20,6 +22,8 @@ type LinkProps = Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
 export const Link = React.forwardRef<HTMLAnchorElement, LinkProps>(({ to, currentPath, ...props }, ref) => {
   const href = withTrailingSlash(to);
   const isCurrent = currentPath !== undefined && href === withTrailingSlash(currentPath);
+  // The content comes in `children`, through the spread props.
+  // eslint-disable-next-line jsx-a11y/anchor-has-content
   return <a ref={ref} href={href} aria-current={isCurrent ? "page" : undefined} {...props} />;
 });
 Link.displayName = "Link";

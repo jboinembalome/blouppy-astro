@@ -19,13 +19,13 @@ export const ArticleInformation = ({
   updated,
   readingTime,
   link,
-  className = ''
+  className = "",
 }: ArticleInformationProps) => {
   return (
     <div className={`flex items-center justify-between ${className}`}>
       <div className="flex items-center">
         {authorimage && (
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <img
               className="relative z-0 h-10 w-10 rounded-full object-cover"
               src={authorimage.src}
@@ -34,14 +34,13 @@ export const ArticleInformation = ({
               height={authorimage.height}
               loading="lazy"
               decoding="async"
-              alt={`featured image thumbnail for post ${author}`}
+              // The name is written right beside the photo.
+              alt=""
             />
           </div>
         )}
         <div className={`${authorimage ? "ml-3" : ""}`}>
-          <p className="text-sm font-semibold text-heading">
-            {author}
-          </p>
+          <p className="text-sm font-semibold text-heading">{author}</p>
           <div className="flex flex-wrap gap-x-1 text-sm text-muted">
             <time dateTime={date}>{date}</time>
             {updated && (
@@ -62,7 +61,7 @@ export const ArticleInformation = ({
         </div>
       </div>
       {link && (
-        <a href={link} target="_blank" className="text-muted hover:text-heading">
+        <a href={link} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-heading">
           <span className="sr-only">Project Link</span>
           <GithubIcon className="h-10 w-10" />
         </a>

@@ -1,0 +1,10 @@
+dist/
+.astro/
+node_modules/
+package-lock.json
+# Vendored from the Gatsby plugins they replace, kept as published.
+src/lib/markdown/vendor/
+# The articles and pages are edited through the CMS, which writes its own Markdown.
+src/content/
+drafts/
+public/

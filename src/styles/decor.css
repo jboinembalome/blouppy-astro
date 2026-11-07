@@ -1,9 +1,9 @@
-// The flamingo decoration (the Starter's flamingo.css, positioned for this
-// site): the home page's hero, and a lighter band at the top of the secondary
-// pages. Articles carry none. Shapes stay in the margins and fade out before
-// the content, so nothing sits behind text.
+/* The flamingo decoration (the Starter's flamingo.css, positioned for this */
+/* site): the home page's hero, and a lighter band at the top of the secondary */
+/* pages. Articles carry none. Shapes stay in the margins and fade out before */
+/* the content, so nothing sits behind text. */
 
-// --- Home hero -------------------------------------------------------------
+/* --- Home hero ------------------------------------------------------------- */
 
 .home-hero {
   --column: 72rem;
@@ -96,7 +96,7 @@
   }
 }
 
-// --- Secondary pages: the light band ----------------------------------------
+/* --- Secondary pages: the light band ---------------------------------------- */
 
 .page-band {
   position: absolute;
@@ -148,9 +148,9 @@
   }
 }
 
-// --- The donation widget ------------------------------------------------------
-// The Buy me a coffee button floats over the text on a phone, where the column
-// is too narrow to spare its corner: it shows from sm up only.
+/* --- The donation widget ------------------------------------------------------ */
+/* The Buy me a coffee button floats over the text on a phone, where the column */
+/* is too narrow to spare its corner: it shows from sm up only. */
 
 @media (max-width: 39.99rem) {
   #bmc-wbtn,

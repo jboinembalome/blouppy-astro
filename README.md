@@ -1,65 +1,64 @@
-# Blouppy : Personal website of Jimmy Boinembalome
+# Blouppy
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/b654c94e-08a6-4b79-b443-7837581b1d8d/deploy-status)](https://app.netlify.com/sites/blouppy-ci/deploys)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/3684b748-42a1-4cd6-a7a4-8b7ab1edcd19/deploy-status)](https://app.netlify.com/projects/blouppy/deploys)
 
-**Note:** Blouppy uses [Astro 7](https://astro.build/), with React for the interactive parts.
+The source of **[Blouppy](https://www.blouppy.com/)**, a blog on software engineering: architecture, security, testing, back end and front end.
 
-This repository contains the source code for the **[Blouppy](https://www.blouppy.com/)** website that is built with [Astro](https://astro.build/), [Decap CMS](https://decapcms.org) and [Tailwind](https://tailwindcss.com/).
+It is a static site built with [Astro](https://astro.build/), with [React](https://react.dev/) for the interactive parts, styled with [Tailwind CSS](https://tailwindcss.com/), edited through [Decap CMS](https://decapcms.org/) and deployed by [Netlify](https://www.netlify.com/).
 
-It follows the [JAMstack architecture](https://jamstack.org) by using Git as a single source of truth, and [Netlify](https://www.netlify.com) for continuous deployment.
+## What it does
 
-## Features
+- Articles written in Markdown (`src/content/blog/`), with a table of contents, syntax highlighting, line numbers and copy buttons.
+- An Articles page filtered by topic, revealed as the reader scrolls; a page per tag.
+- Search with [Algolia](https://www.algolia.com/), loaded the first time the dialog opens.
+- Light and dark themes, following the system by default.
+- Comments with [Disqus](https://disqus.com/), a contact form handled by [Netlify Forms](https://docs.netlify.com/forms/setup/).
+- SEO: canonical URLs, Open Graph and Twitter tags, JSON-LD, RSS, sitemap, robots.txt by deploy context.
+- A Content Security Policy built from the hashes of the page's own scripts.
 
-- A simple landing page as a home page
-- Editable Pages: Landing, About, Resume, Portfolio, Blog-Collection and Contact page with Netlify Form support
-- Create Blog posts with pagination from Netlify CMS
-- Tags: Separate page for posts under each tag
-- Basic directory organization
-- Uses Tailwind V3 for styling
-- Dark Mode with Tailwind V3
-- Blog search with Algolia
-- Widget BuyMeACoffee
-- Pre-rendered HTML, with JavaScript only for the interactive parts (navigation, search, article list, table of contents, comments, contact form)
-- Author photos resized by `astro:assets`; CMS previews render the site's own templates
-- Separate components for everything
-- Netlify deploy configuration
-- Netlify function support, see `lambda` folder
-- Perfect score on Lighthouse for SEO, Accessibility and Performance (wip:PWA)
-- ..and more
+## Getting started
 
-## Prerequisites
+Node.js 22.23.4 or later is required (see `engines` in `package.json`).
 
-- Node 22.23.4 or higher
-- [Netlify CLI](https://github.com/netlify/cli)
-
-## Getting Started (Recommended)
-
-Netlify CMS can run in any frontend web environment, but the quickest way to try it out is by running it on a pre-configured starter site with Netlify. (adapted from [One Click Hugo CMS](https://github.com/netlify-templates/one-click-hugo-cms)). Use the button below to build and deploy your own copy of the repository:
-
-<a href="https://app.netlify.com/start/deploy?repository=https://github.com/jboinembalome/blouppy-blog&amp;stack=cms"><img src="https://www.netlify.com/img/deploy/button.svg" alt="Deploy to Netlify"></a>
-
-After clicking that button, you’ll authenticate with GitHub and choose a repository name. Netlify will then automatically create a repository in your GitHub account with a copy of the files from the template. Next, it will build and deploy the new site on Netlify, bringing you to the site dashboard when the build is complete. Next, you’ll need to set up Netlify’s Identity service to authorize users to log in to the CMS.
-
-### Access Locally
-
-Pulldown a local copy of the Github repository Netlify created for you, with the name you specified in the previous step
-```
-$ git clone https://github.com/[GITHUB_USERNAME]/[REPO_NAME].git
-$ cd [REPO_NAME]
-$ npm install
-$ netlify dev # or ntl dev
+```sh
+git clone https://github.com/jboinembalome/blouppy-blog.git
+cd blouppy-blog
+npm install
+npm run dev
 ```
 
-This uses the new [Netlify Dev](https://www.netlify.com/products/dev/?utm_source=blog&utm_medium=netlifycms&utm_campaign=devex) CLI feature to serve any functions you have in the `lambda` folder.
+The site is served at http://localhost:4321/. The available scripts are described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-To test the CMS locally, you'll need to run a production build of the site:
+## Project structure
 
 ```
-$ npm run build
-$ netlify dev # or ntl dev
+src/
+  content/blog/     the articles (one Markdown file per article)
+  content/pages/    the home and About pages
+  pages/            the Astro routes
+  layouts/          the page layout and its <head>
+  components/       the React components
+  lib/              posts, site metadata, images, the Markdown pipeline
+  cms/              Decap CMS previews
+public/             static files (images, icons, CV, the CMS config)
+scripts/            build scripts (Algolia indexing, site checks)
+tests/              end-to-end tests (Playwright)
+drafts/             articles not published yet
 ```
 
-## CONTRIBUTING
+## Writing an article
 
-Contributions are always welcome, no matter how large or small. Before contributing,
-please read the [code of conduct](CODE_OF_CONDUCT.md).
+From the CMS at `/admin/` (Netlify Identity), or by adding a Markdown file to `src/content/blog/` named `YYYY-MM-DD-slug.md`, with the same front matter as the other articles. See [`drafts/README.md`](drafts/README.md) for drafts.
+
+## Deployment
+
+Netlify builds `master` (and every pull request, as a deploy preview) with `npm run build` and publishes `dist/`; `netlify.toml` holds the headers and redirects. The Algolia index is pushed from production builds only.
+
+| Variable                                             | Used for                                     |
+| ---------------------------------------------------- | -------------------------------------------- |
+| `GATSBY_ALGOLIA_APP_ID`, `GATSBY_ALGOLIA_SEARCH_KEY` | the search dialog (public, search-only key)  |
+| `ALGOLIA_ADMIN_KEY`                                  | indexing the articles from production builds |
+
+## License
+
+[MIT](LICENSE)

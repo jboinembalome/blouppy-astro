@@ -1,13 +1,7 @@
 import * as React from "react";
 
 export const AlgoliaIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    height="30"
-    viewBox="1 -1.003 486.61445352 120.002"
-    width="2500"
-    xmlns="http://www.w3.org/2000/svg"
-    {...props}
-  >
+  <svg height="30" viewBox="1 -1.003 486.61445352 120.002" width="2500" xmlns="http://www.w3.org/2000/svg" {...props}>
     <g fill="none">
       <path
         d="m16.8-1.001h88.4c8.7 0 15.8 7.065 15.8 15.8v88.405c0 8.7-7.065 15.795-15.8 15.795h-88.4c-8.7 0-15.8-7.06-15.8-15.795v-88.445c0-8.695 7.06-15.76 15.8-15.76"

@@ -19,8 +19,18 @@ export const TopicIllustration = ({ topic, variant, className = "" }: TopicIllus
 
   return (
     <div className={`flex items-center justify-center bg-accent-soft ${className}`} aria-hidden="true">
-      <img src={file("light")} alt="" loading="lazy" className="h-full max-h-full w-auto max-w-[85%] object-contain dark:hidden" />
-      <img src={file("dark")} alt="" loading="lazy" className="hidden h-full max-h-full w-auto max-w-[85%] object-contain dark:block" />
+      <img
+        src={file("light")}
+        alt=""
+        loading="lazy"
+        className="h-full max-h-full w-auto max-w-[85%] object-contain dark:hidden"
+      />
+      <img
+        src={file("dark")}
+        alt=""
+        loading="lazy"
+        className="hidden h-full max-h-full w-auto max-w-[85%] object-contain dark:block"
+      />
     </div>
   );
 };

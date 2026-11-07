@@ -13,6 +13,11 @@ const aboutimage = await photo(frontmatter.aboutimage, 256, 320);
 const shareImage = await photo(frontmatter.aboutimage, 1544, 2048, { forSharing: true });
 ---
 
-<Layout title={frontmatter.title} description={frontmatter.description} image={shareImage?.src} imageAlt={`Portrait of ${site.author.name}`}>
+<Layout
+  title={frontmatter.title}
+  description={frontmatter.description}
+  image={shareImage?.src}
+  imageAlt={`Portrait of ${site.author.name}`}
+>
   <AboutPageTemplate title={frontmatter.title ?? ""} aboutimage={aboutimage} content={html} />
 </Layout>
