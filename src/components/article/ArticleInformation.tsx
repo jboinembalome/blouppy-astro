@@ -6,6 +6,7 @@ import { ImageDataLike } from "gatsby-plugin-image";
 interface ArticleInformationProps {
   author: string;
   date: string;
+  updated?: string;
   readingTime?: string;
   link?: string;
   authorimage?: ImageDataLike;
@@ -16,6 +17,7 @@ export const ArticleInformation = ({
   author,
   authorimage,
   date,
+  updated,
   readingTime,
   link,
   className = ''
@@ -38,8 +40,16 @@ export const ArticleInformation = ({
           <p className="text-sm font-semibold text-heading">
             {author}
           </p>
-          <div className="flex space-x-1 text-sm text-muted">
+          <div className="flex flex-wrap gap-x-1 text-sm text-muted">
             <time dateTime={date}>{date}</time>
+            {updated && (
+              <>
+                <span aria-hidden="true">&middot;</span>
+                <span>
+                  Updated <time dateTime={updated}>{updated}</time>
+                </span>
+              </>
+            )}
             {readingTime && (
               <>
                 <span aria-hidden="true">&middot;</span>

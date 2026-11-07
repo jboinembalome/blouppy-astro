@@ -15,6 +15,9 @@ type FrontmatterType = {
   title: string;
   date: string;
   isoDate: string;
+  // Set when an article is revised after it was published.
+  updated?: string;
+  isoUpdated?: string;
   description: string;
   category: string;
   topic: string;

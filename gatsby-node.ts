@@ -117,6 +117,7 @@ export const onCreateNode: GatsbyNode["onCreateNode"] = ({
 export const createSchemaCustomization: GatsbyNode["createSchemaCustomization"] = ({ actions }) => {
   actions.createTypes(`
     type MarkdownRemarkFrontmatter {
+      updated: Date @dateformat
       topic: String
       illustration: Int
       featuredauthor: String
