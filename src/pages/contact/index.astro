@@ -1,0 +1,8 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { ContactPage, contactDescription } from "../../components/contact/ContactPage";
+---
+
+<Layout title="Contact" description={contactDescription}>
+  <ContactPage client:load />
+</Layout>

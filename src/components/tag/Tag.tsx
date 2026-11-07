@@ -1,4 +1,4 @@
-import { Link } from 'gatsby';
+import { Link } from '../link/Link';
 import React from 'react';
 
 export interface TagProps {

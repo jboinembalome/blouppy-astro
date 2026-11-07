@@ -1,5 +1,5 @@
 import React from "react";
-import { Topic } from "../../constants/topics";
+import type { Topic } from "../../constants/topics";
 
 interface TopicIconProps {
   topic: Topic;

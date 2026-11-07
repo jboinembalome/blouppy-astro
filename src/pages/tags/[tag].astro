@@ -1,0 +1,25 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { PageHeader } from "../../components/page-header/PageHeader";
+import { ArticleCard } from "../../components/article-card/ArticleCard";
+import { Link } from "../../components/link/Link";
+import { getPosts, getTags, summarizeAll, tagPath } from "../../lib/posts";
+
+export const getStaticPaths = () =>
+  getTags().map(({ tag }) => ({ params: { tag: tagPath(tag).slice("/tags/".length, -1) }, props: { tag } }));
+
+const { tag } = Astro.props as { tag: string };
+const articles = await summarizeAll(getPosts().filter((post) => post.frontmatter.tags?.includes(tag)));
+const totalCount = articles.length;
+const summary = `${totalCount} article${totalCount === 1 ? "" : "s"} tagged with ${tag}.`;
+---
+
+<Layout title={tag} description={summary}>
+  <PageHeader kicker="Tag" title={tag} subtitle={summary} />
+  <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    {articles.map((article) => <ArticleCard article={article} headingLevel="h2" />)}
+  </div>
+  <div class="mt-12 border-t border-line pt-6">
+    <Link to="/tags/" className="btn-outline btn-sm">Browse all tags</Link>
+  </div>
+</Layout>

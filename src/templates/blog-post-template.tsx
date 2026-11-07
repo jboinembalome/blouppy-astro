@@ -1,18 +1,19 @@
 import React from "react";
-import { DisqusConfig } from "gatsby-plugin-disqus";
-import { Article, ArticleProps } from "../components/article";
+import { Article, type ArticleProps, type DisqusConfig } from "../components/article";
 
 interface BlogPostTemplateProps extends ArticleProps {
   slug: string;
 }
 
+// Disqus keys a thread by the production URL, whichever deploy shows it.
+export const disqusConfigOf = (slug: string, title: string): DisqusConfig => ({
+  url: "https://blouppy.com" + slug,
+  identifier: slug,
+  title,
+});
+
 export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
-  const siteUrl = "https://blouppy.com" + props.slug;
-  const disqusConfig: DisqusConfig = {
-    url: siteUrl,
-    identifier: props.slug,
-    title: props.title,
-  };
+  const disqusConfig = disqusConfigOf(props.slug, props.title);
 
   return (
     <Article 
@@ -23,7 +24,6 @@ export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
       category={props.category}
       topic={props.topic}
       tags={props.tags} 
-      image={props.image}
       imageLink={props.imageLink}
       imageCreator={props.imageCreator}
       imageSource="https://unsplash.com/"
@@ -33,6 +33,8 @@ export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
       content={props.content} 
       tableOfContents={props.tableOfContents}
       related={props.related}
+      toc={props.toc}
+      comments={props.comments}
       disqusConfig={disqusConfig} />
   );
 };

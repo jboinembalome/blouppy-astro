@@ -1,16 +1,11 @@
 import React from 'react'
-import { IGatsbyImageData } from 'gatsby-plugin-image'
 import { HTMLContent } from '../components/layout/Content'
 import { ArticleImageCaption } from '../components/article'
-import PreviewCompatibleImage from '../components/preview-compatible-image/PreviewCompatibleImage'
+import type { ImageSource } from '../lib/images'
 
 interface AboutPageTemplateProps {
   title: string;
-  aboutimage: {
-    childImageSharp: {
-      gatsbyImageData: IGatsbyImageData;
-    };
-  };
+  aboutimage?: ImageSource;
   content: string;
 }
 
@@ -23,7 +18,16 @@ export const AboutPageTemplate = ({ title, aboutimage, content }: AboutPageTempl
       {aboutimage && (
         <figure className="mx-auto flex w-full max-w-[16rem] flex-col gap-3 md:order-2 md:mx-0 md:pt-16">
           <div className="overflow-hidden rounded-xl border border-line">
-            <PreviewCompatibleImage className="aspect-[4/5] object-cover" imageInfo={{ image: aboutimage, alt: "Portrait of Jimmy Boinembalome" }} loading="eager" />
+            <img
+              className="block aspect-[4/5] h-auto w-full object-cover"
+              src={aboutimage.src}
+              srcSet={aboutimage.srcSet}
+              width={aboutimage.width}
+              height={aboutimage.height}
+              loading="eager"
+              decoding="async"
+              alt="Portrait of Jimmy Boinembalome"
+            />
           </div>
           <ArticleImageCaption imageLink="https://www.instagram.com/zenasiart/?hl=fr" imageCreator="Asia Zeni" />
         </figure>

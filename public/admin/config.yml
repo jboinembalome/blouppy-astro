@@ -1,0 +1,56 @@
+backend:
+  name: git-gateway
+  branch: master
+  commit_messages:
+    create: 'Create {{collection}} “{{slug}}”'
+    update: 'Update {{collection}} “{{slug}}”'
+    delete: 'Delete {{collection}} “{{slug}}”'
+    uploadMedia: '[skip ci] Upload “{{path}}”'
+    deleteMedia: '[skip ci] Delete “{{path}}”'
+
+media_folder: public/img
+public_folder: /img
+
+collections:
+  - name: "blog"
+    label: "Blog"
+    folder: "src/content/blog"
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    fields:
+      - {label: "Template Key", name: "templateKey", widget: "hidden", default: "blog-post"}
+      - {label: "Title", name: "title", widget: "string"}
+      - {label: "Publish Date", name: "date", widget: "datetime"}
+      - {label: "Updated Date", name: "updated", widget: "datetime", required: false, hint: "Set when the article is revised after publication."}
+      - {label: "Author", name: "author", widget: "string"}
+      - {label: "Author Image", name: "authorimage", widget: "image"}
+      - {label: "Description", name: "description", widget: "text"}
+      - {label: "Category", name: "category", widget: "text"}
+      - {label: "Topic", name: "topic", widget: "select", options: ["Architecture", "Security", "Messaging", "Data", "Testing", "Front end", "C# & .NET", "Tooling"]}
+      - {label: "Illustration (1-3, vary it between posts of the same topic)", name: "illustration", widget: "number", value_type: "int", min: 1, max: 3, default: 1, required: false}
+      - {label: "Category Color", name: "categorycolor", widget: "text"}
+      - {label: "Featured Post", name: "featuredpost", widget: "boolean"}
+      - {label: "Featured Author", name: "featuredauthor", widget: "text", required: false}
+      - {label: "Featured Link", name: "featuredlink", widget: "text", required: false}
+      - {label: "Featured Image (link previews only)", name: "featuredimage", widget: image, required: false}
+      - {label: "Body", name: "body", widget: "markdown"}
+      - {label: "Tags", name: "tags", widget: "list"}
+
+  - name: "pages"
+    label: "Pages"
+    files:
+      - file: "src/content/pages/home.md"
+        label: "Home"
+        name: "index"
+        fields:
+          - {label: "Template Key", name: "templateKey", widget: "hidden", default: "index-page"}
+          - {label: Title, name: title, widget: string}
+          - {label: Subheading, name: subheading, widget: text}
+      - file: "src/content/pages/about.md"
+        label: "About"
+        name: "about"
+        fields:
+          - {label: "Template Key", name: "templateKey", widget: "hidden", default: "about-page"}
+          - {label: "Title", name: "title", widget: "string"}
+          - {label: "About Image", name: "aboutimage", widget: "image"}
+          - {label: "Body", name: "body", widget: "markdown"}

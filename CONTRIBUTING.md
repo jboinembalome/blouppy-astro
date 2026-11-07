@@ -22,17 +22,15 @@ $ npm install
 
 ### `build`
 
-Build the static files into the `public` folder, turns lambda functions into a deployable form. 
+Builds the static site into `dist/` (`astro build`), then pushes the articles to Algolia when `ALGOLIA_ADMIN_KEY` is set.
 
-Runs `gatsby build` command.
+### `check`
 
-### `clean`
-
-Runs `gatsby clean` command.
+Type-checks the Astro pages and the TypeScript sources (`astro check`), as CI does.
 
 ### `netlify dev`
 
-Starts the netlify dev environment, including the gatsby dev environment.
+Starts the netlify dev environment, including the Astro dev server.
 For more infor check the [Netlify Dev Docs](https://github.com/netlify/cli/blob/master/docs/netlify-dev.md)
 
 ```sh
@@ -41,7 +39,7 @@ netlify dev
 
 ### `develop` or `start`
 
-Runs the `clean` script and starts the gatsby develop server using the command `gatsby develop`. We recomend using this command when you don't need Netlify specific features
+Starts the Astro dev server (`astro dev`). We recommend using this command when you don't need Netlify specific features
 
 ### `test`
 

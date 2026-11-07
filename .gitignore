@@ -1,14 +1,11 @@
-# Project dependencies
-# https://www.npmjs.org/doc/misc/npm-faq.html#should-i-check-my-node_modules-folder-into-git
+# Dependencies
 node_modules
-.cache/
-# Build directory
-public/
-static/admin/*.bundle.*
+# Astro build output and generated types
+dist/
+.astro/
+# Netlify local folders
+.netlify/
 .DS_Store
 .env
 # Visual Studio
 .vs/
-.vs/slnx.sqlite
-
-

@@ -1,6 +1,5 @@
 import React from 'react';
-import { ButtonLinkProps } from './ButtonLink';
-import { GatsbyLinkProps, Link } from 'gatsby';
+import { Link } from '../link/Link';
 
 export interface ButtonInternalLinkProps {
   text?: string;

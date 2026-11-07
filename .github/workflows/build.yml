@@ -1,4 +1,4 @@
-# Builds the site on every pull request, as Netlify will: a broken query, page
+# Builds the site on every pull request, as Netlify will: a broken page, type
 # or plugin fails here rather than on the deploy.
 name: Build
 
@@ -17,5 +17,5 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci --legacy-peer-deps
-      - run: npx tsc --noEmit
+      - run: npm run check
       - run: npm run build

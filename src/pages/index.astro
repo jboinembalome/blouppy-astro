@@ -1,0 +1,12 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { IndexPageTemplate } from "../templates/index-page-template";
+import { getPage, getPosts, summarizeAll } from "../lib/posts";
+
+const { frontmatter } = getPage("home");
+const articles = (await summarizeAll(getPosts())).map((node) => ({ node }));
+---
+
+<Layout kind="home" description={frontmatter.subheading}>
+  <IndexPageTemplate title={frontmatter.title ?? ""} subheading={frontmatter.subheading ?? ""} articles={articles} />
+</Layout>

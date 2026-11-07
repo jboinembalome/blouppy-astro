@@ -1,7 +1,7 @@
 import React from "react";
-import { Link, withPrefix } from "gatsby";
+import { Link } from "../components/link/Link";
 import { HomeArticles } from "../components/article-index/HomeArticles";
-import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
+import type { ArticleSummaryEdge } from "../lib/posts";
 
 interface IndexPageTemplateProps {
   title: string;
@@ -34,7 +34,7 @@ const Hero = ({ title, subheading }: Pick<IndexPageTemplateProps, "title" | "sub
         </div>
       </div>
       <img
-        src={withPrefix("/img/home-illustration.png")}
+        src="/img/home-illustration.png"
         alt=""
         width={770}
         height={578}
