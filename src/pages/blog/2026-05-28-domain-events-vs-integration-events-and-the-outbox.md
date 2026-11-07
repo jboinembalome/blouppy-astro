@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Domain events vs integration events in .NET, and the transactional outbox'
 date: 2026-05-28T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -21,13 +22,12 @@ tags:
   - Architecture
 ---
 
-"Event" is one of the most overloaded words in a .NET code base. The same name is used for something an entity records in memory and for a message that travels through RabbitMQ to another service. Mixing the two leads to classic bugs: a message sent for a change that was rolled back, or a change committed whose message was never sent.
+"Event" is one of the most overloaded words in a .NET code base. The same name covers something an entity records in memory and a message that travels through RabbitMQ to another service. Mixing the two leads to classic bugs: a message sent for a change that was rolled back, or a committed change whose message was never sent.
 
-In this article, we will separate the two kinds of event, see how domain events are dispatched with an EF Core interceptor so that their handlers join the same transaction, and how a domain event handler turns into an integration event that goes through a transactional outbox.
+In this article, we separate the two kinds of event, dispatch domain events with an EF Core interceptor so that their handlers join the same transaction, and turn a domain event into an integration event that goes through a transactional outbox.
 
 
 ## Two kinds of event, two jobs
-Let's start with the definitions, because everything else follows from them:
 
 | | Domain event | Integration event |
 | --- | --- | --- |
@@ -36,67 +36,47 @@ Let's start with the definitions, because everything else follows from them:
 | Handler | `IDomainEventHandler<T>` | `IIntegrationEventHandler<T>` |
 | Typical use | A consequence that must commit or roll back with the change | Telling another domain, a module or another host that something happened |
 
-A **domain event** is a consequence: "a workspace was created, so it needs a team". An **integration event** is a fact for the outside world: "a workspace was created, in case someone cares", heard later, maybe in another process.
+A [domain event](https://learn.microsoft.com/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/domain-events-design-implementation) is a consequence: "a workspace was created, so it needs a team". An [integration event](https://learn.microsoft.com/dotnet/architecture/microservices/multi-container-microservice-net-applications/subscribe-events) is a fact for the outside world: "a workspace was created, in case someone cares", heard later, maybe in another process.
 
 
 ## The dual-write problem
-Before looking at the code, let's see what goes wrong when we publish a message "next to" a database write. There are only two possible orders, and both are broken:
+Publishing a message "next to" a database write has only two possible orders, and both are broken:
 
 ```text:clipboard=false
 Publish, then commit:   message sent ──► commit fails  ──► subscribers react to a change that never happened
 Commit, then publish:   commit ok    ──► broker down    ──► change exists, nobody ever hears about it
 ```
 
-There is no transaction spanning the database and the broker, and the process can crash between the two calls. The way out is to write the message **into the database**, in the same transaction as the change, and to send it from there. That is the transactional outbox, and we will get there step by step.
+No transaction spans the database and the broker, and the process can crash between the two calls. The way out is to write the message **into the database**, in the same transaction as the change, and send it from there: the [transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html).
 
 
 ## Raising a domain event
-The shared kernel gives aggregates a base class that collects events. Here is `HasDomainEventsBase`, from `Blouppy.SharedKernel/DomainEvents`:
+The shared kernel gives aggregates a base class that collects events:
 
 ```csharp
 public abstract class HasDomainEventsBase
 {
     private readonly List<IDomainEvent> _domainEvents = [];
-    
+
     [NotMapped]
     public IReadOnlyCollection<IDomainEvent> DomainEvents => _domainEvents.AsReadOnly();
 
-    protected void AddDomainEvent(IDomainEvent domainEvent) 
+    protected void AddDomainEvent(IDomainEvent domainEvent)
         => _domainEvents.Add(domainEvent);
-    
+
     internal void ClearDomainEvents() => _domainEvents.Clear();
 }
-
-public abstract class DomainEventBase : IDomainEvent
-{
-    public DateTimeOffset DateOccurred { get; } = DateTimeOffsetProvider.Now;
-}
 ```
 
-Here is what matters:
-- `AddDomainEvent` is `protected`: only the entity itself can say what happened to it.
-- Nothing is dispatched here. The entity only **records** the event.
+- `AddDomainEvent` is `protected`: only the entity can say what happened to it.
+- Nothing is dispatched here: the entity only **records** the event.
 - `ClearDomainEvents` is `internal`, so only the shared kernel's publisher can empty the list.
 
-The event itself is a plain class in the domain's `.Models` project, with the ids a handler needs:
-
-```csharp
-public sealed class WorkspaceCreatedDomainEvent(
-    WorkspaceId workspaceId,
-    UserId ownerId,
-    OrganizationId organizationId) : DomainEventBase
-{
-    public WorkspaceId WorkspaceId { get; } = workspaceId;
-    public UserId OwnerId { get; } = ownerId;
-    public OrganizationId OrganizationId { get; } = organizationId;
-}
-```
-
-The `Workspace` entity raises it in `MarkAsCreated`, and the service calls it right after handing the entity to the repository:
+The event is a plain class in the domain's `.Models` project, deriving from `DomainEventBase` (which stamps `DateOccurred`) and carrying the IDs a handler needs: `WorkspaceCreatedDomainEvent(WorkspaceId, UserId ownerId, OrganizationId)`. The `Workspace` entity raises it, and the service calls it right after handing the entity to the repository:
 
 ```csharp
 // Workspace.cs
-public void MarkAsCreated() 
+public void MarkAsCreated()
     => AddDomainEvent(new WorkspaceCreatedDomainEvent(
         workspaceId: Exceptions.ThrowIfNullOrNegativeOrZero(Id),
         ownerId: Exceptions.ThrowIfNullOrWhiteSpace(ownerId),
@@ -110,13 +90,11 @@ workspace.MarkAsCreated();
 return ValidationResult.Success(workspace);
 ```
 
-> **_Note:_**  The order is not an accident. The workspace's key comes from a HiLo sequence, so EF Core assigns it when the entity is added. `MarkAsCreated` runs after `AddAsync`, and `ThrowIfNullOrNegativeOrZero(Id)` guarantees the event never carries an empty id.
-
-The service does not save anything: the controller commits through `IUnitOfWork.CommitAsync`.
+The order matters. The workspace's key comes from a HiLo sequence, so EF Core assigns it when the entity is added; `MarkAsCreated` runs after `AddAsync`, and `ThrowIfNullOrNegativeOrZero(Id)` guarantees the event never carries an empty ID. The service saves nothing: the controller commits through `IUnitOfWork.CommitAsync`.
 
 
 ## Dispatching before SaveChanges
-The domain events are dispatched by an EF Core interceptor, `PublishDomainEventsInterceptor` in `Blouppy.Infrastructure.Database/Interceptors`. Let's look at it:
+An EF Core [interceptor](https://learn.microsoft.com/ef/core/logging-events-diagnostics/interceptors) dispatches the domain events (comment abridged):
 
 ```csharp
 internal sealed class PublishDomainEventsInterceptor(
@@ -124,10 +102,9 @@ internal sealed class PublishDomainEventsInterceptor(
 {
     public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
     {
-        // A. Right BEFORE committing data (EF SaveChanges) into the DB will make a single transaction including  
-        // side effects from the domain event handlers which are using the same DbContext with "scoped" lifetime
-        // B. Right AFTER committing data (EF SaveChanges) into the DB will make multiple transactions. 
-        // You will need to handle eventual consistency and compensatory actions in case of failures in any of the Handlers. 
+        // A. Right BEFORE SaveChanges: a single transaction including the side effects of the domain event handlers,
+        // which use the same scoped DbContext.
+        // B. Right AFTER SaveChanges: multiple transactions, with eventual consistency and compensatory actions.
         await PublishDomainEventsAsync(eventData.Context, cancellationToken);
 
         return await base.SavingChangesAsync(eventData, result, cancellationToken);
@@ -148,27 +125,9 @@ internal sealed class PublishDomainEventsInterceptor(
 }
 ```
 
-The comment says it all. The interceptor overrides `SavingChangesAsync`, which runs **before** EF Core writes anything. Every handler resolves the same scoped `DbContext`, so whatever a handler adds to it is written by the very `SaveChanges` that is about to run. Option B (after the save) would mean several transactions, and compensating actions when a handler fails. Option A gives us one transaction for free.
+`SavingChangesAsync` runs **before** EF Core writes anything. Every handler resolves the same scoped `DbContext`, so whatever a handler adds is written by the very `SaveChanges` about to run: one transaction for free. The publisher copies each entity's events and clears the list **before** publishing them, so a second `SaveChanges` on the same context does not dispatch them twice.
 
-The `DomainEventPublisher` takes a copy of each entity's events, clears the list, and publishes them one by one:
-
-```csharp
-foreach (var entity in entities)
-{
-    var domainEvents = entity.DomainEvents.ToArray();
-    
-    entity.ClearDomainEvents();
-    
-    foreach (var domainEvent in domainEvents)
-    {
-        await publisher.PublishAsync(domainEvent, cancellationToken);
-    }
-}
-```
-
-Clearing before publishing means a second `SaveChanges` on the same context will not dispatch the same events twice.
-
-And here is `UnitOfWork.CommitAsync`, which opens the transaction around that save:
+`UnitOfWork.CommitAsync` opens an explicit [transaction](https://learn.microsoft.com/ef/core/saving/transactions) around that save, inside the provider's [execution strategy](https://learn.microsoft.com/ef/core/miscellaneous/connection-resiliency):
 
 ```csharp
 await strategy.ExecuteAsync(async () =>
@@ -183,11 +142,11 @@ await strategy.ExecuteAsync(async () =>
 });
 ```
 
-The explicit transaction matters: the outbox waits for its commit, as we will see.
+The explicit transaction matters: the outbox waits for its commit.
 
 
 ## A handler that writes in the same transaction
-Now, the consequence. Here is `CreateTeamWhenWorkspaceCreatedDomainEventHandler`, in `Blouppy.Workspaces/Teams/DomainEventHandlers`:
+Here is the consequence, in `Blouppy.Workspaces/Teams/DomainEventHandlers`:
 
 ```csharp
 internal sealed class CreateTeamWhenWorkspaceCreatedDomainEventHandler(
@@ -205,13 +164,11 @@ internal sealed class CreateTeamWhenWorkspaceCreatedDomainEventHandler(
 }
 ```
 
-The handler only **adds** the team to the repository; it never saves. The workspace row and the team row are written by the same `SaveChanges`, in the same transaction: they commit together, or neither does. 👍
-
-This is the right use of a domain event: a rule inside one domain, that must be consistent with the change.
+The handler only **adds** the team; it never saves. The workspace and the team are written by the same `SaveChanges`, in the same transaction: they commit together, or neither does. That is the right use of a domain event: a rule inside one domain that must stay consistent with the change.
 
 
 ## From a domain event to an integration event
-The Webhooks module also wants to know that a workspace was created, so it can notify the organization's endpoints. But a domain never calls another domain to tell it something. It publishes an integration event, **from a domain event handler**:
+The Webhooks module also wants to know that a workspace was created, to notify the organization's endpoints. A domain never calls another domain to tell it something: it publishes an integration event, **from a domain event handler**:
 
 ```csharp
 /// <summary>
@@ -232,77 +189,49 @@ internal sealed class PublishIntegrationEventWhenWorkspaceCreatedDomainEventHand
 }
 ```
 
-A few things to notice:
-- It handles the **same** domain event as the team handler. A domain event can have as many handlers as it needs.
-- The integration event is a separate type, `WorkspaceCreatedIntegrationEvent`, a `sealed record` in `Blouppy.Infrastructure.Messaging.Abstractions/Workspaces`. The domain event never leaves the process: what crosses the boundary is a contract of its own, with only ids.
-- The handler depends on `IIntegrationEventPublisher<T>`, a port. It does not know which bus is behind it.
+- It handles the **same** domain event as the team handler: a domain event can have as many handlers as it needs.
+- `WorkspaceCreatedIntegrationEvent` is a separate `sealed record` in `Blouppy.Infrastructure.Messaging.Abstractions`. The domain event never leaves the process; what crosses the boundary is a contract of its own, with IDs only.
+- The handler depends on `IIntegrationEventPublisher<T>`, a port, and does not know which bus is behind it.
 
-Because this handler runs inside `SavingChangesAsync`, the publish happens **during** the unit of work, before anything is written. That is exactly where an outbox can catch it.
-
-On the other side, `DispatchWebhooksWhenWorkspaceCreatedIntegrationEventHandler` implements `IIntegrationEventHandler<WorkspaceCreatedIntegrationEvent>` in the Webhooks module, and runs after the commit, whenever the message is delivered.
+Because this handler runs inside `SavingChangesAsync`, the publish happens **during** the unit of work, before anything is written: exactly where an outbox can catch it. On the other side, the Webhooks module's `DispatchWebhooksWhenWorkspaceCreatedIntegrationEventHandler` runs after the commit, whenever the message is delivered.
 
 
 ## The outbox: the event exists if and only if the change committed
-Behind `IIntegrationEventPublisher<T>`, the messaging adapter does not send anything to the broker. It adds the message, as an envelope row, to the **same** `DbContext`. Those rows are written by the same `SaveChanges` as the workspace and the team.
+Behind `IIntegrationEventPublisher<T>`, the messaging adapter sends nothing to the broker. It adds the message, as an envelope row, to the **same** `DbContext`, so the same `SaveChanges` writes it with the workspace and the team.
 
-The adapter then watches the transaction with an EF Core interceptor (`OutboxInterceptor<TDbContext>`, a `SaveChangesInterceptor` and an `IDbTransactionInterceptor`), and keeps the batches in a scoped `OutboxSession<TDbContext>`. Here is the part that teaches, slightly trimmed:
+The adapter watches the transaction with `OutboxInterceptor<TDbContext>`, both a `SaveChangesInterceptor` and an `IDbTransactionInterceptor`, and keeps the batches in a scoped `OutboxSession<TDbContext>`:
 
-```csharp
-public async Task SavedAsync(Guid? transactionId)
-{
-    // ...
-    if (transactionId is null)
-    {
-        // Saved in a transaction of the save's own, already committed.
-        await FlushAsync(batch);
+- After `SaveChanges`, `SavedAsync(transactionId)` parks the batch until the transaction it was saved in ends.
+- When that transaction **commits**, `CommittedAsync` flushes the batch to the broker.
+- When it **rolls back**, `RolledBack` drops the batch. The rows were never committed either, so there is nothing to send.
+- If the broker is down at commit time, the flush fails but the rows are committed, and [Wolverine's durability agent](https://wolverinefx.net/guide/durability/) sends them later.
 
-        return;
-    }
+That is why `FlushAsync` catches and logs every exception instead of throwing: the rows are committed by then, and a failure surfacing there would make the unit of work retry a commit that succeeded.
 
-    _awaitingCommit.Add((transactionId.Value, batch));
-}
+Back to the two broken orders: a failed commit takes the envelope row with it, and a broker down at commit time only delays the send. The integration event now exists **if and only if** the change did, which the audit log relies on.
 
-public async Task CommittedAsync(Guid transactionId)
-{
-    // Flushes every batch saved in that transaction.
-}
-
-public void RolledBack(Guid transactionId)
-    => _awaitingCommit.RemoveAll(x => x.TransactionId == transactionId);
-```
-
-Here is the sequence:
-- `SaveChanges` writes the envelope rows with the business rows. The batch then waits for the transaction it was saved in.
-- When the transaction **commits**, the batch is flushed to the broker.
-- When it **rolls back**, the batch is dropped. The rows were never committed either, so there is nothing to send. 😉
-- If the broker is down at commit time, the flush fails, but the rows are committed: the bus library's durability agent sends them later.
-
-That last point has a subtle detail worth quoting. `FlushAsync` never throws:
-
-```csharp
-/// <summary>
-/// Never throws: the rows are committed by now, so a failure surfacing here would have the unit of work retry a
-/// commit that succeeded. The rows stay in the outbox, where Wolverine's durability agent sends them.
-/// </summary>
-```
-
-Back to our two broken orders: a failed commit takes the envelope row with it, and a broker down at commit time only delays the send. The integration event now exists **if and only if** the change did. The audit log relies on exactly that.
-
-> **_Note:_**  The outbox guarantees the message is sent, not that it is handled once: a handler that fails is retried, so integration event handlers must be idempotent. [Idempotent message handlers](https://www.blouppy.com/blog/2026-08-20-idempotent-message-handlers-with-deterministic-ids/) covers how, and [Replacing MassTransit with Wolverine](https://www.blouppy.com/blog/2026-06-09-replacing-masstransit-with-wolverine/) covers the bus adapter itself.
+> **_Note:_** The outbox guarantees the message is sent, not that it is handled once: a failing handler is retried, so integration event handlers must be idempotent. See [Idempotent message handlers](https://www.blouppy.com/blog/2026-08-20-idempotent-message-handlers-with-deterministic-ids/), and [Replacing MassTransit with Wolverine](https://www.blouppy.com/blog/2026-06-09-replacing-masstransit-with-wolverine/) for the bus adapter itself.
 
 
 ## What it costs
-This design is not free, and it is better to know it upfront:
-- **The commit carries more work.** Domain event handlers run inside `SaveChanges`. A slow handler slows down the request, so a domain event handler is best kept to adding rows or publishing.
+- **The commit carries more work.** Domain event handlers run inside `SaveChanges`, so a slow handler slows the request. Keep them to adding rows or publishing.
 - **Two event types per fact that crosses a boundary**, plus a small handler between them: the price of keeping the domain model out of the contract.
-- **Eventual consistency on the other side.** The Webhooks module learns about the workspace after the commit, not during it. Anything that must be consistent with the change belongs in a domain event handler, not an integration one.
+- **Eventual consistency on the other side.** The Webhooks module learns about the workspace after the commit. Anything that must be consistent with the change belongs in a domain event handler.
 
 
 ## Conclusion
-Domain events and integration events are not two names for the same thing. A domain event is recorded by an entity and handled in process, inside the transaction, through `IDomainEventHandler<T>`. An integration event is a separate contract, published from a domain event handler through `IIntegrationEventPublisher<T>`, and handled after the commit, by whoever subscribed.
+A domain event is recorded by an entity and handled in process, inside the transaction. An integration event is a separate contract, published from a domain event handler and handled after the commit by whoever subscribed. Dispatching domain events in `SavingChangesAsync` puts the handlers' writes in the same transaction, and writing the outbox rows to the same `DbContext` makes an integration event exist if and only if the change committed.
 
-Dispatching domain events in `SavingChangesAsync` is what puts the handlers' writes in the same transaction, and putting the outbox rows in the same `DbContext` is what makes an integration event exist if and only if the change committed. No more dual write, no more ghost messages.
+Events in [Blouppy Starter](https://starter.blouppy.com/) are built this way, with the outbox on PostgreSQL.
 
-This is how events are built in [Blouppy Starter](https://starter.blouppy.com/): domain events dispatched by an EF Core interceptor, integration events through an outbox on PostgreSQL. The [messaging documentation](https://docs.starter.blouppy.com/architecture/messaging/) walks through the same flow.
 
-*Thanks for reading! 🙂*
+## References
+
+- [Domain events: design and implementation](https://learn.microsoft.com/dotnet/architecture/microservices/microservice-ddd-cqrs-patterns/domain-events-design-implementation) — Microsoft Learn: raising and dispatching domain events.
+- [Implementing event-based communication](https://learn.microsoft.com/dotnet/architecture/microservices/multi-container-microservice-net-applications/subscribe-events) — Microsoft Learn: integration events and the dual-write problem.
+- [Interceptors](https://learn.microsoft.com/ef/core/logging-events-diagnostics/interceptors) — EF Core documentation: `SaveChangesInterceptor` and transaction interceptors.
+- [Using transactions](https://learn.microsoft.com/ef/core/saving/transactions) and [Connection resiliency](https://learn.microsoft.com/ef/core/miscellaneous/connection-resiliency) — EF Core documentation: explicit transactions inside an execution strategy.
+- [Transactional outbox](https://microservices.io/patterns/data/transactional-outbox.html) — the pattern, by Chris Richardson.
+- [Wolverine durable messaging](https://wolverinefx.net/guide/durability/) and [EF Core integration](https://wolverinefx.net/guide/durability/efcore/) — the outbox and its durability agent.
+- [Domain Event](https://martinfowler.com/eaaDev/DomainEvent.html) — Martin Fowler's description of the pattern.
+- [Messaging in Blouppy Starter](https://docs.starter.blouppy.com/architecture/messaging/) — the same flow in the Starter's documentation.

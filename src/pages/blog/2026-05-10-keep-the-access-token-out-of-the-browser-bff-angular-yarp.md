@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Keep the access token out of the browser: a BFF for Angular with ASP.NET Core and YARP'
 date: 2026-05-10T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -21,29 +22,25 @@ tags:
   - YARP
 ---
 
-Most Angular applications that call a protected API sign the user in with OpenID Connect, receive an access token (often a refresh token too), and keep it where JavaScript can read it, in memory or in `localStorage`. It works, but any script in the page can read that token too, including an injected one. And a stolen refresh token outlives the session it came from.
+Most Angular applications sign the user in with OpenID Connect and keep the access token (often a refresh token too) where JavaScript can read it, in memory or in `localStorage`. Any script in the page can read it, including an injected one, and a stolen refresh token outlives the session it came from.
 
-The **Backend-for-Frontend** (BFF) pattern takes a different approach: the browser never sees a token. It only holds an HTTP-only cookie, and a small server-side gateway keeps the tokens, attaches the access token to API calls and refreshes it.
+The **Backend-for-Frontend** (BFF) pattern, described in [OAuth 2.0 for Browser-Based Applications](https://www.rfc-editor.org/rfc/rfc10017.html#name-backend-for-frontend-bff), takes a different approach: the browser never sees a token. It holds an HTTP-only cookie, and a small server-side gateway keeps the tokens, attaches the access token to API calls and refreshes it.
 
-In this article, we will build that gateway with **ASP.NET Core** and **YARP**, using only the framework's own pieces (no BFF library), and connect an **Angular** application to it.
+In this article, we build that gateway with **ASP.NET Core** and **YARP**, without a BFF library, and connect an **Angular** application to it.
 
 
 ## Prerequisites
-Before to start you will need:
-- The [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
-- An OpenID Connect server where you can register a confidential client using the authorization code flow, with the `offline_access` scope allowed (OpenIddict, Keycloak, Microsoft Entra ID...).
-- An ASP.NET Core API that already validates JWT bearer tokens from that server.
-- An Angular application.
+You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), an Angular application, an OpenID Connect server where you can register a confidential client with `offline_access`, and an API that already validates its JWT bearer tokens. The API does not change. The gateway starts as an empty project with [YARP](https://learn.microsoft.com/aspnet/core/fundamentals/servers/yarp/yarp-overview) and the OpenID Connect handler:
 
-> **_Note:_**  The API does not change at all: it keeps validating bearer tokens as it does today. 🙂
+```powershell
+dotnet new web --name Gateway --framework net10.0
+dotnet add Gateway package Yarp.ReverseProxy
+dotnet add Gateway package Microsoft.AspNetCore.Authentication.OpenIdConnect
+```
 
 
 ## What is a BFF?
-A BFF is a server that sits between the browser and everything else. For an Angular application, it has three jobs:
-
-1. **It serves the application and the API from one origin**, so there is no CORS to configure.
-2. **It holds the session.** The OpenID Connect flow runs on the server, and the tokens live in an encrypted cookie JavaScript cannot read.
-3. **It forwards API calls.** A call to `/api/...` arrives with the cookie and leaves for the API with an `Authorization: Bearer` header.
+A BFF is a server between the browser and everything else. It serves the application and the API from one origin (no CORS to configure), runs the OpenID Connect flow and keeps the tokens in an encrypted cookie, and forwards each API call with an `Authorization: Bearer` header:
 
 ```text:clipboard=false
 Browser ──cookie──> Gateway ──Bearer token──> API
@@ -51,22 +48,10 @@ Browser ──cookie──> Gateway ──Bearer token──> API
                        └──OpenID Connect──> Identity server
 ```
 
-An injected script can still act inside the open page, but it cannot carry a token away. That is the whole point.
-
-
-## Create the gateway
-Let's create an empty ASP.NET Core project and add **YARP** and the **OpenID Connect** handler:
-
-```powershell
-dotnet new web --name Gateway --framework net10.0
-cd Gateway
-dotnet add package Yarp.ReverseProxy
-dotnet add package Microsoft.AspNetCore.Authentication.OpenIdConnect
-```
-
+An injected script can still act inside the open page, but it cannot carry a token away.
 
 ## Configure the session
-The session is made of two ASP.NET Core handlers: the **cookie** handler, which stores the session, and the **OpenID Connect** handler, which signs the user in. Each scheme has its own name (`SessionSchemes.Cookie` is `"gateway-session"`, `SessionSchemes.OpenIdConnect` is `"identity"`):
+The [cookie handler](https://learn.microsoft.com/aspnet/core/security/authentication/cookie) stores the session, and the [OpenID Connect handler](https://learn.microsoft.com/aspnet/core/security/authentication/configure-oidc-web-authentication) signs the user in (`SessionSchemes.*` are string constants naming the schemes):
 
 ```csharp
 builder.Services
@@ -89,6 +74,7 @@ builder.Services
         options.Events.OnRedirectToLogin = context =>
         {
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+
             return Task.CompletedTask;
         };
     })
@@ -110,168 +96,100 @@ builder.Services
     });
 ```
 
-The cookie options carry most of the security:
-- `HttpOnly`: JavaScript cannot read the cookie, nor the tokens inside.
-- `SameSite = Strict`: the cookie is not sent on a request started from another site.
-- The `__Host-` prefix: the cookie is only accepted if `Secure`, without `Domain`, on `/`. Nobody can plant it from a sub-domain.
+The cookie options carry most of the security (see [`Set-Cookie`](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Set-Cookie)):
+- `HttpOnly`: JavaScript cannot read the cookie or the tokens inside.
+- `SameSite = Strict`: no cookie on a request started from another site.
+- `__Host-`: the cookie must be `Secure`, without `Domain`, on `/`, so no sub-domain can plant it.
 
-The OpenID Connect handler is a **confidential client**, with a secret, which is only possible on a server. With `SaveTokens = true`, the access token, the refresh token and `expires_at` are stored in the encrypted cookie.
-
-> **_Note:_**  The challenge scheme is OpenID Connect, so `/bff/login` simply returns a challenge. An API call never reaches it: without a session, the gateway answers **401** itself, which `HttpClient` can handle, unlike a redirect.
+The OpenID Connect handler is a **confidential client**, with a secret only a server can keep (in user secrets or a vault, not `appsettings.json`). `SaveTokens = true` stores the tokens and `expires_at` in the encrypted cookie. Without a session, an API call gets a **401**, which `HttpClient` handles, unlike a redirect.
 
 
 ## Forward the API calls with YARP
-YARP's configuration needs **one** route: everything goes to the Angular application's own server (`ng serve`, or nginx in production), without the `Cookie` header, which that server has no use for:
+YARP's configuration needs **one** route: a `/{**catch-all}` to the Angular application's own server (`ng serve`, or nginx in production), with a `RequestHeaderRemove: Cookie` transform, since that server has no use for the cookie.
 
-```json
-"Routes": {
-  "spa": {
-    "ClusterId": "spa",
-    "Match": { "Path": "/{**catch-all}" },
-    "Transforms": [ { "RequestHeaderRemove": "Cookie" } ]
-  }
-},
-"Clusters": {
-  "spa": {
-    "Destinations": { "spa": { "Address": "https://localhost:4201" } }
-  }
-}
-```
-
-The APIs are mapped in code, with YARP's **direct forwarding**: `MapForwarder` maps an ordinary endpoint that forwards to a destination, so we can attach our own metadata to it:
+The APIs are mapped in code with YARP's [direct forwarding](https://learn.microsoft.com/aspnet/core/fundamentals/servers/yarp/direct-forwarding): `MapForwarder` maps an ordinary endpoint, so we can attach our own metadata to it (simplified from the Starter's `RemoteApis.MapRemoteApi`):
 
 ```csharp
-public static IEndpointConventionBuilder MapRemoteApi(
-    this IEndpointRouteBuilder endpoints,
-    PathString path,
-    string destinationPrefix,
-    bool requireAntiforgeryHeader = true)
-    => endpoints
-        .MapForwarder($"{path}/{{**rest}}", destinationPrefix, WithAccessToken)
-        .WithMetadata(new RemoteApiMetadata(requireAntiforgeryHeader));
-
-private static void WithAccessToken(TransformBuilderContext context)
-{
-    context.UseDefaultForwarders = false;
-    context.AddXForwarded(ForwardedTransformActions.Set);
-    context.AddRequestHeaderRemove("Cookie");
-    context.AddRequestTransform(transform =>
+endpoints
+    .MapForwarder($"{path}/{{**rest}}", destinationPrefix, transforms =>
     {
-        if (transform.HttpContext.Items[AccessTokenItem] is string accessToken)
-            transform.ProxyRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        transforms.UseDefaultForwarders = false;
+        transforms.AddXForwarded(ForwardedTransformActions.Set);
+        transforms.AddRequestHeaderRemove("Cookie");
+        transforms.AddRequestTransform(transform =>
+        {
+            if (transform.HttpContext.Items[AccessTokenItem] is string accessToken)
+            {
+                transform.ProxyRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            }
 
-        return ValueTask.CompletedTask;
-    });
-}
+            return ValueTask.CompletedTask;
+        });
+    })
+    .WithMetadata(new RemoteApiMetadata(requireAntiforgeryHeader));
 ```
 
-- The session cookie never leaves the gateway.
-- `X-Forwarded-*` headers are **set**, not appended, so a client cannot slip in its own address.
-- The transform takes the token from `HttpContext.Items`: a transform cannot answer the request, and without a token we want a 401. So the token is fetched **before** the endpoint runs.
+The cookie never leaves the gateway, and `X-Forwarded-*` headers are **set**, not appended, so a client cannot slip in its own address. A transform cannot end the request with a 401, so a middleware fetches the token **before** the endpoint runs and leaves it in `HttpContext.Items`.
 
 
 ## Check the header and fetch the token
-Here is the trade-off of a cookie: the browser sends it automatically. `SameSite = Strict` already blocks most cross-site requests, but the usual extra protection for a BFF is simple: **every call must carry a custom header**, `X-CSRF: 1`. A cross-site form cannot add a header, and a cross-site `fetch` that tries triggers a CORS preflight that the gateway never accepts. `AntiforgeryHeader.IsPresent(request)` checks exactly that.
-
-Let's write the middleware that runs before a remote API's endpoint, reading the metadata we attached:
+A cookie is sent automatically, which invites cross-site request forgery. `SameSite = Strict` blocks most of it; on top, every call must carry a [custom header](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html), `X-CSRF: 1`. A cross-site form cannot add one, and a cross-site `fetch` that tries triggers a CORS preflight the gateway never accepts. A middleware checks the header, then fetches the token (abridged):
 
 ```csharp
 public static IApplicationBuilder UseRemoteApiAccessTokens(this IApplicationBuilder app)
     => app.Use(async (context, next) =>
     {
-        if (context.GetEndpoint()?.Metadata.GetMetadata<RemoteApiMetadata>() is not { } remoteApi)
+        if (context.GetEndpoint()?.Metadata.GetMetadata<RemoteApiMetadata>() is { } remoteApi)
         {
-            await next(context);
-            return;
+            var accessToken = remoteApi.RequireAntiforgeryHeader && !AntiforgeryHeader.IsPresent(context.Request)
+                ? null
+                : await context.RequestServices.GetRequiredService<UserAccessTokens>().GetAsync(context);
+
+            if (accessToken is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+
+                return;
+            }
+
+            context.Items[AccessTokenItem] = accessToken;
         }
-
-        if (remoteApi.RequireAntiforgeryHeader && !AntiforgeryHeader.IsPresent(context.Request))
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
-        var accessToken = await context.RequestServices.GetRequiredService<UserAccessTokens>().GetAsync(context);
-
-        if (accessToken is null)
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return;
-        }
-
-        context.Items[AccessTokenItem] = accessToken;
 
         await next(context);
     });
 ```
 
-`GetEndpoint()` only returns something after `UseRouting`, so this middleware goes **between** `UseRouting` and the endpoints. Without the header or without a session, the answer is **401** and the API never sees the call.
+`GetEndpoint()` only works after `UseRouting`, so this middleware goes **between** `UseRouting` and the endpoints.
 
-> **_Note:_**  A browser `EventSource` cannot send a custom header, so a server-sent events stream is mapped with `requireAntiforgeryHeader: false`. That is acceptable for a read-only `GET` whose frames only signal "re-read", behind a `SameSite=Strict` cookie.
+> **_Note:_** A browser `EventSource` cannot send a custom header, so the server-sent events stream is mapped with `requireAntiforgeryHeader: false`: acceptable for a read-only `GET` behind a `SameSite=Strict` cookie.
 
 
 ## Refresh the access token, one refresh at a time
-An access token is short-lived (15 minutes here), but the session lasts 8 hours. The gateway refreshes the token **on demand**, in `UserAccessTokens.GetAsync`, when a call is about to be forwarded:
+The access token lives 15 minutes, the session 8 hours. `UserAccessTokens.GetAsync` reads the tokens from `context.AuthenticateAsync(SessionSchemes.Cookie)` and returns the access token while it has more than a minute left. Otherwise it refreshes, writes the new tokens back with `properties.UpdateTokenValue(...)` (keeping the old refresh token if the server did not rotate it) and calls `SignInAsync`, which rewrites the cookie on that response. A refused refresh signs the session out.
 
-```csharp
-public async Task<string?> GetAsync(HttpContext context)
-{
-    var session = await context.AuthenticateAsync(SessionSchemes.Cookie);
-
-    if (!session.Succeeded || session.Properties is not { } properties)
-        return null;
-
-    var accessToken = properties.GetTokenValue("access_token");
-
-    if (accessToken is not null && ExpiresAt(properties) - timeProvider.GetUtcNow() > TimeSpan.FromMinutes(1))
-        return accessToken;
-
-    if (properties.GetTokenValue("refresh_token") is not { } refreshToken)
-        return null;
-
-    var refreshed = await RefreshOnceAsync(refreshToken, context.RequestAborted);
-
-    if (refreshed is null)
-    {
-        await context.SignOutAsync(SessionSchemes.Cookie);
-        return null;
-    }
-
-    properties.UpdateTokenValue("access_token", refreshed.AccessToken);
-    properties.UpdateTokenValue("refresh_token", refreshed.RefreshToken ?? refreshToken);
-    properties.UpdateTokenValue("expires_at", refreshed.ExpiresAt.ToString("o", CultureInfo.InvariantCulture));
-
-    await context.SignInAsync(SessionSchemes.Cookie, session.Principal!, properties);
-
-    return refreshed.AccessToken;
-}
-```
-
-A token with less than a minute left is refreshed, and `SignInAsync` rewrites the cookie on the response of that call. Some servers rotate the refresh token, others keep it, hence `refreshed.RefreshToken ?? refreshToken`.
-
-Now the important part. A page sends several calls at once, all with the **same** refresh token. If each refreshes and the server rotates refresh tokens, all but one present a used token, and a strict server revokes the session. So only the first call refreshes:
+A page sends several calls at once, all with the **same** refresh token. If each one refreshes and the server rotates refresh tokens, all but one present a used token, and a strict server revokes the session ([RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700) recommends that reuse detection). So only the first call refreshes (abridged):
 
 ```csharp
 private async Task<RefreshedTokens?> RefreshOnceAsync(string refreshToken, CancellationToken cancellationToken)
 {
     var key = Hash(refreshToken);
-
-    if (cache.TryGetValue<RefreshedTokens>(key, out var shared))
-        return shared;
-
     var gate = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
 
     await gate.WaitAsync(cancellationToken);
 
     try
     {
-        if (cache.TryGetValue(key, out shared))
+        if (cache.TryGetValue<RefreshedTokens>(key, out var shared))
+        {
             return shared;
+        }
 
         var refreshed = await RefreshAsync(refreshToken, cancellationToken);
 
         if (refreshed is not null)
-            cache.Set(key, refreshed, TimeSpan.FromMinutes(1));
+        {
+            cache.Set(key, refreshed, SharedRefreshLifetime);
+        }
 
         return refreshed;
     }
@@ -283,58 +201,23 @@ private async Task<RefreshedTokens?> RefreshOnceAsync(string refreshToken, Cance
 }
 ```
 
-- `_locks` is a `ConcurrentDictionary<string, SemaphoreSlim>`: one gate per refresh token (hashed with SHA-256), so two sessions never wait for each other.
-- The answer is kept a minute in an `IMemoryCache`, so the calls that waited, and those arriving just after with the old cookie, take it.
-- The lock is per process: two replicas refreshing at the same moment are left to the identity server's refresh-token reuse leeway.
+- `_locks` holds one `SemaphoreSlim` per refresh token (hashed with SHA-256), so two sessions never wait for each other.
+- The answer stays a minute in an `IMemoryCache`, for the calls that waited and those arriving just after with the old cookie.
+- The lock is per process: concurrent refreshes on two replicas rely on the identity server's reuse leeway.
 
-`RefreshAsync` is a plain `refresh_token` grant. It takes the token endpoint from the discovery document the OpenID Connect handler already loaded, authenticates with `client_secret_basic`, and goes through the handler's `Backchannel`. A refusal returns `null`, and the session is signed out.
+`RefreshAsync` is a plain `refresh_token` grant ([RFC 6749 §6](https://datatracker.ietf.org/doc/html/rfc6749#section-6)) through the OpenID Connect handler's `Backchannel`, with `client_secret_basic`.
 
 
 ## Add the endpoints for Angular
-Angular needs three things from the gateway: a way to sign in, a way to sign out, and a way to know who is signed in.
+`/bff/login` is a full-page navigation: a `Results.Challenge(...)` on the OpenID Connect scheme that returns to `returnUrl`. An `AppPath` check accepts only a path of the application (no absolute URL, no `//host`), so it cannot be an open redirect.
 
-```csharp
-endpoints.MapGet("/bff/login", (HttpContext context, string? returnUrl) =>
-{
-    var target = AppPath(returnUrl);
+`/bff/logout` is a `GET` navigation too, so any link to it could sign someone out: the URL carries the session's `sid` claim, and a URL that does not name the current session gets a 400. Before `Results.SignOut` on both schemes, it posts the refresh token to the server's `revocation_endpoint` ([RFC 7009](https://datatracker.ietf.org/doc/html/rfc7009)), so a copied cookie is worth nothing after sign-out. A failed revocation is logged and the logout continues.
 
-    if (target is null)
-        return Results.BadRequest();
-
-    return context.User.Identity?.IsAuthenticated == true
-        ? Results.LocalRedirect(target)
-        : Results.Challenge(new AuthenticationProperties { RedirectUri = target }, [SessionSchemes.OpenIdConnect]);
-});
-```
-
-`/bff/login` is a **navigation**: a full page redirect to the identity server, and back where the user was. `AppPath` keeps the `returnUrl` to a path of the application (no absolute URL, no `//host`), otherwise the login would be an open redirect.
-
-Signing out is a navigation too, a `GET`. Any link to it, even one pasted inside the application, would sign someone out, so the URL carries the session's `sid` claim, and a logout that does not name the current session is refused:
-
-```csharp
-endpoints.MapGet("/bff/logout", async (HttpContext context, UserAccessTokens tokens, string? sid) =>
-{
-    if (context.User.Identity?.IsAuthenticated != true)
-        return Results.LocalRedirect("/");
-
-    if (context.User.FindFirst("sid")?.Value is { } sessionId && sessionId != sid)
-        return Results.BadRequest();
-
-    await tokens.RevokeRefreshTokenAsync(context);
-
-    return Results.SignOut(
-        new AuthenticationProperties { RedirectUri = "/" },
-        [SessionSchemes.Cookie, SessionSchemes.OpenIdConnect]);
-});
-```
-
-Before removing the cookie, `RevokeRefreshTokenAsync` posts the refresh token to the server's `revocation_endpoint`, so a copied cookie is worth nothing after sign-out. A failed revocation is logged and the logout goes on.
-
-Finally, `/bff/user` is a `fetch`, so it requires `X-CSRF` too. It returns the session's claims as `{ type, value }` pairs, never a token, plus `bff:logout_url`: `/bff/logout?sid=...`.
+`/bff/user`, a `fetch`, requires `X-CSRF` and returns the session's claims as `{ type, value }` pairs, never a token, plus `bff:logout_url`.
 
 
 ## Wire the pipeline
-Here is the order:
+The order matters:
 
 ```csharp
 app.UseAuthentication();
@@ -345,74 +228,43 @@ app.UseAuthorization();
 app.MapSessionEndpoints(); // the three /bff endpoints
 app.MapRemoteApi("/api/v1/events", apiUrl, requireAntiforgeryHeader: false);
 app.MapRemoteApi("/api", apiUrl);
-app.MapReverseProxy();         // the SPA's catch-all, matched last
+app.MapReverseProxy(); // the SPA's catch-all, matched last
 ```
 
 
 ## Connect Angular
-The Angular side gets simpler: no OAuth library, no token storage, no `Authorization` header. API calls use **relative paths**, and an interceptor adds `X-CSRF` to every request:
+Angular needs no OAuth library, no token storage and no `Authorization` header. API calls use **relative paths**, and an [interceptor](https://angular.dev/guide/http/interceptors) adds `X-CSRF`:
 
 ```typescript
 export const csrfHeaderInterceptor: HttpInterceptorFn = (req, next) =>
   next(req.clone({ withCredentials: true, headers: req.headers.set('X-CSRF', '1') }));
 ```
 
-Then a service turns `/bff/user` into signals. Signing in and out are navigations:
+An `AuthService` turns `/bff/user` into a signal with `toSignal(...)`. Signing in sets `window.location.href` to `/bff/login?returnUrl=...`; signing out navigates to the session's `bff:logout_url`. The sign-out link comes from the server, `sid` included: Angular never builds it.
 
-```typescript
-@Injectable({ providedIn: 'root' })
-export class AuthService {
-  private readonly _httpClient = inject(HttpClient);
-  private session$: Observable<Session> | null = null;
+On a **401** from the API, the error interceptor calls `AuthService.handleUnauthorized()`, which re-reads `/bff/user` **once**, however many calls fail together, and sends the user to sign in only if the session is gone. It skips `bff/` requests, where a 401 is the normal answer for an anonymous visitor.
 
-  public session: Signal<Session> = toSignal(defer(() => this.getSession()), { initialValue: null });
-  public logoutUrl = computed(() => this.session()?.find(c => c.type === 'bff:logout_url')?.value ?? null);
-
-  public getSession(ignoreCache = false): Observable<Session> {
-    if (!this.session$ || ignoreCache) {
-      this.session$ = this._httpClient.get<Session>('bff/user').pipe(
-        catchError(() => of(null)),
-        shareReplay(1)
-      );
-    }
-    return this.session$;
-  }
-
-  public signIn(returnUrl = `${window.location.pathname}${window.location.search}`): void {
-    window.location.href = `/bff/login?returnUrl=${encodeURIComponent(returnUrl)}`;
-  }
-
-  public signOut(): void {
-    const logoutUrl = this.logoutUrl();
-
-    if (logoutUrl) {
-      window.location.href = logoutUrl;
-    }
-  }
-}
-
-export type Session = { type: string; value: string }[] | null;
-```
-
-The sign-out link comes from the server, `sid` included: Angular never builds it.
-
-Last, a **401** from the API means the session may have expired, or only that call was refused. The error interceptor calls `AuthService.handleUnauthorized()`, which re-reads `/bff/user` **once** however many calls fail together, and sends the user to sign in only if the session is really gone. It skips `bff/` requests: for an anonymous visitor, a 401 from `/bff/user` is the answer, not an expiry.
-
-During development, open the gateway's address, not `ng serve`'s: the gateway forwards the rest to the Angular dev server.
+During development, open the gateway's address, not `ng serve`'s.
 
 
 ## Before going to production
-A few points that matter beyond a single machine:
-- **The cookie's encryption keys.** The cookie is protected by ASP.NET Core Data Protection. If its keys stay in the container, every redeploy signs everyone out, and two replicas cannot read each other's cookies. Persist them with a fixed name, `AddDataProtection().SetApplicationName("Gateway").PersistKeysToDbContext<GatewayDbContext>()` (`Microsoft.AspNetCore.DataProtection.EntityFrameworkCore`), and encrypt them at rest with a certificate. Changing the name later signs every session out. 😉
-- **A Content-Security-Policy.** The gateway is the origin the application loads from, so it sends the policy (`script-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`): a script can no longer steal a token, so let's make it hard to inject one.
-- **What the browser remembers.** On a successful logout redirect, the gateway can add `Clear-Site-Data: "storage"`, which wipes the origin's storage even for a logout the application never saw (another tab, a bookmark).
+- **Persist the cookie's keys.** [Data Protection](https://learn.microsoft.com/aspnet/core/security/data-protection/configuration/overview) encrypts the cookie; keys left in the container sign everyone out on each redeploy and differ between replicas. Use `AddDataProtection().SetApplicationName("Gateway").PersistKeysToDbContext<GatewayDbContext>()`, encrypt the keys at rest with a certificate, and never change the name afterwards.
+- **Send a Content Security Policy** (`script-src 'self'`, `connect-src 'self'`, `frame-ancestors 'none'`): a script can no longer steal a token, so make it hard to inject one.
+- **Add [`Clear-Site-Data: "storage"`](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Clear-Site-Data)** to the logout redirect, to wipe the origin's storage even for a logout the application never saw.
 
 
 ## Conclusion
-With a BFF, the Angular application never holds a token. The browser has an HTTP-only, `SameSite=Strict` cookie, and the gateway does the rest: it runs the OpenID Connect flow, attaches the access token, refreshes it once however many calls arrive together, revokes it on logout, and guards every cookie call with one header.
+With a BFF, the Angular application never holds a token: the browser has an HTTP-only, `SameSite=Strict` cookie, and the gateway runs the OpenID Connect flow, attaches, refreshes and revokes the tokens, and guards every call with one header. It is ordinary ASP.NET Core and YARP code; the cost is one more service and one more hop per call. The gateway of [Blouppy Starter](https://starter.blouppy.com/) is built this way, as its [gateway documentation](https://docs.starter.blouppy.com/architecture/gateway/) explains.
 
-Everything comes from ASP.NET Core itself: the cookie handler, the OpenID Connect handler and YARP's direct forwarding. There is no BFF library to learn, so changing the gateway is changing ordinary middleware. The cost is one more service to run, and one more hop on each call.
 
-If you would like to see it in a complete application, with its key ring in PostgreSQL and the event stream already wired, this is how the gateway of [Blouppy Starter](https://starter.blouppy.com/) is built, in front of an ASP.NET Core API and an OpenIddict identity server. The [gateway's documentation](https://docs.starter.blouppy.com/architecture/gateway/) explains each of these choices.
+## References
 
-*Thanks for reading! 🙂*
+- [OAuth 2.0 for Browser-Based Applications (RFC 10017)](https://www.rfc-editor.org/rfc/rfc10017.html#name-backend-for-frontend-bff) — the IETF description of the BFF pattern and its threat model.
+- [Cookie authentication](https://learn.microsoft.com/aspnet/core/security/authentication/cookie) and [OpenID Connect web authentication](https://learn.microsoft.com/aspnet/core/security/authentication/configure-oidc-web-authentication) — Microsoft Learn: the two handlers that make the session.
+- [YARP direct forwarding](https://learn.microsoft.com/aspnet/core/fundamentals/servers/yarp/direct-forwarding) — Microsoft Learn: `MapForwarder` and transforms.
+- [ASP.NET Core Data Protection configuration](https://learn.microsoft.com/aspnet/core/security/data-protection/configuration/overview) — Microsoft Learn: persisting and protecting the key ring.
+- [RFC 6749 §6](https://datatracker.ietf.org/doc/html/rfc6749#section-6), [RFC 7009](https://datatracker.ietf.org/doc/html/rfc7009) and [RFC 9700](https://datatracker.ietf.org/doc/html/rfc9700) — refreshing, revoking and securing tokens.
+- [OWASP CSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html) — custom request headers and `SameSite` cookies.
+- [Set-Cookie](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Set-Cookie) and [Clear-Site-Data](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Clear-Site-Data) — MDN: cookie prefixes and attributes, wiping storage on logout.
+- [Angular HTTP interceptors](https://angular.dev/guide/http/interceptors) — angular.dev: functional interceptors.
+- [Blouppy Starter: the gateway](https://docs.starter.blouppy.com/architecture/gateway/) and [why a BFF](https://docs.starter.blouppy.com/choices/bff/) — the complete implementation this article comes from.

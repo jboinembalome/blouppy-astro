@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Introducing HTTP File Generator: Generate .http Files from OpenAPI Specifications'
 date: 2026-04-26T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Next.js
@@ -11,7 +12,7 @@ categorycolor: bg-blue-100 text-blue-800
 featuredpost: true
 featuredimage: /img/http-file-generator.jpg
 description: >-
-  Discover HTTP File Generator, a privacy-first browser tool that turns your OpenAPI specifications into ready-to-use .http files — no installation, no login required.
+  Turn an OpenAPI specification into ready-to-run .http files in the browser: what the tool generates, how to use it and how to run it locally.
 tags:
   - Development
   - TypeScript
@@ -20,22 +21,26 @@ tags:
   - REST API
 ---
 
-Testing and exploring REST APIs is a daily task for most developers. While tools like Postman and Insomnia are popular choices, the lightweight `.http` file format — natively supported by Visual Studio, Rider, and the REST Client extension for VS Code — offers a frictionless alternative that lives right alongside your source code.
+Testing a REST API is a daily task. Postman and Insomnia are popular, but a plain-text `.http` file does the same job and lives in the repository, next to the code it calls. Visual Studio, Rider and the REST Client extension for VS Code all run it.
 
-**HTTP File Generator** is a web application I built to automate this workflow: upload your OpenAPI specification, browse and select the endpoints you care about, preview the generated `.http` content, and download a ZIP archive — all in your browser, with no data ever leaving your machine.
+**HTTP File Generator** writes those files for you. You upload an [OpenAPI](https://spec.openapis.org/oas/latest.html) specification, pick the endpoints you need, preview the result and download a ZIP archive. Everything runs in your browser: the specification never leaves your machine.
 
 
-## What is a .http File?
+## What is a .http file?
 
-A `.http` file is a plain-text file that contains one or more HTTP requests. Each request specifies the HTTP method, URL, headers, and optional body. Here is a simple example:
+A `.http` file holds one or more HTTP requests, separated by `###`. Each request has a method, a URL, headers and an optional body. Lines that start with `@` declare variables, which the requests reference with `{{name}}`:
 
 ```http
+@baseUrl = https://api.example.com
+@token = your_token_here
+
 ### Get all products
-GET https://api.example.com/products
-Content-Type: application/json
+GET {{baseUrl}}/products
+Authorization: Bearer {{token}}
 
 ### Create a product
-POST https://api.example.com/products
+POST {{baseUrl}}/products
+Authorization: Bearer {{token}}
 Content-Type: application/json
 
 {
@@ -44,66 +49,94 @@ Content-Type: application/json
 }
 ```
 
-These files can be executed directly inside **Visual Studio** (via the built-in HTTP editor), **Rider**, or in **Visual Studio Code** with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension. No extra tooling is needed — just open the file and click **Send Request**.
+You can send these requests from [Visual Studio](https://learn.microsoft.com/aspnet/core/test/http-files), from [Rider](https://www.jetbrains.com/help/rider/Http_client_in__product__code_editor.html) or from VS Code with the [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension: open the file and click **Send Request** above a request.
 
 
-## Why HTTP File Generator?
+## Why generate them?
 
-OpenAPI specifications can contain dozens or even hundreds of endpoints. Writing `.http` files by hand for each endpoint is tedious and error-prone. HTTP File Generator solves this by:
+A specification can describe hundreds of endpoints. Writing a request for each one by hand is slow, and the hand-written copy drifts from the API. HTTP File Generator:
 
-- **Parsing your spec automatically** — supports `.json`, `.yaml`, and `.yml` OpenAPI 3.x files.
-- **Giving you a live preview** — the generated `.http` content updates instantly as you make selections.
-- **Generating a well-organised ZIP** — the downloaded archive contains one `.http` file per tag or path group, mirroring the structure of your API.
-
-
-## How to Use It
-
-### Step 1 – Upload Your Spec
-
-Navigate to [HTTP File Generator](https://http-file-generator.blouppy.com/) and drag-and-drop your OpenAPI specification file (`.json`, `.yaml`, or `.yml`) onto the upload area, or click to browse your file system.
-
-The file is parsed entirely in the browser using [`@apidevtools/swagger-parser`](https://www.npmjs.com/package/@apidevtools/swagger-parser). **Your spec is never sent to any server.**
+- **parses the specification for you**: OpenAPI 3.x in `.json`, `.yaml` or `.yml`, uploaded or loaded from a URL;
+- **shows a live preview** that follows your selection;
+- **builds a ZIP archive** with one `.http` file per tag, split by path, so the files mirror the structure of the API.
 
 
-### Step 2 – Select Endpoints
+## How to use it
 
-Once the spec is loaded, you are taken to the selection screen. The endpoint list is grouped by tag and shows the HTTP method, path, and summary for each operation.
+### Step 1: load the specification
+Open [HTTP File Generator](https://http-file-generator.blouppy.com/) and drop your specification on the upload area, or click **Browse files**. The **URL** tab loads a specification from a public address instead; the server that hosts it must allow [cross-origin requests](https://developer.mozilla.org/docs/Web/HTTP/Guides/CORS), because the browser fetches it directly.
 
-You can:
-- **Filter by HTTP method** — show only `GET`, `POST`, `PUT`, `DELETE`, etc.
-- **Filter by tag** — focus on a specific area of the API.
-- **Use the search bar** — type any keyword to narrow the list in real time.
-- **Select all / deselect all** — quickly pick or drop an entire group.
+The file is parsed and its `$ref`s resolved in the browser with [`@apidevtools/swagger-parser`](https://apidevtools.com/swagger-parser/). **The specification is never sent to a server.**
 
-The **live preview panel** on the right updates every time you toggle an endpoint, so you always see exactly what will be generated.
+### Step 2: select the endpoints
+The selection screen lists the operations grouped by tag, with the method, the path and the summary of each one. You can:
+
+- filter by HTTP method or by tag;
+- search by keyword, with the list narrowing as you type;
+- select or clear a whole tag, or every endpoint at once;
+- expand an endpoint to inspect its parameters, request body, responses and referenced schemas.
+
+The preview panel updates each time you toggle an endpoint.
+
+### Step 3: download
+Click **Download** to get the ZIP archive, or **Copy** to put the preview on your clipboard.
+
+Here is what the tool generates for two endpoints of the [Swagger Petstore](https://petstore3.swagger.io/) specification:
+
+```http
+# Petstore v1.0.0
+# Base URL: https://petstore3.swagger.io/api/v3
+
+@baseUrl = https://petstore3.swagger.io/api/v3
+@token = your_token_here
+
+### Add a new pet to the store
+POST https://petstore3.swagger.io/api/v3/pet
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "doggie",
+  "status": "available",
+  "photoUrls": [
+    "photoUrls1",
+    "photoUrls2"
+  ]
+}
+
+### Find pet by ID
+@petId = 1
+GET https://petstore3.swagger.io/api/v3/pet/{{petId}}
+Authorization: Bearer {{token}}
+```
+
+- The header declares the first server URL and a `@token` placeholder: replace `your_token_here` with a real token before you send anything.
+- Path and query parameters become variables, with a default taken from the specification (`example`, `default`, the first `enum` value) or from the parameter's type.
+- A JSON body is built from the schema's `example`, or from its properties when there is none.
+
+The repository's [format reference](https://github.com/Blouppy/http-file-generator/blob/master/docs/http-file-format.md) lists every rule.
 
 
-### Step 3 – Download
-
-Click **Download** to receive a ZIP archive. Inside, you will find one `.http` file per tag or path group, ready to open in Visual Studio, Rider, or VS Code.
-
-If you only need a quick copy-paste, the **Copy** button copies the entire preview to your clipboard.
-
-
-## Tech Stack
-
-HTTP File Generator is built with modern web technologies:
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Framework | Next.js 14 (App Router) |
+| Framework | [Next.js 16](https://nextjs.org/docs/app) (App Router), React 19 |
 | Language | TypeScript (strict) |
-| Styling | Tailwind CSS v4 |
-| UI Components | shadcn/ui |
-| OpenAPI Parsing | `@apidevtools/swagger-parser` |
-| ZIP Generation | `jszip` + `file-saver` |
-| Testing | Jest + `@testing-library/react` |
-| E2E Testing | Playwright |
+| Styling | Tailwind CSS 4 |
+| UI components | [shadcn/ui](https://ui.shadcn.com/) |
+| OpenAPI parsing | `@apidevtools/swagger-parser`, `yaml` |
+| ZIP generation | [JSZip](https://stuk.github.io/jszip/), `file-saver` |
+| Unit tests | [Jest](https://jestjs.io/docs/getting-started), Testing Library |
+| End-to-end tests | [Playwright](https://playwright.dev/docs/intro) |
+
+The interface is available in English and French, with light, dark and system themes.
 
 
-## Running Locally
+## Running it locally
 
-If you want to run the project locally or contribute, the setup is straightforward:
+You need Node.js 20.9 or later, the minimum Next.js 16 supports:
 
 ```bash
 git clone https://github.com/Blouppy/http-file-generator.git
@@ -112,13 +145,24 @@ npm install
 npm run dev
 ```
 
-The development server starts at `http://localhost:3000`. You can run the unit tests with `npm test` and the end-to-end tests (which require a production build) with `npm run test:e2e`.
+The development server listens on `http://localhost:3000`. `npm test` runs the unit tests and `npm run lint` the linter. For the end-to-end tests, download the browser once with `npx playwright install chromium`, then run `npm run test:e2e`: Playwright builds the application and starts it before the tests.
 
 
 ## Conclusion
 
-HTTP File Generator removes the friction of manually writing `.http` test files. Whether you are onboarding onto a new API, building a test suite, or simply exploring an existing service, just drop in your OpenAPI spec and get a ready-to-use archive in seconds.
+HTTP File Generator removes the chore of writing `.http` files by hand. Drop in a specification, choose the endpoints and get files you can commit next to your code.
 
-The project is open-source and available on GitHub: [Blouppy/http-file-generator](https://github.com/Blouppy/http-file-generator).
+The project is open source on GitHub: [Blouppy/http-file-generator](https://github.com/Blouppy/http-file-generator).
 
-*Thanks for reading! 🙂*
+
+## References
+
+- [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) — the format the tool reads.
+- [Use .http files in Visual Studio](https://learn.microsoft.com/aspnet/core/test/http-files) — Microsoft Learn: syntax, variables and sending requests.
+- [HTTP Client in Rider](https://www.jetbrains.com/help/rider/Http_client_in__product__code_editor.html) — JetBrains: the same format in Rider.
+- [REST Client for VS Code](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) — the extension that runs `.http` files in VS Code.
+- [Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/docs/Web/HTTP/Guides/CORS) — MDN: why loading a specification from a URL needs the host's consent.
+- [Swagger Parser](https://apidevtools.com/swagger-parser/) — parsing, validating and dereferencing the specification.
+- [JSZip](https://stuk.github.io/jszip/) — building the archive in the browser.
+- [Next.js App Router](https://nextjs.org/docs/app) — the framework the application is built on.
+- [Blouppy/http-file-generator](https://github.com/Blouppy/http-file-generator) — the source code, with the [generated format reference](https://github.com/Blouppy/http-file-generator/blob/master/docs/http-file-format.md).

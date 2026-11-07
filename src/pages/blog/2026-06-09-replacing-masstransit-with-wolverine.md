@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'Replacing MassTransit with Wolverine: keep the bus library in one project'
 date: 2026-06-09T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -21,26 +22,21 @@ tags:
   - RabbitMQ
 ---
 
-MassTransit went commercial with its v9, and its 8.x line is no longer maintained. For many .NET teams, that raises an uncomfortable question: how many projects actually know which message bus we use? If the answer is "most of them", switching library means touching every consumer, every publisher and every test that sends a message.
+MassTransit's v9 is a [commercial release](https://masstransit.massient.com/), so staying free means staying on the 8.x line. For many .NET teams, that raises an uncomfortable question: how many projects actually know which message bus we use? If the answer is "most of them", switching library means touching every consumer, every publisher and every test that sends a message.
 
-It does not have to be that way. With ports and adapters, the domains only see a few small interfaces they own, and the bus library lives in one adapter project. Replacing the library is then rewriting that adapter.
+It does not have to be that way. With ports and adapters, the domains only see a few small interfaces they own, and the bus library lives in one adapter project. Replacing the library means rewriting that adapter.
 
-In this article, we will see how a domain publishes and consumes integration events without referencing Wolverine, how the Wolverine adapter plugs into those ports (outbox, RabbitMQ, retries), and how an architecture test keeps the library from leaking out again.
+In this article, we see how a domain publishes and consumes integration events without referencing [Wolverine](https://wolverinefx.net/), how the Wolverine adapter plugs into those ports (outbox, RabbitMQ, retries), and how an architecture test keeps the library from leaking out again.
 
 
 ## Where the bus usually leaks
-Before looking at the code, let's be honest about the starting point. The code base this comes from already had ports for publishing and handling events, yet the design notes count **five projects** where MassTransit had leaked:
-- the messaging configurator exposed MassTransit's `IBusRegistrationConfigurator`,
-- the real-time adapter referenced the package,
-- both `DbContext`s mapped MassTransit's outbox tables,
-- the service defaults registered its telemetry,
-- the API's integration tests used its test harness.
+The code base this comes from already had ports for publishing and handling events, yet its design notes count **five projects** where MassTransit had leaked: the messaging configurator exposed MassTransit's `IBusRegistrationConfigurator`, the real-time adapter referenced the package, both `DbContext`s mapped its outbox tables, the service defaults registered its telemetry, and the API's integration tests used its test harness.
 
-None of these is a domain. They are the places where "just use the library's type, it's simpler" slips in. So the goal of the switch was twofold: keep the domains untouched, and close those five leaks so that the next switch really is one project.
+None of these is a domain: they are where "just use the library's type" slips in. The switch had two goals: keep the domains untouched, and close the five leaks so that the next switch really is one project.
 
 
 ## The ports a domain sees
-Let's start from the inside. The port is `Blouppy.Infrastructure.Messaging.Abstractions`, and here is everything a domain needs from it:
+The port is `Blouppy.Infrastructure.Messaging.Abstractions`, and this is everything a domain needs from it:
 
 ```csharp
 public interface IMessage;
@@ -59,89 +55,24 @@ public interface IIntegrationEventHandler<in TIntegrationEvent>
     Task HandleAsync(TIntegrationEvent @event, CancellationToken cancellationToken = default);
 }
 
-// The message id stays the same across redeliveries, so handlers derive idempotent keys from it.
+// The message ID stays the same across redeliveries, so handlers derive idempotent keys from it.
 public interface IIntegrationEventContext
 {
     Guid? MessageId { get; }
 }
 ```
 
-Here is what each piece does:
-- `IIntegrationEventPublisher<T>` puts a fact on the bus; a domain asks for exactly the event it publishes.
-- `IIntegrationEventHandler<T>` reacts to a fact.
-- `IIntegrationEventContext` gives the handler a message id that is stable across retries, to stay idempotent.
+The project references `Microsoft.Extensions.DependencyInjection.Abstractions`, the shared kernel and one models project: no bus library, by construction. The integration events live there too, as plain records such as `WorkspaceCreatedIntegrationEvent(OrganizationId, WorkspaceId, UserId OwnerId) : IIntegrationEvent`, so there is nothing to rewrite.
 
-The project itself references `Microsoft.Extensions.DependencyInjection.Abstractions`, the shared kernel and one models project. No bus library, by construction.
+On the publishing side, Workspaces turns its domain event into that integration event in `PublishIntegrationEventWhenWorkspaceCreatedDomainEventHandler`, through `IIntegrationEventPublisher<WorkspaceCreatedIntegrationEvent>` ([Domain events vs integration events](https://www.blouppy.com/blog/2026-05-28-domain-events-vs-integration-events-and-the-outbox/) shows it). That class did not change when MassTransit was replaced: it does not know whether the event goes to RabbitMQ, to an in-process queue in the tests or through an outbox.
 
-The integration events live in the same project, one folder per publishing domain. Here is one:
+On the consuming side, the Webhooks module's `DispatchWebhooksWhenWorkspaceCreatedIntegrationEventHandler` implements `IIntegrationEventHandler<WorkspaceCreatedIntegrationEvent>`: no `IConsumer<T>`, no `ConsumeContext`, just the event and a cancellation token. Handlers are registered by scanning the domain's own assembly with `AddIntegrationEventHandlers(assembly)`, which also lives in the port.
 
-```csharp
-public sealed record WorkspaceCreatedIntegrationEvent(
-    OrganizationId OrganizationId,
-    WorkspaceId WorkspaceId,
-    UserId OwnerId) : IIntegrationEvent;
-```
-
-A plain record: nothing to rewrite.
-
-
-## A domain that publishes
-Let's look at the Workspaces domain. When a workspace is created, a domain event handler turns the domain event into an integration event:
-
-```csharp
-internal sealed class PublishIntegrationEventWhenWorkspaceCreatedDomainEventHandler(
-    IIntegrationEventPublisher<WorkspaceCreatedIntegrationEvent> integrationEventPublisher)
-    : IDomainEventHandler<WorkspaceCreatedDomainEvent>
-{
-    public async Task HandleAsync(WorkspaceCreatedDomainEvent @event, CancellationToken cancellationToken)
-        => await integrationEventPublisher.PublishAsync(
-            new WorkspaceCreatedIntegrationEvent(
-                @event.OrganizationId,
-                @event.WorkspaceId,
-                @event.OwnerId),
-            cancellationToken);
-}
-```
-
-This class did not change when MassTransit was replaced. It does not know whether the event goes to RabbitMQ, to an in-process queue in the tests, or through an outbox: that belongs to the adapter.
-
-The domain's project file references `Blouppy.Infrastructure.Messaging.Abstractions` and nothing else about messaging: no `WolverineFx`, no `MassTransit`.
-
-
-## A module that consumes
-On the other side, the Webhooks module listens for that event to notify an organization's subscribers:
-
-```csharp
-internal sealed class DispatchWebhooksWhenWorkspaceCreatedIntegrationEventHandler(
-    IWebhookEventDispatcher webhookEventDispatcher)
-    : IIntegrationEventHandler<WorkspaceCreatedIntegrationEvent>
-{
-    public Task HandleAsync(
-        WorkspaceCreatedIntegrationEvent @event,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(@event);
-
-        return webhookEventDispatcher.DispatchAsync(
-            @event.OrganizationId,
-            WebhookEventType.WorkspaceCreated,
-            new WebhookEventData.Workspace(
-                Id: @event.WorkspaceId.Value,
-                ActorId: @event.OwnerId.Value),
-            cancellationToken);
-    }
-}
-```
-
-There is no `IConsumer<T>` and no `ConsumeContext` here. The handler receives the event and a cancellation token, that's all. The handlers are registered by scanning the domain's own assembly with `AddIntegrationEventHandlers(assembly)`, which also lives in the port.
-
-> **_Note:_**  Several domains can handle the same event. The adapter runs **every** registered `IIntegrationEventHandler<T>`, in sequence, and aggregates the failures, so a failing handler does not stop the others from running. The message is then retried as a whole, which is why every handler must be idempotent.
+> **_Note:_** Several domains can handle the same event. The adapter runs **every** registered `IIntegrationEventHandler<T>` in sequence and aggregates the failures, so one failing handler does not stop the others. The message is then retried as a whole, which is why every handler must be idempotent.
 
 
 ## The adapter's own door
-Not everything that touches the bus is a domain. A module like Billing, or another adapter like the real-time fan-out, has to declare consumers and publishers. That is where MassTransit's `IBusRegistrationConfigurator` had leaked.
-
-The fix is a second, smaller vocabulary in the adapter project `Blouppy.Infrastructure.Messaging`, which names nothing of the library:
+Not everything that touches the bus is a domain. A module like Billing, or another adapter like the real-time fan-out, declares consumers and publishers, and that is where `IBusRegistrationConfigurator` had leaked. The fix is a second, smaller vocabulary in the adapter project, which names nothing of the library (abridged):
 
 ```csharp
 public interface IMessageConsumer<in TMessage>
@@ -152,16 +83,8 @@ public interface IMessageConsumer<in TMessage>
 
 public sealed record ConsumedMessage(Guid MessageId);
 
-public interface IMessagePublisher
-{
-    Task PublishAsync<TMessage>(TMessage message, CancellationToken cancellationToken = default)
-        where TMessage : class;
-}
-
 public interface IMessagingConfigurator
 {
-    MessagingServiceOptions Options { get; }
-
     IMessagingConfigurator AddConsumer<TConsumer>() where TConsumer : class;
 
     IMessagingConfigurator AddInstanceScopedConsumer<TConsumer>() where TConsumer : class;
@@ -173,40 +96,17 @@ public interface IMessagingConfigurator
 }
 ```
 
-Here is how the real-time adapter uses it. Every replica holds different SSE connections, so every replica must receive every frame:
-
-```csharp
-extension(IMessagingConfigurator messaging)
-{
-    public IMessagingConfigurator AddRealTimeConsumers()
-        => messaging
-            .AddInstanceScopedConsumer<ServerEventBroadcastConsumer>();
-}
-```
-
 - `AddConsumer<T>()` gives the consumer a queue that the replicas of a host share: each message reaches one of them. Right for work.
-- `AddInstanceScopedConsumer<T>()` gives the consumer a queue named after the process, deleted when the process stops. Right for a broadcast.
+- `AddInstanceScopedConsumer<T>()` gives it a queue named after the process, deleted when the process stops. Right for a broadcast: the real-time adapter registers `ServerEventBroadcastConsumer` this way, because every replica holds different SSE connections and must receive every frame.
 
-The real-time project now references the adapter, but not Wolverine. That is one of the five leaks closed. 👍
+An `IMessagePublisher` completes the set. The real-time project now references the adapter, but not Wolverine: one leak closed.
 
 
 ## The adapter: Wolverine behind the ports
-Now let's go to the only project that references `WolverineFx`, `WolverineFx.RabbitMQ`, `WolverineFx.Postgresql` and `WolverineFx.EntityFrameworkCore`.
+Only `Blouppy.Infrastructure.Messaging` references `WolverineFx`, `WolverineFx.RabbitMQ`, `WolverineFx.Postgresql` and `WolverineFx.EntityFrameworkCore`.
 
 ### Registration and the outbox
-The API registers the bus in its composition root, with the `DbContext` that holds the outbox:
-
-```csharp
-services
-    .AddBlouppyMessaging<BlouppyDbContext>(configuration, messaging =>
-    {
-        messaging
-            .AddRealTimeConsumers()
-            .ConfigureBillingMessaging();
-    });
-```
-
-Under the hood, `AddMessagingServices<TDbContext>` wires Wolverine and the outbox. Here is the part that teaches:
+The API registers the bus in its composition root, with the `DbContext` that holds the outbox: `AddBlouppyMessaging<BlouppyDbContext>(configuration, messaging => messaging.AddRealTimeConsumers().ConfigureBillingMessaging())`. Inside, the adapter wires Wolverine and the outbox (abridged):
 
 ```csharp
 services.AddWolverine(ExtensionDiscovery.ManualOnly, wolverine => BusTopology.Configure(
@@ -227,15 +127,14 @@ services.ConfigureDbContext<TDbContext>((serviceProvider, dbContextOptions) =>
 });
 ```
 
-Let's look at the decisions behind these lines:
-- **The outbox is wired into the context's registration, not the context.** `ConfigureDbContext<TDbContext>` adds a model customizer that maps Wolverine's envelope tables (excluded from EF's migrations) and an interceptor that watches the commit. So `BlouppyDbContext` lost its MassTransit tables and gained nothing. Two more leaks closed.
-- **A publish outside a consumer is a row.** The next `SaveChanges` writes it beside the domain's own rows. It is sent once that transaction commits, dropped if it rolls back, and never sent if nothing saves. That is why the Workspaces handler above can publish without worrying: a subscriber only hears of the workspace once it exists.
-- **A publish inside a consumer** leaves once the consumer has returned, and is dropped with the attempt when it throws.
+- **The outbox is wired into the context's registration, not the context.** [`ConfigureDbContext<TDbContext>`](https://learn.microsoft.com/ef/core/dbcontext-configuration/) adds a model customizer that maps Wolverine's envelope tables (excluded from EF Core's migrations) and an interceptor that watches the commit. `BlouppyDbContext` lost its MassTransit tables and gained nothing: two more leaks closed.
+- **A publish outside a consumer is a row.** The next `SaveChanges` writes it beside the domain's rows. It is sent once that transaction commits, dropped if it rolls back, and never sent if nothing saves, so a subscriber only hears of a workspace once it exists.
+- **A publish inside a consumer** leaves once the consumer returns, and is dropped with the attempt when it throws.
 
-> **_Note:_**  If the send fails after the commit, the adapter logs it and leaves the persisted row to Wolverine's recovery. It never throws back into the unit of work, whose execution strategy would replay a commit that already succeeded.
+If the send fails after the commit, the adapter logs it and leaves the persisted row to Wolverine's [durability agent](https://wolverinefx.net/guide/durability/postgresql). It never throws back into the unit of work, whose execution strategy would replay a commit that already succeeded.
 
 ### Topology, retries and dead letters
-`BusTopology` turns the declared consumers into Wolverine's configuration:
+`BusTopology` turns the declared consumers into Wolverine's configuration (abridged):
 
 ```csharp
 // Handlers are registered below, each as it is, so there is nothing to scan for and no code to generate.
@@ -265,12 +164,11 @@ wolverine
     });
 ```
 
-Here is what happens:
-- **No code generation.** Wolverine normally generates an adapter per handler and compiles it with Roslyn, which requires public types. Every consumer here is `internal`, so conventional discovery is turned off, `TypeLoadMode.Static` is set, and each consumer is registered explicitly as a pre-built handler.
-- **The same retry policy as before.** `MessagingServiceOptions.RetryIntervals()` computes an exponential back-off (1 s, 6 s, 16 s, 36 s, then capped at 1 min), and a message that still fails goes to the host's dead-letter queue, `blouppy.dead-letters`.
-- **A fanout exchange per message type**, named after its full type name. Each consumer gets a durable queue bound to it, named after the host and the consumer, like `blouppy.workspace-created`.
+- **No code generation.** Wolverine normally [generates](https://wolverinefx.net/guide/codegen) an adapter per handler and compiles it with Roslyn, which requires public types. Every consumer here is `internal`, so [conventional discovery](https://wolverinefx.net/guide/handlers/discovery) is off, `TypeLoadMode.Static` is set, and each consumer is registered explicitly as a pre-built handler.
+- **The same retry policy as before.** `RetryIntervals()` computes an exponential back-off (1 s, 6 s, 16 s, 36 s, then capped at 1 min), and a message that still fails goes to the host's dead-letter queue, `blouppy.dead-letters` ([error handling](https://wolverinefx.net/guide/handlers/error-handling)).
+- **A fanout exchange per message type**, named after its full type name. Each consumer gets a durable queue bound to it, named after the host and the consumer, like `blouppy.workspace-created` ([RabbitMQ transport](https://wolverinefx.net/guide/messaging/transports/rabbitmq/)).
 
-The pre-built handler is where Wolverine meets our own `IMessageConsumer<T>`:
+The pre-built handler is where Wolverine meets `IMessageConsumer<T>` (abridged):
 
 ```csharp
 internal sealed class ConsumerMessageHandler<TMessage, TConsumer> : MessageHandler<TMessage>
@@ -291,60 +189,54 @@ internal sealed class ConsumerMessageHandler<TMessage, TConsumer> : MessageHandl
 }
 ```
 
-Each delivery gets a scope of its own. The scope is primed with Wolverine's `MessageContext` before anything is resolved, so whatever the consumer publishes joins that delivery. And `Envelope.Id` becomes the `MessageId` the domain handlers key on. The domain sees a `Guid`; only this class sees the envelope.
+Each delivery gets its own scope, primed with Wolverine's `MessageContext` before anything is resolved, so whatever the consumer publishes joins that delivery. `Envelope.Id` becomes the `MessageId` that domain handlers key on: the domain sees a `Guid`, and only this class sees the envelope.
 
-> **_Note:_**  Wolverine handles a message type, while MassTransit gave each consumer a queue. To keep the queue-per-consumer model, the adapter allows one consumer per message type and host, and refuses a second one at startup.
+> **_Note:_** Wolverine routes a message type to one handler, whereas MassTransit gave each consumer a queue. To keep the queue-per-consumer model, the adapter allows one consumer per message type and host, and refuses a second one at startup.
 
 
 ## A test that keeps the library inside
-A boundary that only lives in a README does not survive the next deadline. 😉 So the rule is a test in `Blouppy.Architecture.UnitTests`:
+A boundary that only lives in a README does not survive the next deadline, so the rule is a test (abridged):
 
 ```csharp
-public sealed class BusLibraryBoundaryTests
+private static readonly string[] BusLibraryPrefixes = ["Wolverine", "JasperFx", "Weasel", "MassTransit"];
+
+[Fact]
+public void Only_the_messaging_adapter_should_reference_the_bus_library()
 {
-    private static readonly string[] BusLibraryPrefixes = ["Wolverine", "JasperFx", "Weasel", "MassTransit"];
+    // Act
+    var referencing = HostComposition.HostsAssemblies
+        .Where(ReferencesTheBusLibrary)
+        .Select(HostComposition.NameOf)
+        .ToArray();
 
-    private static readonly string AdapterName = HostComposition.NameOf(typeof(Blouppy.Infrastructure.Messaging.IMessagePublisher).Assembly);
-
-    [Fact]
-    public void Only_the_messaging_adapter_should_reference_the_bus_library()
-    {
-        // Act
-        var referencing = HostComposition.HostsAssemblies
-            .Where(ReferencesTheBusLibrary)
-            .Select(HostComposition.NameOf)
-            .ToArray();
-
-        // Assert — the adapter itself is expected, which is also what proves the scan sees anything.
-        referencing
-            .Should()
-            .BeEquivalentTo(
-                [AdapterName],
-                "a project that names the bus library would have to be rewritten with the adapter the next time it changes");
-    }
-
-    private static bool ReferencesTheBusLibrary(Assembly assembly)
-        => assembly
-            .GetReferencedAssemblies()
-            .Any(reference => BusLibraryPrefixes.Any(prefix => reference.Name!.StartsWith(prefix, StringComparison.Ordinal)));
+    // Assert — the adapter itself is expected, which is also what proves the scan sees anything.
+    referencing
+        .Should()
+        .BeEquivalentTo(
+            [AdapterName],
+            "a project that names the bus library would have to be rewritten with the adapter the next time it changes");
 }
 ```
 
-Let's look at the details:
-- `HostComposition.HostsAssemblies` is every Blouppy assembly composed by the API and the identity host, so a new project is checked without being listed.
-- The prefixes cover Wolverine and its JasperFx and Weasel dependencies, and MassTransit, so the old library cannot come back through a forgotten package.
-- The expected result is **exactly** the adapter, not "empty". If the scan ever stopped seeing assemblies, an empty list would pass silently; expecting the adapter proves the test looks at something.
+`HostComposition.HostsAssemblies` is every Blouppy assembly the hosts compose, so a new project is checked without being listed. The prefixes include MassTransit, so the old library cannot come back. The expected result is **exactly** the adapter, not "empty": if the scan stopped seeing assemblies, an empty list would pass silently.
 
 
 ## What it costs
-This design is not free. The ports duplicate concepts the library already has, and each new event needs a consumer class and a line in `AddBlouppyMessaging`: with discovery off, a consumer that is not registered simply never runs. In exchange, the switch kept the same events and the same guarantees (outbox, back-off, dead letters, stable message ids, fan-out to every replica), and the domains' handlers did not change.
+The ports duplicate concepts the library already has, and each new event needs a consumer class and a line in `AddBlouppyMessaging`: with discovery off, an unregistered consumer simply never runs. In exchange, the switch kept the same events and guarantees (outbox, back-off, dead letters, stable message IDs, fan-out to every replica), and the domains' handlers did not change.
 
 
 ## Conclusion
-Switching message bus is painful when the library's types are everywhere. With ports and adapters, a domain publishes through `IIntegrationEventPublisher<T>` and reacts through `IIntegrationEventHandler<T>`, a module or another adapter declares itself through `IMessagingConfigurator`, and Wolverine only appears in one project: its outbox on EF Core and PostgreSQL, its RabbitMQ topology, its retries and its pre-built handlers.
+Switching message bus is painful when the library's types are everywhere. With ports and adapters, a domain publishes through `IIntegrationEventPublisher<T>` and reacts through `IIntegrationEventHandler<T>`, a module or adapter declares itself through `IMessagingConfigurator`, and Wolverine appears in one project. The hard part is not the domains but the leaks around them; closing them and locking the result with an architecture test makes the next switch one adapter to rewrite.
 
-As we have seen, the hard part is not the domains, it is the leaks around them: a configurator that exposes the library, a `DbContext` that maps its tables, a test harness. Closing them, and then locking the result with an architecture test, is what makes the next switch a single adapter to rewrite.
+Messaging in [Blouppy Starter](https://starter.blouppy.com/) is built this way: Wolverine over RabbitMQ behind the messaging adapter, with the outbox in each host's own database.
 
-This is how messaging is built in [Blouppy Starter](https://starter.blouppy.com/): Wolverine over RabbitMQ behind the messaging adapter, with the outbox in each host's own database. The [messaging documentation](https://docs.starter.blouppy.com/architecture/messaging/) explains each of these choices.
 
-*Thanks for reading! 🙂*
+## References
+
+- [Wolverine documentation](https://wolverinefx.net/) — the library: [handler discovery](https://wolverinefx.net/guide/handlers/discovery), [code generation](https://wolverinefx.net/guide/codegen) and [error handling](https://wolverinefx.net/guide/handlers/error-handling).
+- [Wolverine RabbitMQ transport](https://wolverinefx.net/guide/messaging/transports/rabbitmq/) and [conventional routing](https://wolverinefx.net/guide/messaging/transports/rabbitmq/conventional-routing) — exchanges, queues and dead letters.
+- [Wolverine PostgreSQL durability](https://wolverinefx.net/guide/durability/postgresql) and [EF Core integration](https://wolverinefx.net/guide/durability/efcore/) — the transactional outbox.
+- [DbContext lifetime, configuration and initialization](https://learn.microsoft.com/ef/core/dbcontext-configuration/) — EF Core documentation: configuring a context from its registration.
+- [AMQP 0-9-1 model explained](https://www.rabbitmq.com/tutorials/amqp-concepts) — RabbitMQ: exchanges, queues and bindings.
+- [MassTransit documentation](https://masstransit.massient.com/) — the library being replaced, and its v9 commercial release.
+- [Wolverine for messaging](https://docs.starter.blouppy.com/choices/wolverine/) and [Messaging](https://docs.starter.blouppy.com/architecture/messaging/) — Blouppy Starter's documentation of the choice and the adapter.

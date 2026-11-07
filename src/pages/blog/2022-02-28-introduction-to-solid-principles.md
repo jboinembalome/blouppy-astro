@@ -12,7 +12,7 @@ categorycolor: bg-green-100 text-green-800
 featuredpost: true
 featuredimage: /img/introduction_to_solid_principles.jpg
 description: >-
-  Let's discover the principles of object-oriented programming to produce a better code with some examples in C#.
+  The five SOLID principles of object-oriented design, applied one after the other to a single C# example: a product catalog that computes prices with VAT.
 tags:
   - Development
   - OOP
@@ -20,546 +20,308 @@ tags:
   - Tips
 ---
 
-> **Updated November 2026:** the C# samples are now modern C# 14 on .NET 10 (primary constructors, nullable annotations, `decimal` prices, collection expressions, dependency injection), and I fixed a few mistakes that slipped into the first version. The principles themselves haven't changed! 😉
+> **Updated November 2026:** the C# samples are now modern C# 14 on .NET 10 and follow one running example from the first principle to the last, with dependency injection at the end. I also fixed a few mistakes that slipped into the first version. The principles themselves have not changed.
 
-SOLID is an acronym representing five principles of object-oriented programming (OOP) introduced by Robert C. Martin to build solutions easy to maintain, extend and therefore easy to evolve. Knowing these principles can be useful to any developer wishing to improve the quality of their code.
+SOLID is an acronym for five principles of object-oriented design gathered by Robert C. Martin. They help us write code that is easy to maintain and extend. In this article, we apply them one after the other to the same small C# example.
 
-## History of SOLID principles
-Robert C. Martin began to group these principles together in the late 1980s, following a number of discussions on software design principles. 
-Over the years, software development has evolved and some principles have been added or removed. 
-However, the software design principles were finally stabilised in 2000. 
+## History of the SOLID principles
+Robert C. Martin started gathering these principles in the late 1980s, in discussions about software design. The list changed over the years, and he published the stable set in his 2000 paper *Design Principles and Design Patterns*. Around 2004, Michael Feathers pointed out that, reordered, their initials spell SOLID, and the name stuck.
 
-In 2004, Michael Feathers discussed with Robert C. Martin that if he reorganised the principles, the acronym for the principles would be the word SOLID and thus the SOLID principles were born.
+## The running example
+A shop sells products and must display their price including VAT:
 
-## Single Responsibility Principle (SRP)
-SRP is the first principle of SOLID and says that:
->A module should be responsible to one, and only one, actor.
-
-This principle means that a coherent set of functions or a class should have only one responsibility.
-
-If our class has multiple responsibilities, there is a risk that our class will be more difficult to maintain and evolve as it will be highly coupled.
-
-**Violation of SRP:**
 ```csharp
 public enum ProductType
 {
-    Fruit = 0,
-    Water = 1,
+    Fruit,
+    Water,
 }
+
+public record Product(int Id, string Name, decimal Price, ProductType Type);
 ```
 
-```csharp
-public class Product
-{
-    public int Id { get; init; }
-    public required string Name { get; init; }
-    public decimal Price { get; set; }
-    public ProductType Type { get; init; }
-}
-```
+> **_Note:_** A price is money, so it is a [`decimal`](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/floating-point-numeric-types) rather than a `double`, which cannot represent most decimal amounts exactly.
 
-> **_Note:_** A price is money, so it is a `decimal` rather than a `double`, which cannot represent most decimal amounts exactly.
+## Single Responsibility Principle (SRP)
+> A module should be responsible to one, and only one, actor.
+
+An actor is a group of people who ask for changes: the accountants, the database administrators, the operations team. Martin also puts it this way: [gather together the things that change for the same reasons](https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.html), and separate those that change for different reasons.
+
+**Violation of SRP:**
 
 ```csharp
 public class ProductDatabase
 {
-    public List<Product> LoadFromMemory()
-    {
-        List<Product> productsInMemory =
-        [
-            new() { Id = 1, Name = "Apple", Price = 0.5m, Type = ProductType.Fruit },
-            new() { Id = 2, Name = "Sparkling Water", Price = 2.5m, Type = ProductType.Water }
-        ];
+    private readonly List<Product> _products =
+    [
+        new(1, "Apple", 0.50m, ProductType.Fruit),
+        new(2, "Sparkling water", 2.50m, ProductType.Water),
+    ];
 
-        return productsInMemory;
-    }
-
-    public Product? GetProduct(int id)
+    public decimal? GetPriceIncludingVat(int id)
     {
-        var products = LoadFromMemory();
-        var product = products.FirstOrDefault(p => p.Id == id);
+        var product = _products.Find(p => p.Id == id);
         if (product is null)
-            return null;
-
-        switch (product.Type)
         {
-            case ProductType.Fruit:
-                Console.WriteLine("Add VAT to the price of Fruit...");
-                product.Price *= 1.055m;
-                break;
-            case ProductType.Water:
-                Console.WriteLine("Add VAT to the price of Water...");
-                product.Price *= 1.2m;
-                break;
-            default:
-                Console.WriteLine("Unable to add VAT to the price without the product type.");
-                break;
+            Console.WriteLine($"Product {id} not found.");
+            return null;
         }
 
-        return product;
+        Console.WriteLine($"Adding VAT to the price of {product.Name}.");
+
+        return product.Type switch
+        {
+            ProductType.Fruit => product.Price * 1.055m,
+            ProductType.Water => product.Price * 1.20m,
+            _ => throw new NotSupportedException($"No VAT rule for {product.Type}."),
+        };
     }
 }
 ```
 
-As we can see, `ProductDatabase` has several responsibilities:
-- `LoadFromMemory`: Persistence
-- `Console.WriteLine`: Logging
-- Add VAT to a product: Business Rules
+`ProductDatabase` answers to three actors:
+- the storage of the products (persistence);
+- `Console.WriteLine` (logging);
+- the VAT rates (business rules).
 
-Each time we need to update one of these responsibilities, we will be forced to modify the `ProductDatabase` class.
+A change requested by one actor means editing a class the other two depend on.
 
-A better approach would be to separate these responsibilities.
-
-**Application of SRP:**
-```csharp
-public class ProductDatabase
-{
-    public List<Product> LoadFromMemory()
-    {
-        return
-        [
-            new() { Id = 1, Name = "Apple", Price = 0.5m, Type = ProductType.Fruit },
-            new() { Id = 2, Name = "Sparkling Water", Price = 2.5m, Type = ProductType.Water }
-        ];
-    }
-}
-```
+**Application of SRP:** each responsibility gets its own class.
 
 ```csharp
 public class ProductRepository
 {
-    private readonly ProductDatabase _database = new();
+    private readonly List<Product> _products =
+    [
+        new(1, "Apple", 0.50m, ProductType.Fruit),
+        new(2, "Sparkling water", 2.50m, ProductType.Water),
+    ];
 
-    public Product? GetProduct(int id)
-    {
-        var products = _database.LoadFromMemory();
-        var product = products.FirstOrDefault(p => p.Id == id);
-
-        return product;
-    }
+    public Product? GetById(int id) => _products.Find(p => p.Id == id);
 }
-```
 
-```csharp
 public class ConsoleLogger
 {
-    public void Log(string message)
-    {
-        Console.WriteLine(message);
-    }
+    public void Log(string message) => Console.WriteLine(message);
 }
-```
 
-```csharp
 public class ProductService
 {
+    private readonly ProductRepository _repository = new();
     private readonly ConsoleLogger _logger = new();
 
-    public void AddVatToPrice(Product product)
+    public decimal? GetPriceIncludingVat(int id)
     {
-        switch (product.Type)
+        var product = _repository.GetById(id);
+        if (product is null)
         {
-            case ProductType.Fruit:
-                _logger.Log("Add VAT to the price of Fruit...");
-                product.Price *= 1.055m;
-                break;
-            case ProductType.Water:
-                _logger.Log("Add VAT to the price of Water...");
-                product.Price *= 1.2m;
-                break;
-            default:
-                _logger.Log("Unable to add VAT to the price without the product type.");
-                break;
+            _logger.Log($"Product {id} not found.");
+            return null;
         }
+
+        _logger.Log($"Adding VAT to the price of {product.Name}.");
+
+        return product.Type switch
+        {
+            ProductType.Fruit => product.Price * 1.055m,
+            ProductType.Water => product.Price * 1.20m,
+            _ => throw new NotSupportedException($"No VAT rule for {product.Type}."),
+        };
     }
 }
 ```
 
-With this solution, we obtain a low coupling and a high cohesion.
+Each class now has one reason to change: low coupling, high cohesion.
 
-## Open Closed Principle (OCP)
+## Open-Closed Principle (OCP)
+> A software artifact should be open for extension but closed for modification.
 
->A software artifact should be open for extension but closed for modification. 
+We should be able to add a behaviour without editing code that already works. The `switch` in `ProductService` breaks this rule: to sell meat, we must modify `GetPriceIncludingVat`. For a switch this small, adding a case is often fine, but the pattern shows why OCP matters as rules multiply.
 
-OCP means that it should be possible to change the behavior of a method without having to edit its source code. 
-
-Let's see the `AddVatToPrice` method.
-
-**Violation of OCP:**
-```csharp
-public class ProductService
-{
-    private readonly ConsoleLogger _logger = new();
-
-    public void AddVatToPrice(Product product)
-    {
-        switch (product.Type)
-        {
-            case ProductType.Fruit:
-                _logger.Log("Add VAT to the price of Fruit...");
-                product.Price *= 1.055m;
-                break;
-            case ProductType.Water:
-                _logger.Log("Add VAT to the price of Water...");
-                product.Price *= 1.2m;
-                break;
-            default:
-                _logger.Log("Unable to add VAT to the price without the product type.");
-                break;
-        }
-    }
-}
-```
-
-Now, imagine that we have to add VAT to a new type of product, such as Meat. 
-
-A logical approach would be to add another case in the switch. This approach is good most of the time and for simple functions like here.
-
-However, we will apply OCP in our example to understand why in many cases it can be useful to follow this principle.
-
-There are lots of ways to follow OCP. We can use Polymorphism, Delegates, the Strategy Pattern, the Factory Pattern and many others.
-
-Let's use polymorphism together with the last one: a simple factory. (It is not the Abstract Factory Pattern of the Gang of Four, which creates families of related objects: here one class just picks the right subclass.)
+Polymorphism, delegates and the Strategy pattern all help. Here, we use polymorphism with a simple factory (not the Gang of Four's Abstract Factory: one class just picks the right subclass).
 
 **Application of OCP:**
 
-At first, we create a base class for VAT. A primary constructor (C# 12) keeps it short:
-
 ```csharp
-public abstract class Vat(ConsoleLogger logger)
+public abstract class Vat
 {
-    protected ConsoleLogger Logger { get; } = logger;
-
-    public abstract void Add(Product product);
+    public abstract decimal Apply(decimal price);
 }
-```
 
-Then we create classes that inherit from this class for each type of VAT.
-
-```csharp
-public class FruitVat(ConsoleLogger logger) : Vat(logger)
+public sealed class FruitVat : Vat
 {
-    public override void Add(Product product)
-    {
-        Logger.Log("Add VAT to the price of Fruit...");
-        product.Price *= 1.055m;
-    }
+    public override decimal Apply(decimal price) => price * 1.055m;
 }
-```
 
-```csharp
-public class WaterVat(ConsoleLogger logger) : Vat(logger)
+public sealed class WaterVat : Vat
 {
-    public override void Add(Product product)
-    {
-        Logger.Log("Add VAT to the price of Water...");
-        product.Price *= 1.2m;
-    }
+    public override decimal Apply(decimal price) => price * 1.20m;
 }
-```
 
-> **_Note:_** The subclasses use the `Logger` property of the base class rather than their own `logger` parameter. Using the parameter in the body as well as passing it to `Vat(logger)` would store it twice, and the compiler warns about it (CS9107).
-
-Now we add our factory which will create the appropriate instance of `Vat` and return an object of type `Vat` (because any class that inherits from `Vat` is a `Vat`). When the product type is unknown, it returns `null`, which is why the return type is `Vat?`.
-
-```csharp
 public class VatFactory
 {
-    public Vat? Create(Product product, ConsoleLogger logger)
+    public Vat Create(ProductType type) => type switch
     {
-        return product.Type switch
-        {
-            ProductType.Fruit => new FruitVat(logger),
-            ProductType.Water => new WaterVat(logger),
-            _ => null,
-        };
-    }
+        ProductType.Fruit => new FruitVat(),
+        ProductType.Water => new WaterVat(),
+        _ => throw new NotSupportedException($"No VAT rule for {type}."),
+    };
 }
 ```
-And finally we instantiate the factory in `ProductService`.
+
+`ProductService` gets a `VatFactory _vatFactory = new();` field, and its `switch` becomes:
 
 ```csharp
-public class ProductService
-{
-    private readonly ConsoleLogger _logger = new();
-    private readonly VatFactory _factory = new();
-
-    public void AddVatToPrice(Product product)
-    {
-        _logger.Log($"Price of {product.Name} before adding VAT: {product.Price}");
-
-        var vat = _factory.Create(product, _logger);
-        if (vat is null)
-            _logger.Log("Unable to add VAT to the price without the product type.");
-        else
-            vat.Add(product);
-
-        _logger.Log($"Price of {product.Name} after adding VAT: {product.Price}");
-    }
-}
+var vat = _vatFactory.Create(product.Type);
+return vat.Apply(product.Price);
 ```
 
-As we can see, now `ProductService` is closed to modification: to support Meat, we add a `MeatVat` class and one line in `VatFactory`, and `ProductService` does not change.
+`ProductService` is now closed for modification: to support meat, we add a `MeatVat` class and one line in `VatFactory`, and `ProductService` does not change.
 
 ## Liskov Substitution Principle (LSP)
+> If for each object o1 of type S there is an object o2 of type T such that for all programs P defined in terms of T, the behavior of P is unchanged when o1 is substituted for o2 then S is a subtype of T.
 
->If for each object o1 of type S there is an object o2 of type T such that for all programs P defined in terms of T, the behaviour of P is unchanged when o1 is substituted for o2 then S is a subtype of T.
+This definition comes from [Barbara Liskov](https://en.wikipedia.org/wiki/Liskov_substitution_principle) (1988). Put simply: subtypes must be substitutable for their base types. Code that works with a `Vat` must work with any subclass of `Vat`, without knowing which one it has.
 
-A more approachable definition is simply subtypes must be substitutable for their base types.
-
-Regarding our example on the product VAT, we already follow the LSP principle. 
-Indeed, `FruitVat` and `WaterVat` inherit from the base class `Vat`, and in `ProductService` we can call `vat.Add` on whatever the factory returns since, after all, any type of `Vat` is a `Vat`.
-
-Therefore, everything is fine? Unfortunately not exactly, we have one case that does not follow the LSP principle.
-
-**Violation of LSP:**
+**Violation of LSP:** the shop now sells gift cards, which carry no VAT. We add `GiftCard` to `ProductType`, a line to the factory (`ProductType.GiftCard => new GiftCardVat(),`) and this class:
 
 ```csharp
-public class VatFactory
+public sealed class GiftCardVat : Vat
 {
-    public Vat? Create(Product product, ConsoleLogger logger)
-    {
-        return product.Type switch
-        {
-            ProductType.Fruit => new FruitVat(logger),
-            ProductType.Water => new WaterVat(logger),
-            _ => null,
-        };
-    }
+    public override decimal Apply(decimal price) =>
+        throw new NotSupportedException("Gift cards are not subject to VAT.");
 }
 ```
 
+`GiftCardVat` refuses what every `Vat` promises: to return the price including VAT. `ProductService` must now know about this one subclass:
+
 ```csharp
-var vat = _factory.Create(product, _logger);
-if (vat is null)
-    _logger.Log("Unable to add VAT to the price without the product type.");
-else
-    vat.Add(product);
+var vat = _vatFactory.Create(product.Type);
+return vat is GiftCardVat ? product.Price : vat.Apply(product.Price);
 ```
 
-Here, when a product is unknown, we cannot add the VAT and an error message is shown. Therefore, we violate the LSP principle because we treat unknown products differently from other product types. 
+A type check on a subclass is the typical sign of an LSP violation, and it breaks OCP again.
 
-Let's take another approach that follows LSP.
-
-**Application of LSP:**
+**Application of LSP:** `GiftCardVat` keeps the contract. The price including VAT of a gift card is its price:
 
 ```csharp
-public class UnknownVat(ConsoleLogger logger) : Vat(logger)
+public sealed class GiftCardVat : Vat
 {
-    public override void Add(Product product)
-    {
-        Logger.Log("Unable to add VAT to the price without the product type.");
-    }
+    public override decimal Apply(decimal price) => price;
 }
 ```
 
-```csharp
-public class VatFactory
-{
-    public Vat Create(Product product, ConsoleLogger logger)
-    {
-        return product.Type switch
-        {
-            ProductType.Fruit => new FruitVat(logger),
-            ProductType.Water => new WaterVat(logger),
-            _ => new UnknownVat(logger),
-        };
-    }
-}
-```
-
-The factory never returns `null` anymore, so the return type goes back to `Vat` and the caller treats every product the same way:
-
-```csharp
-var vat = _factory.Create(product, _logger);
-vat.Add(product);
-```
+`ProductService` goes back to `return vat.Apply(product.Price);` and treats every product the same way.
 
 ## Interface Segregation Principle (ISP)
+> Clients should not be forced to depend upon interfaces that they do not use.
 
->A client should never be forced to implement an interface that it doesn’t use or clients shouldn’t be forced to depend on methods they do not use
-
-When you think about it, having an interface with many methods brings a strong coupling. More exactly, all classes that depend on this interface must implement all its methods.
-
-However, what if we only need one or two methods?
-
-One solution is to split this interface into small cohesive interfaces.
-
-Let's look at an example.
-
-**Violation of ISP:**
-
-We will add a `LoadFromXml` method to the `IProductDatabase` interface because a second application loads products from this source.
+**Violation of ISP:** the back office now adds and removes products, so we extract one interface for every use of the repository:
 
 ```csharp
-public interface IProductDatabase
+public interface IProductRepository
 {
-    List<Product> LoadFromMemory();
-    List<Product> LoadFromXml();
+    Product? GetById(int id);
+    IReadOnlyList<Product> GetAll();
+    void Add(Product product);
+    void Remove(int id);
 }
 ```
 
-Since both applications must have consistent code, we use this interface in our application as well.
+`ProductService` only reads, yet it now depends on `Add` and `Remove` as well. Worse, a read-only source, such as a price list imported from a supplier, is forced to implement methods it cannot support:
 
 ```csharp
-public class ProductDatabase : IProductDatabase
+public class PriceListRepository(IReadOnlyList<Product> priceList) : IProductRepository
 {
-    public List<Product> LoadFromMemory()
-    {
-        // ...
-    }
-
-    public List<Product> LoadFromXml()
-    {
-        throw new NotImplementedException();
-    }
+    public Product? GetById(int id) => priceList.FirstOrDefault(p => p.Id == id);
+    public IReadOnlyList<Product> GetAll() => priceList;
+    public void Add(Product product) => throw new NotSupportedException();
+    public void Remove(int id) => throw new NotSupportedException();
 }
 ```
 
-```csharp
-public class ProductRepository
-{
-    private readonly IProductDatabase _database = new ProductDatabase();
+**Application of ISP:** we split the interface by client.
 
-    // ...
+```csharp
+public interface IProductReader
+{
+    Product? GetById(int id);
+    IReadOnlyList<Product> GetAll();
+}
+
+public interface IProductWriter
+{
+    void Add(Product product);
+    void Remove(int id);
 }
 ```
 
-As we can see here, we are constrained to have the `LoadFromXml` method which we will not use in our application.
-
-Let's divide this interface.
-
-**Application of ISP:**
-
-```csharp
-public interface IMemoryLoad<T> where T : class
-{
-    List<T> LoadFromMemory();
-}
-```
-
-```csharp
-public interface IXmlLoad<T> where T : class
-{
-    List<T> LoadFromXml();
-}
-```
-
-```csharp
-public interface IProductDatabase :
-    IMemoryLoad<Product>,
-    IXmlLoad<Product>
-{
-}
-```
-To avoid breaking the second application, `IProductDatabase` inherits from `IMemoryLoad<Product>` and `IXmlLoad<Product>`. This way, a class implementing `IProductDatabase` still has to implement the `LoadFrom` methods for the 2 sources.
-
-On our side we will create another interface that will inherit only from `IMemoryLoad<Product>`. (Or we can also use `IMemoryLoad<Product>` directly if we are sure to use only this source)
-
-```csharp
-public interface IOriginalProductDatabase :
-    IMemoryLoad<Product>
-{
-}
-```
-
-```csharp
-public class ProductRepository
-{
-    private readonly IOriginalProductDatabase _database = new ProductDatabase();
-
-    // ...
-}
-```
-
-```csharp
-public class ProductDatabase : IOriginalProductDatabase
-{
-    // LoadFromMemory only, no more LoadFromXml 🎉
-}
-```
+`ProductRepository` implements both (`public class ProductRepository : IProductReader, IProductWriter`), `PriceListRepository` implements `IProductReader` only and loses its two `throw` lines, and `ProductService` will only ask for an `IProductReader`.
 
 ## Dependency Inversion Principle (DIP)
+> High-level modules should not depend on low-level modules. Both should depend on abstractions.
+>
+> Abstractions should not depend on details. Details should depend on abstractions.
 
->High-level modules should not depend on low-level modules. Both should depend on abstractions.
+High-level modules hold the business rules, here the price including VAT. Low-level modules hold the details: files, databases, logging, e-mail.
 
->Abstractions should not depend on details. Details should depend on abstractions.
+**Violation of DIP:** `ProductService` creates its own `ProductRepository` and `ConsoleLogger` with `new()`. The business rule depends on the details, so we cannot switch to the price list, or test the rule without the real data.
 
-The high-level modules are those that contain the core of the application. This is where we mainly find our business rules and anything that tends to be more abstract. 
-
-On the other side, the low-level modules are those that are related to details. They often concern inputs and outputs. For example, file reader, database querying, logging, sending mail etc.
-
-To keep it simple, DIP means that a class should not depend directly on another class, but rather on an abstraction (e.g. an interface) of this class.
-
-Let's go back to the `ProductRepository` example.
-
-**Violation of DIP:**
+**Application of DIP:** `ProductService` receives abstractions through its [primary constructor](https://learn.microsoft.com/dotnet/csharp/whats-new/tutorials/primary-constructors). Our `ConsoleLogger` gives way to [`ILogger<T>`](https://learn.microsoft.com/dotnet/core/extensions/logging), the logging abstraction of .NET:
 
 ```csharp
-public class ProductRepository
+using Microsoft.Extensions.Logging;
+
+public class ProductService(IProductReader products, VatFactory vatFactory, ILogger<ProductService> logger)
 {
-    private readonly IOriginalProductDatabase _database = new ProductDatabase();
-
-    // ...
-}
-```
-
-Here, our `ProductRepository` depends on `ProductDatabase` because it creates the new instance itself.
-
-However, according to the Repository Pattern, a repository is an abstraction that does not depend on the database. 
-
-Therefore, we will reverse this dependency.
-
-**Application of DIP:**
-
-`ProductRepository` now receives its database through its (primary) constructor:
-
-```csharp
-public class ProductRepository(IOriginalProductDatabase database)
-{
-    public List<Product> GetProducts()
+    public decimal? GetPriceIncludingVat(int id)
     {
-        return database.LoadFromMemory();
-    }
+        var product = products.GetById(id);
+        if (product is null)
+        {
+            logger.LogWarning("Product {ProductId} not found.", id);
+            return null;
+        }
 
-    public Product? GetProduct(int id)
-    {
-        return database.LoadFromMemory().FirstOrDefault(p => p.Id == id);
+        logger.LogInformation("Adding VAT to the price of {ProductName}.", product.Name);
+
+        return vatFactory.Create(product.Type).Apply(product.Price);
     }
 }
 ```
 
-And it is the caller who decides which implementation to give it, here in the top-level statements of `Program.cs`:
+`VatFactory` stays concrete: it is a business rule, not a detail.
 
-```csharp
-IOriginalProductDatabase database = new ProductDatabase();
-var productRepository = new ProductRepository(database);
-var products = productRepository.GetProducts();
-```
-
-In a real .NET application, we rarely write this wiring by hand: we register the implementations in the dependency injection container (`Microsoft.Extensions.DependencyInjection`, the one ASP.NET Core uses) and let it build the objects for us:
+The caller now chooses the implementations. In .NET, we register them in the [dependency injection container](https://learn.microsoft.com/dotnet/core/extensions/dependency-injection) that ASP.NET Core uses (packages `Microsoft.Extensions.DependencyInjection` and `Microsoft.Extensions.Logging.Console` in a console app), here in `Program.cs`:
 
 ```csharp
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 var services = new ServiceCollection();
-services.AddSingleton<IOriginalProductDatabase, ProductDatabase>();
-services.AddTransient<ProductRepository>();
+services.AddLogging(logging => logging.AddConsole());
+services.AddSingleton<IProductReader, ProductRepository>();
+services.AddSingleton<VatFactory>();
+services.AddTransient<ProductService>();
 
 using var provider = services.BuildServiceProvider();
 
-var productRepository = provider.GetRequiredService<ProductRepository>();
-var products = productRepository.GetProducts();
+var productService = provider.GetRequiredService<ProductService>();
+Console.WriteLine(productService.GetPriceIncludingVat(1)); // 0.52750
 ```
 
-Now `ProductRepository` depends on an abstraction. This means that in the future we will not need to modify `ProductRepository` if we want to replace the database: we only change one line of registration.
+To read the supplier's price list instead, we change one registration, and `ProductService` does not change. In a unit test, we pass a fake `IProductReader` directly to the constructor.
 
 ## Conclusion
+The SOLID principles help us build robust software that is easy to maintain and evolve. They are guidelines, not laws: apply them according to the context. On a small project that will not evolve, the extra classes and interfaces can cost more than they save.
 
-Applying SOLID principles can be beneficial in many cases if we want to build robust software that is easy to maintain and easy to evolve.
-It is also important to remember to apply the SOLID principles according to the context.
-
-For example, for small projects that will not evolve, not following SOLID may be acceptable. It can make the code more complex and ultimately we can spend more time developing the solution when it could be simpler.
-
-
-*Thanks for reading my first article! ❤️*
+## References
+- [Architectural principles](https://learn.microsoft.com/dotnet/architecture/modern-web-apps-azure/architectural-principles) — Microsoft Learn: single responsibility, dependency inversion and the other principles in .NET guidance.
+- [Dependency injection in .NET](https://learn.microsoft.com/dotnet/core/extensions/dependency-injection) — Microsoft Learn: `ServiceCollection`, service lifetimes and constructor injection.
+- [Logging in .NET](https://learn.microsoft.com/dotnet/core/extensions/logging) — Microsoft Learn: `ILogger<T>` and message templates.
+- [Primary constructors](https://learn.microsoft.com/dotnet/csharp/whats-new/tutorials/primary-constructors) — Microsoft Learn: the C# 12 syntax used for injection.
+- [Clean Architecture](https://www.informit.com/store/clean-architecture-a-craftsmans-guide-to-software-structure-9780134494166) — Robert C. Martin (2017): the history of SOLID and the "actor" and "software artifact" wordings of SRP and OCP.
+- [The Single Responsibility Principle](https://blog.cleancoder.com/uncle-bob/2014/05/08/SingleReponsibilityPrinciple.html) — Robert C. Martin: what a "reason to change" means.
+- [Solid Relevance](https://blog.cleancoder.com/uncle-bob/2020/10/18/Solid-Relevance.html) — Robert C. Martin: why the principles still apply today.
+- [SOLID](https://en.wikipedia.org/wiki/SOLID) — Wikipedia: the 2000 paper and the acronym coined by Michael Feathers.
+- [Liskov substitution principle](https://en.wikipedia.org/wiki/Liskov_substitution_principle) — Wikipedia: Barbara Liskov's definition and behavioural subtyping.

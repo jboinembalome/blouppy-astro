@@ -12,20 +12,19 @@ categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/some-features-of-csharp8-to-reduce-our-code.jpg
 description: >-
-  Let's discover some features and improvements that appeared with the 8th version of the C# language.
+  Switch expressions, property and tuple patterns, using declarations, ??= and indices and ranges: the C# 8.0 features that make code shorter and clearer.
 tags:
   - Development
   - C#
   - Features
 ---
 
-> **Updated November 2026:** every sample now compiles without a warning on .NET 10 / C# 14, where nullable reference types are enabled by default, and I added a short list of the pattern features that came after C# 8.0. 😉
+> **Updated November 2026:** every sample now compiles without a warning on .NET 10 / C# 14, where nullable reference types are enabled by default, and I added a short list of the pattern features that came after C# 8.0.
 
-C# 8.0 was released in September 2019 at the same time as .NET Core 3.0.
-In this article, we will look at some examples of features that can reduce the size of our code and/or make it more readable. Of course, the features of C# 8.0 are applicable in higher versions.
+[C# 8.0](https://learn.microsoft.com/dotnet/csharp/whats-new/csharp-version-history#c-version-80) was released in September 2019, together with .NET Core 3.0. In this article, we look at the features that make our code shorter or easier to read. They are all available in later versions of C#.
 
 ## Switch expression
-The `switch expression` is a new way of writing a `switch statement`. It avoids writing the words `case` and `break` which can be redundant when we have several cases to consider.
+The [`switch` expression](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/switch-expression) is a more concise way to write a `switch` statement that returns a value: no more `case`, `break` or `return` on every branch.
 
 Traditional way:
 
@@ -35,16 +34,14 @@ public static string DoYouLikeCSharp8(bool? answer)
     switch (answer)
     {
         case true:
-            return "It's fun! 😃";
+            return "It's fun!";
         case false:
-            return "The next versions will satisfy you better! 🙏";
+            return "The next versions will satisfy you better!";
         default:
-            return "Oh... 😢 Do you prefer another language? 😇";
+            return "Oh... Do you prefer another language?";
     }
 }
 ```
-
-Now let's reproduce the same code with the `switch expression`.
 
 New way:
 
@@ -53,16 +50,18 @@ public static string DoYouLikeCSharp8(bool? answer)
 {
     return answer switch
     {
-        true  => "It's fun! 😃",
-        false => "The next versions will satisfy you better! 🙏",
-        _     => "Oh... 😢 Do you prefer another language? 😇"
+        true => "It's fun!",
+        false => "The next versions will satisfy you better!",
+        _ => "Oh... Do you prefer another language?",
     };
 }
 ```
 
-## Property and Tuple patterns
+The discard `_` plays the role of `default`.
+
+## Property and tuple patterns
 ### Property pattern
-The property pattern allows us to establish cases of a `switch expression` by taking into consideration the properties of an object.
+A [property pattern](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/patterns#property-pattern) matches an object on the values of its properties. Let's take a language and a level:
 
 ```csharp
 public enum Level
@@ -70,37 +69,31 @@ public enum Level
     Notion,
     Practice,
     Autonomous,
-    Expert
+    Expert,
 }
-```
 
-```csharp
 public record Language(string Name, Level Level);
 ```
 
-> **_Note:_** A `record` (C# 9) with a primary constructor gives us the two properties and the constructor in one line. The property pattern works exactly the same with a plain class.
+> **_Note:_** A [`record`](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/record) (C# 9) with a primary constructor declares the two properties and the constructor in one line. The property pattern works the same way with a plain class.
 
 Traditional way:
 
 ```csharp
 public static string GetLevelMessage(Language language)
 {
-    if (language.Level == Level.Notion && language.Name == "C#")
-        return "You have some notions of C#! 👍";
-    else if (language.Level == Level.Practice && language.Name == "C#")
-        return "You practice C#! 💪";
-    else if (language.Level == Level.Autonomous && language.Name == "C#")
-        return "You are autonomous in C#! 🤘";
-    else if (language.Level == Level.Expert && language.Name == "C#")
-        return "You are an expert in C#! 👏";
-    else
-        return $"I don't know what your level in {language.Name} is but I'm sure you are good! 😌";
+    if (language.Name == "C#" && language.Level == Level.Notion)
+        return "You have some notions of C#!";
+    if (language.Name == "C#" && language.Level == Level.Practice)
+        return "You practice C#!";
+    if (language.Name == "C#" && language.Level == Level.Autonomous)
+        return "You are autonomous in C#!";
+    if (language.Name == "C#" && language.Level == Level.Expert)
+        return "You are an expert in C#!";
+
+    return $"I don't know your level in {language.Name}, but I'm sure you are good!";
 }
 ```
-
-In this example, we return a message according to the level and the name of the language. This implies to have a succession of if/else if. (Only for illustration, it is possible to use another way like the Factory Pattern as well)
-
-With the property pattern, we can improve our code by using a `switch expression`.
 
 New way:
 
@@ -109,36 +102,34 @@ public static string GetLevelMessage(Language language)
 {
     return language switch
     {
-        { Level: Level.Notion, Name: "C#" } => "You have some notions of C#! 👍",
-        { Level: Level.Practice, Name: "C#" } => "You practice C#! 💪",
-        { Level: Level.Autonomous, Name: "C#" } => "You are autonomous in C#! 🤘",
-        { Level: Level.Expert, Name: "C#" } => "You are an expert in C#! 👏",
-        _ => $"I don't know what your level in {language.Name} is but I'm sure you are good! 😌"
+        { Name: "C#", Level: Level.Notion } => "You have some notions of C#!",
+        { Name: "C#", Level: Level.Practice } => "You practice C#!",
+        { Name: "C#", Level: Level.Autonomous } => "You are autonomous in C#!",
+        { Name: "C#", Level: Level.Expert } => "You are an expert in C#!",
+        _ => $"I don't know your level in {language.Name}, but I'm sure you are good!",
     };
 }
 ```
 
 ### Tuple pattern
-Like the property pattern, we can apply a `switch expression` based on a tuple pattern:
+When the values are not in one object, a [positional pattern](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/patterns#positional-pattern) matches a tuple built on the fly:
 
 ```csharp
 public static string GetLevelMessage(Level level, string language)
 {
     return (level, language) switch
     {
-        (level: Level.Notion, language: "C#") => $"You have some notions of {language}! 👍",
-        (level: Level.Practice, language: "C#") => $"You practice {language}! 💪",
-        (level: Level.Autonomous, language: "C#") => $"You are autonomous in {language}! 🤘",
-        (level: Level.Expert, language: "C#") => $"You are an expert in {language}! 👏",
-        _ => $"I don't know what your level in {language} is but I'm sure you are good! 😌"
+        (Level.Notion, "C#") => $"You have some notions of {language}!",
+        (Level.Practice, "C#") => $"You practice {language}!",
+        (Level.Autonomous, "C#") => $"You are autonomous in {language}!",
+        (Level.Expert, "C#") => $"You are an expert in {language}!",
+        _ => $"I don't know your level in {language}, but I'm sure you are good!",
     };
 }
 ```
 
 ## Using declaration
-Sometimes in C# it can be useful to dispose an object. For example, this is necessary when we read a text file with `StreamReader` or when we open a SQL connection with `SqlConnection`.
-
-The `using statement` allows us to define a limit for the object outside of which, the object is automatically disposed. This makes our code more elegant and avoids calling the `Dispose` method in a try/finally.
+Some objects must be disposed once we are done with them, such as a `StreamReader` that reads a file or a `SqlConnection`. The [`using` statement](https://learn.microsoft.com/dotnet/csharp/language-reference/statements/using) disposes the object at the end of its block, so we do not have to call `Dispose` in a `try`/`finally` ourselves.
 
 Traditional way:
 
@@ -148,15 +139,13 @@ public static void ReadFile(string path)
     using (var streamReader = new StreamReader(path))
     {
         string? line;
-        // Read and display lines from the file until the
-        // end of the file is reached.
-        while ((line = streamReader.ReadLine()) != null)
+        while ((line = streamReader.ReadLine()) is not null)
             Console.WriteLine(line);
-    } // file is disposed here
+    } // streamReader is disposed here
 }
 ```
 
-Since C# 8.0, it is possible to make a `using declaration`. This indicates to the compiler that the variable with the `using` keyword should be disposed at the end of the scope.
+Since C# 8.0, a `using` declaration disposes the variable at the end of the enclosing scope, without the extra block and indentation.
 
 New way:
 
@@ -165,26 +154,22 @@ public static void ReadFile(string path)
 {
     using var streamReader = new StreamReader(path);
     string? line;
-    // Read and display lines from the file until the
-    // end of the file is reached.
-    while ((line = streamReader.ReadLine()) != null)
+    while ((line = streamReader.ReadLine()) is not null)
         Console.WriteLine(line);
-} // file is disposed here
+} // streamReader is disposed here
 ```
 
-> **_Note:_** `line` is a `string?` because `ReadLine` returns `null` at the end of the file. Nullable reference types (another C# 8.0 feature, enabled by default in today's project templates) would otherwise warn us: `CS8600: Converting null literal or possible null value to non-nullable type.` I wrote [a whole article about them](https://www.blouppy.com/blog/2022-04-17-using-nullable-reference-types/) 😉
+> **_Note:_** `line` is a `string?` because `ReadLine` returns `null` at the end of the file. Without the `?`, nullable reference types (another C# 8.0 feature, enabled by default in today's project templates) would warn us: `CS8600: Converting null literal or possible null value to non-nullable type.` I wrote [a whole article about them](https://www.blouppy.com/blog/2022-04-17-using-nullable-reference-types/).
 
 ## Null-coalescing assignment
-As we know, the null coalescence operator `??` returns the value of the left side if it is not null. Otherwise, it returns the value of the right side:
+The [null-coalescing operator `??`](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/null-coalescing-operator) returns its left operand if it is not null, and its right operand otherwise:
 
 ```csharp
 string? message = null;
-message = message ?? "Default message";
+message = message ?? "Default message"; // "Default message"
 ```
 
-Here `message` equals to **"Default message"** because `message` was null before.
-
-With the null-coalescing assignment, we can simplify the second line like this:
+The null-coalescing assignment `??=` shortens this line: it assigns the right operand only when the variable is null.
 
 ```csharp
 string? message = null;
@@ -192,64 +177,65 @@ message ??= "Default message";
 ```
 
 ## Indices and ranges
-Indices and ranges provide an elegant syntax for accessing single elements or ranges in a sequence of elements.
+[Indices and ranges](https://learn.microsoft.com/dotnet/csharp/tutorials/ranges-indexes) give a short syntax to access one element or a slice of a sequence. Let's take an array (written with a collection expression, C# 12):
 
-To see this, let's create an array of elements (with a collection expression, C# 12):
 ```csharp
-string[] emojis =
+string[] words =
 [
-    "🙂", "☹️", "👍", "👎",
-    "🐶", "🐱", "🍎", "🍐"
+    "happy", "sad", "yes", "no",
+    "dog", "cat", "apple", "pear",
 ];
 ```
 
 ### Indices
-The `^` operator allows us to use the index from end:
+The `^` operator counts from the end:
 
 ```csharp
-var lastEmoji = emojis[^1]; // emojis[emojis.Length - 1]
-var secondLastEmoji = emojis[^2]; // emojis[emojis.Length - 2]
-var thirdLastEmoji = emojis[^3]; // emojis[emojis.Length - 3]
+var last = words[^1];       // words[words.Length - 1]: "pear"
+var secondLast = words[^2]; // words[words.Length - 2]: "apple"
 ```
 
 ### Ranges
-
-About ranges, there is also a new operator `..` which specifies the start (included) and the end (excluded) of a range:
+The `..` operator takes a range, from its start (included) to its end (excluded). Either bound can be omitted:
 
 ```csharp
-var smileys = emojis[0..2]; // emojis.Take(2)
-var gestures = emojis[2..4]; // emojis.Skip(2).Take(2)
-var animals = emojis[4..6]; // emojis.Skip(4).Take(2)
-var fruits = emojis[6..8]; // emojis.Skip(6).Take(2)
+var moods = words[..2];    // "happy", "sad"
+var answers = words[2..4]; // "yes", "no"
+var animals = words[4..6]; // "dog", "cat"
+var fruits = words[6..];   // "apple", "pear"
 ```
 
 ## And since then?
-Pattern matching kept growing after C# 8.0. A few additions that go very well with the `switch expression`:
+[Pattern matching](https://learn.microsoft.com/dotnet/csharp/fundamentals/functional/pattern-matching) kept growing after C# 8.0. Two additions go well with the `switch` expression:
 - **Relational and logical patterns** (C# 9): `<`, `>=`, `and`, `or`, `not`.
 - **List patterns** (C# 11): match the shape of an array or a list, with `..` for "the rest".
 
 ```csharp
 public static string GetAgeGroup(int age) => age switch
 {
-    < 0 => "Not born yet? 🤔",
-    < 18 => "Young developer 🧒",
-    >= 18 and < 65 => "Developer 🧑‍💻",
-    _ => "Wise developer 🧙"
+    < 0 => "Not born yet?",
+    < 18 => "Young developer",
+    >= 18 and < 65 => "Developer",
+    _ => "Wise developer",
 };
 
 public static string Describe(int[] numbers) => numbers switch
 {
     [] => "Empty",
     [var single] => $"Only {single}",
-    [var first, .., var last] => $"From {first} to {last}"
+    [var first, .., var last] => $"From {first} to {last}",
 };
 ```
 
 ## Conclusion
-With C# 8.0, programming may not be as easy to understand if you are not familiar with the new features. However, once learned, it becomes a real advantage for all those who know it with its shorter and more elegant syntax.
+The C# 8.0 syntax can surprise developers who have not met it yet. Once learned, it makes our code shorter and easier to read.
 
-I hope you enjoyed reading this article! 👍
-
-If you want to know more about the features of C# 8.0 and the versions after it, here are two links from the Microsoft docs:
-- [The history of C# - C# version 8.0](https://learn.microsoft.com/en-us/dotnet/csharp/whats-new/csharp-version-history#c-version-80)
-- [Pattern matching - the is and switch expressions](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/patterns)
+## References
+- [The history of C#: C# version 8.0](https://learn.microsoft.com/dotnet/csharp/whats-new/csharp-version-history#c-version-80) — every feature of C# 8.0 and of the versions after it.
+- [switch expression](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/switch-expression) — C# reference: syntax, discards and exhaustiveness.
+- [Patterns](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/patterns) — C# reference: property, positional, relational, logical and list patterns.
+- [Pattern matching overview](https://learn.microsoft.com/dotnet/csharp/fundamentals/functional/pattern-matching) — when to use each kind of pattern.
+- [using statement](https://learn.microsoft.com/dotnet/csharp/language-reference/statements/using) — `using` statements and `using` declarations.
+- [?? and ??= operators](https://learn.microsoft.com/dotnet/csharp/language-reference/operators/null-coalescing-operator) — null-coalescing and null-coalescing assignment.
+- [Indices and ranges](https://learn.microsoft.com/dotnet/csharp/tutorials/ranges-indexes) — the `^` and `..` operators and the types that support them.
+- [Records](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/record) — the `record` used in the property pattern sample.

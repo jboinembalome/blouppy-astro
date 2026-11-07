@@ -11,119 +11,53 @@ illustration: 1
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/configure-prettier-with-angular.jpg
-description: Quick steps to configure Prettier in an Angular project.
+description: Configure the Prettier that the Angular CLI installs, format Angular templates with the angular parser, ignore files and add format scripts.
 tags:
   - Development
   - Angular
   - Prettier
 ---
 
-> **Updated November 2026:** rewritten for Angular 22 and Prettier 3. The Angular CLI now installs Prettier for you, so this article is about configuring it: I also fixed two option names that Prettier was silently ignoring (`useTabs` and `semi`) and added the `angular` parser for templates. 🙂
+> **Updated November 2026:** rewritten for Angular 22 and Prettier 3. The Angular CLI now installs Prettier for you, so this article is about configuring it. I also fixed two option names that Prettier was silently ignoring (`useTabs` and `semi`) and added the `angular` parser for templates.
 
-When we work in a team project, it is possible to encounter inconsistent code. Indeed, one developer may use single quotes and tabs and another developer may use double quotes and spaces. Even though there is documentation in the project with a naming convention, it is possible to forget some rules during our development.
+In a team, code style drifts: one developer uses single quotes and tabs, another double quotes and spaces. A written convention helps, but people forget it. A formatter such as [Prettier](https://prettier.io/) applies the rules for everyone, automatically.
 
-To help us apply code formatting rules and therefore promote consistent code, we can use [Prettier](https://prettier.io/).
-
-In this article, we will configure **Prettier** in an **Angular 22** project.
+In this article, we configure **Prettier** in an **Angular 22** project. It is the first article of a series: [Configure ESLint with Angular](https://www.blouppy.com/blog/2023-04-03-configure-eslint-with-angular/) adds a linter, and [Configure Husky with Angular](https://www.blouppy.com/blog/2023-05-14-configure-husky-with-angular/) runs both before each commit.
 
 ## Prerequisites
-Before to start you will need:
-- [Node.js](https://nodejs.org/en/): Angular **requires an active LTS (Long Term Support) or maintenance LTS version** of **Node.js** (for Angular 22: `^22.22.3`, `^24.15.0` or `>=26.0.0`).
-- [Angular CLI](https://angular.dev/tools/cli): We will use the **Angular CLI** to create an Angular project.
-- [Visual Studio Code](https://code.visualstudio.com/): The editor to open the project. (You can choose your favourite editor or IDE as well 🙂)
-
+- [Node.js](https://nodejs.org/en/): Angular 22 requires an active or maintenance LTS version: `^22.22.3`, `^24.15.0` or `^26.0.0` (see [Version compatibility](https://angular.dev/reference/versions)).
+- [Angular CLI](https://angular.dev/tools/cli): `npm install -g @angular/cli`.
+- An editor. I use [Visual Studio Code](https://code.visualstudio.com/).
 
 ## Create an Angular project
-Let's create a new project with the Angular CLI by running the following command in a terminal:
+Create a new project with the Angular CLI:
 ```bash
 ng new angular-prettier
 ```
-After running the command, Angular CLI will ask you few questions to configure your new Angular project. Here are my answers (CSS, no SSR, no AI tools) and what the CLI did next:
+
+The CLI asks a few questions. I chose CSS, no server-side rendering and no AI tools. The first file it creates is worth a look:
 ```text
 √ Which stylesheet system would you like to use? CSS             [ https://developer.mozilla.org/docs/Web/CSS ]
 √ Do you want to enable Server-Side Rendering (SSR) and Static Site Generation (SSG/Prerendering)? No
 √ Which AI tools should Angular integrate with? https://angular.dev/ai/develop-with-ai None
 CREATE angular-prettier/.prettierrc (161 bytes)
 CREATE angular-prettier/README.md (1468 bytes)
-CREATE angular-prettier/.editorconfig (314 bytes)
-CREATE angular-prettier/.gitignore (622 bytes)
-CREATE angular-prettier/angular.json (1933 bytes)
-CREATE angular-prettier/package.json (791 bytes)
-CREATE angular-prettier/tsconfig.json (908 bytes)
-CREATE angular-prettier/tsconfig.app.json (398 bytes)
-CREATE angular-prettier/tsconfig.spec.json (409 bytes)
-CREATE angular-prettier/.vscode/extensions.json (130 bytes)
-CREATE angular-prettier/.vscode/launch.json (470 bytes)
-CREATE angular-prettier/.vscode/tasks.json (978 bytes)
-CREATE angular-prettier/src/main.ts (222 bytes)
-CREATE angular-prettier/src/index.html (301 bytes)
-CREATE angular-prettier/src/styles.css (80 bytes)
-CREATE angular-prettier/src/app/app.css (0 bytes)
-CREATE angular-prettier/src/app/app.spec.ts (690 bytes)
-CREATE angular-prettier/src/app/app.ts (299 bytes)
-CREATE angular-prettier/src/app/app.html (20144 bytes)
-CREATE angular-prettier/src/app/app.config.ts (312 bytes)
-CREATE angular-prettier/src/app/app.routes.ts (77 bytes)
-CREATE angular-prettier/public/favicon.ico (15086 bytes)
-- Installing packages (npm)...
+...
 √ Packages installed successfully.
     Successfully initialized git.
 ```
 
-Then go inside the project with the command:
+Then open the project:
 ```bash
 cd angular-prettier
-```
-
-And open the project with Visual Studio Code:
-```bash
 code .
 ```
 
-If all has gone well so far, you should have the following architecture (without `node_modules`):
-```text
-angular-prettier/
-├── .vscode/
-│   ├── extensions.json
-│   ├── launch.json
-│   └── tasks.json
-├── public/
-│   └── favicon.ico
-├── src/
-│   ├── app/
-│   │   ├── app.config.ts
-│   │   ├── app.css
-│   │   ├── app.html
-│   │   ├── app.routes.ts
-│   │   ├── app.spec.ts
-│   │   └── app.ts
-│   ├── index.html
-│   ├── main.ts
-│   └── styles.css
-├── .editorconfig
-├── .gitignore
-├── .prettierrc
-├── angular.json
-├── package-lock.json
-├── package.json
-├── README.md
-├── tsconfig.app.json
-├── tsconfig.json
-└── tsconfig.spec.json
-```
-
-
 ## Prettier is already installed
-Look closely at the first `CREATE` line above: there is a **.prettierrc** file! Recent versions of the Angular CLI add Prettier to every new project. With Angular CLI 22, `ng new` puts it in the **devDependencies** of the **package.json** file:
+Recent versions of the Angular CLI add Prettier to every new project. `ng new` puts it in the **devDependencies** of **package.json**:
 ```json
 "devDependencies": {
-  "@angular/build": "^22.2.6",
-  "@angular/cli": "^22.2.6",
-  "@angular/compiler-cli": "^22.2.0",
-  "jsdom": "^30.0.0",
-  "prettier": "^3.8.1",
-  "typescript": "~6.0.2",
-  "vitest": "^5.0.0"
+  "prettier": "^3.8.1"
 }
 ```
 
@@ -143,18 +77,13 @@ And it generates this **.prettierrc**:
 }
 ```
 
-So this time, these really are the settings chosen by the Angular team. 😉
-
-If your project was created with an older version of the CLI, you can still install Prettier yourself:
+If your project was created with an older CLI, [install Prettier](https://prettier.io/docs/install) yourself as a development dependency (the application does not need it at runtime):
 ```bash
 npm install prettier --save-dev
 ```
 
-> **_Note:_**  The `--save-dev` option will install Prettier as devDependency as the application does not need Prettier to run.
-
-
 ## Configure Prettier
-The **.prettierrc** file at the root of the project lets editors and other tools know that we are using Prettier with a specific configuration. Let's extend the one generated by the CLI with the rules of our team:
+The **.prettierrc** file at the root of the project tells editors and other tools that the project uses Prettier, and with which [configuration](https://prettier.io/docs/configuration). Let's extend the generated one with the rules of our team:
 ```json
 {
   "printWidth": 100,
@@ -175,17 +104,19 @@ The **.prettierrc** file at the root of the project lets editors and other tools
 }
 ```
 
-Here we have several options:
-- `printWidth`: Specify the line length that the printer will wrap on.
-- `tabWidth`: Specify the number of spaces per indentation-level.
-- `useTabs`: Indent lines with tabs instead of spaces.
-- `singleQuote`: Use single quotes instead of double quotes.
-- `semi`: Print semicolons at the ends of statements.
-- `quoteProps`: Respect the input use of quotes in object properties.
-- `bracketSpacing`: Print spaces between brackets in object literals (`false` gives `{Component}` instead of `{ Component }`).
-- `overrides`: Format the `*.html` files with the `angular` parser.
+The [options](https://prettier.io/docs/options):
+- `printWidth`: the line length at which Prettier wraps.
+- `tabWidth`: the number of spaces per indentation level.
+- `useTabs`: indent with tabs instead of spaces.
+- `singleQuote`: use single quotes instead of double quotes.
+- `semi`: print semicolons at the end of statements.
+- `quoteProps`: keep the quotes of object properties as written.
+- `bracketSpacing`: print spaces between brackets in object literals (`false` gives `{Component}` instead of `{ Component }`).
+- `overrides`: format the `*.html` files with the `angular` parser.
 
-Be careful with the option names! The first version of this article used `tabs` and `semicolon`, which are not Prettier options. Prettier 3 tells you so, and goes on with its defaults:
+`tabWidth: 2`, `useTabs: false` and `semi: true` are the defaults; writing them down documents the team's choice.
+
+Check the option names carefully. The first version of this article used `tabs` and `semicolon`, which are not Prettier options. Prettier 3 says so, then applies its defaults:
 ```text
 Checking formatting...
 [warn] Ignored unknown option { tabs: false }.
@@ -195,7 +126,7 @@ Checking formatting...
 ```
 
 ### Why the `angular` parser?
-Prettier only infers the `angular` parser for files named `*.component.html`. With its current file naming style guide, the Angular CLI names the files `app.html`, `app.ts`… (no more `.component` suffix) so without the override, a template is formatted as plain HTML and the control flow blocks (`@if`, `@for`…) are not indented. Here is a messy template:
+Prettier infers the `angular` parser only for files named `*.component.html`. Following the current [style guide](https://angular.dev/style-guide), the Angular CLI names its files `app.html`, `app.ts`… without the `.component` suffix. Without the override, a template is formatted as plain HTML and the control flow blocks (`@if`, `@for`…) are not indented. Take this messy template:
 ```html
 @if (items().length > 0) {
 <ul>
@@ -217,7 +148,7 @@ With the `html` parser:
 }
 ```
 
-And with the `angular` parser:
+With the `angular` parser:
 ```html
 @if (items().length > 0) {
   <ul>
@@ -230,15 +161,10 @@ And with the `angular` parser:
 }
 ```
 
-Much better! 🙂
-
-> **_Note:_**  Since Prettier 3, the default value of `trailingComma` is `"all"`: Prettier adds a trailing comma wherever possible in multi-line code, function arguments included. That is why the code generated by the CLI ends its multi-line objects with a comma. You can set `"trailingComma": "es5"` or `"none"` if your team prefers.
-
+> **_Note:_** Since [Prettier 3](https://prettier.io/blog/2023/07/05/3.0.0), the default value of `trailingComma` is `"all"`: Prettier adds a trailing comma wherever possible in multi-line code, function arguments included. That is why the code generated by the CLI ends its multi-line objects with a comma. Set `"trailingComma": "es5"` or `"none"` if your team prefers.
 
 ## Ignore files
-It is recommended to have a **.prettierignore** in a project. This way we can tell to Prettier which files should not be formatted.
-
-Therefore, let's create a **.prettierignore** file at the root of the project:
+A [**.prettierignore**](https://prettier.io/docs/ignore) file tells Prettier which files not to format. Create it at the root of the project:
 ```text
 dist
 .angular
@@ -246,38 +172,27 @@ coverage
 package-lock.json
 ```
 
-Here `dist` is the build output, `.angular` the cache of the Angular CLI and `coverage` the code coverage report.
+`dist` is the build output, `.angular` the Angular CLI cache and `coverage` the code coverage report.
 
-> **_Note:_**  By default Prettier ignores files in version control systems directories (".git", ".sl", ".svn", ".hg" and ".jj") and node_modules. Since Prettier 3, it also ignores the files listed in the **.gitignore** file.
-
+> **_Note:_** By default, Prettier ignores version control directories (`.git`, `.jj`, `.sl`, `.svn`, `.hg`) and `node_modules`. It also follows the rules of the **.gitignore** file of the directory it runs from.
 
 ## Check files
-To check which files will be formatted by Prettier, we can use the following command:
+To check the formatting of every file (except the ignored ones), use the [CLI](https://prettier.io/docs/cli):
 ```bash
 npx prettier --check .
 ```
 
-> **_Note:_**  `npx` runs the Prettier installed in the project's `node_modules`, so everyone in the team uses the same version.
+`npx` runs the Prettier installed in the project's `node_modules`, so everyone uses the same version. You can also pass a glob, for example `npx prettier --check "src/app/**/*.{ts,html}"`.
 
-This command will check all files in the project (except the ignored ones). We can also specify which directory and extensions we want to check, for example:
-```bash
-npx prettier --check "src/app/**/*.{json,css,scss,less,md,ts,html}"
-```
-
-To save a bit of time, let's add a new command in the **scripts** section of the **package.json** file:
+Let's add a script to the **scripts** section of **package.json** (inside an npm script, `npx` is not needed: npm finds the commands of `node_modules/.bin`):
 ```json
 "format-check": "prettier --check ."
 ```
 
-> **_Note:_**  Inside an npm script, there is no need for `npx`: npm already finds the commands of `node_modules/.bin`.
-
-This way, we can use:
-```bash
-npm run format-check
-```
-
-After running the command, Prettier will give us the result of the verification:
+Then run it:
 ```text
+$ npm run format-check
+
 > angular-prettier@0.0.0 format-check
 > prettier --check .
 
@@ -293,100 +208,56 @@ Checking formatting...
 
 These files were generated with `{ Component }`, and our configuration wants `{Component}`.
 
-
 ## Format files
-To format files with Prettier we can use the following command:
-```bash
-npx prettier --write .
-```
-
-Similarly to the `--check` option, we can specify which directory and which extensions we want to format:
-```bash
-npx prettier --write "src/app/**/*.{json,css,scss,less,md,ts,html}"
-```
-
-Again, let's add a new command in the **scripts** section of the **package.json** file:
+To format the files, replace `--check` with `--write`, and add the matching script:
 ```json
 "format": "prettier --write ."
 ```
 
-Now, we can run the new command:
-```bash
-npm run format
-```
-
 ```text
+$ npm run format
+
 > angular-prettier@0.0.0 format
 > prettier --write .
 
 .prettierrc 22ms (unchanged)
-.vscode/extensions.json 2ms (unchanged)
-.vscode/launch.json 2ms (unchanged)
-.vscode/tasks.json 3ms (unchanged)
-angular.json 3ms (unchanged)
-package.json 2ms (unchanged)
-README.md 35ms (unchanged)
+...
 src/app/app.config.ts 35ms
-src/app/app.css 9ms (unchanged)
 src/app/app.html 112ms
 src/app/app.routes.ts 2ms
 src/app/app.spec.ts 13ms
 src/app/app.ts 5ms
-src/index.html 3ms (unchanged)
+...
 src/main.ts 3ms
-src/styles.css 1ms (unchanged)
-tsconfig.app.json 2ms (unchanged)
-tsconfig.json 2ms (unchanged)
-tsconfig.spec.json 2ms (unchanged)
 ```
 
-Below is the result before:
-```ts
-import { Component, signal } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
-
-@Component({
-  imports: [RouterOutlet],
-  selector: 'app-root',
-  styleUrl: './app.css',
-  templateUrl: './app.html',
-})
-export class App {
-  protected readonly title = signal('angular-prettier');
-}
+In **app.ts**, the imports lose the spaces between their brackets:
+```diff
+-import { Component, signal } from '@angular/core';
+-import { RouterOutlet } from '@angular/router';
++import {Component, signal} from '@angular/core';
++import {RouterOutlet} from '@angular/router';
 ```
 
-And after:
-```ts
-import {Component, signal} from '@angular/core';
-import {RouterOutlet} from '@angular/router';
+The template is formatted too: in **app.html**, the objects inside the `@for` block become `{title: 'CLI Docs', link: 'https://angular.dev/tools/cli'}`, which shows that the `angular` parser also formats the expressions of the control flow.
 
-@Component({
-  imports: [RouterOutlet],
-  selector: 'app-root',
-  styleUrl: './app.css',
-  templateUrl: './app.html',
-})
-export class App {
-  protected readonly title = signal('angular-prettier');
-}
-```
-
-As we can see above, now we have no space between the brackets of the imports. The template is formatted too: in **app.html**, the objects inside the `@for` block become `{title: 'CLI Docs', link: 'https://angular.dev/tools/cli'}`, which proves that the `angular` parser formats the expressions of the control flow as well.
-
-> **_Note:_**  If you also use ESLint, add [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier) to your ESLint configuration. It turns off the ESLint rules that are unnecessary or might conflict with Prettier, so the two tools never fight over formatting. We do exactly that in [Configure Husky with Angular](https://blouppy.com/blog/2023-05-14-configure-husky-with-angular/).
-
+> **_Note:_** If you also use ESLint, add [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier) to your ESLint configuration. It turns off the ESLint rules that are unnecessary or might conflict with Prettier (see [Integrating with linters](https://prettier.io/docs/integrating-with-linters)). We do exactly that in [Configure Husky with Angular](https://www.blouppy.com/blog/2023-05-14-configure-husky-with-angular/).
 
 ## Conclusion
-In this article, we configured Prettier in an Angular project.
+In this article, we configured the Prettier that the Angular CLI installs: team options in **.prettierrc**, the `angular` parser for templates, a **.prettierignore** file, and two scripts to check and format the code.
 
-Prettier is a code formatter that allows us to format our code automatically according to a configuration file.
-It is a good practice to have a consistent code style for a project and a team and Prettier can help us in this task. And now that the Angular CLI installs it for us, there is no excuse anymore! 😄
+The next article of the series adds [ESLint](https://www.blouppy.com/blog/2023-04-03-configure-eslint-with-angular/) to an Angular project.
 
-I hope this article has helped you to have a better understanding of Prettier and that you will use it in your projects.
+Source code of the article: [GitHub source code](https://github.com/jboinembalome/angular-prettier)
 
-If you want to go further, the next articles of this series add [ESLint](https://blouppy.com/blog/2023-04-03-configure-eslint-with-angular/) and [Husky](https://blouppy.com/blog/2023-05-14-configure-husky-with-angular/) to an Angular project.
-
-Source code of the article: [Github source code](https://github.com/jboinembalome/angular-prettier)
-
-*Thanks for reading! 🙂*
+## References
+- [Prettier: Options](https://prettier.io/docs/options) — every formatting option and its default.
+- [Prettier: Configuration file](https://prettier.io/docs/configuration) — `.prettierrc` and `overrides`.
+- [Prettier: Ignoring code](https://prettier.io/docs/ignore) — `.prettierignore` and the default ignored directories.
+- [Prettier: CLI](https://prettier.io/docs/cli) — `--check` and `--write`.
+- [Prettier: Install](https://prettier.io/docs/install) — installing Prettier locally.
+- [Prettier 3.0 release notes](https://prettier.io/blog/2023/07/05/3.0.0) — the new `trailingComma` default.
+- [Prettier: Integrating with linters](https://prettier.io/docs/integrating-with-linters) — using Prettier with ESLint.
+- [eslint-config-prettier](https://github.com/prettier/eslint-config-prettier) — turns off the ESLint rules that conflict with Prettier.
+- [Angular coding style guide](https://angular.dev/style-guide) — the file naming the CLI follows.
+- [Angular: Version compatibility](https://angular.dev/reference/versions) — the Node.js versions Angular 22 supports.

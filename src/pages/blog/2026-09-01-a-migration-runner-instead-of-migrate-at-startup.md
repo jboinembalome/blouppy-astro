@@ -2,6 +2,7 @@
 templateKey: 'blog-post'
 title: 'A migration runner instead of Database.Migrate() at startup'
 date: 2026-09-01T09:00:00.000Z
+updated: 2026-11-07T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
@@ -20,25 +21,24 @@ tags:
   - .NET Aspire
 ---
 
-The quickest way to keep a database up to date with EF Core is one line in `Program.cs`: `context.Database.Migrate()` before `app.Run()`. It works on a laptop. Then we deploy two replicas, or a second service with its own `DbContext`, or a message bus and a job scheduler with their own tables, and "who creates what, and when" no longer has a clear answer.
+`context.Database.Migrate()` before `app.Run()` works on a laptop. With two replicas, several `DbContext`s, a message bus and a job scheduler with their own tables, "who creates what, and when" no longer has an answer. The fix is one process that migrates everything, then exits, its exit code deciding whether the services may start.
 
-The fix is to give that job to one process whose only purpose is to migrate: it runs before everything else, applies every schema, then exits. Its exit code decides whether the services may start.
-
-In this article, we will build that runner as a .NET worker, guard it against Production, wire it into .NET Aspire with `WaitForCompletion` and into Docker Compose, and see why seeding stays with the services.
+In this article, we will build that runner as a .NET worker, guard it against Production, wire it into Aspire with `WaitForCompletion` and into Docker Compose, and see why seeding stays with the services.
 
 
 ## What goes wrong with Migrate() at startup
-Let's be precise about the failures, because each one shapes the design:
 - **Replicas race.** Two instances of the same service both see a pending migration and both try to apply it.
 - **Services start against a foreign schema.** In the code base this article comes from, four EF Core contexts share one PostgreSQL database: `BlouppyDbContext`, `BillingDbContext`, the identity host's `ApplicationDbContext` and the gateway's `GatewayDbContext`. If each host migrates its own, the API can start while the identity host is still creating tables the API reads.
-- **Non-EF tables have no owner.** Wolverine's outbox, inbox and dead letters, and Quartz.NET's clustered job store, also live in that database. If each host builds them "on the way up", the race simply moves.
-- **Production changes by accident.** `Migrate()` at startup turns every process start into a schema change.
+- **Non-EF tables have no owner.** Wolverine's outbox, inbox and dead letters, and Quartz.NET's clustered job store, live in the same database. If each host builds them on the way up, the race simply moves.
+- **Production changes by accident.** Every process start becomes a schema change.
+
+The EF Core documentation on [applying migrations](https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying) makes the same point: a separate migration step is preferred when review, least-privilege credentials, coordinated rollout or high availability matter.
+
+> **_Note:_**  Since EF Core 9, [`Migrate()` takes a database-wide lock](https://learn.microsoft.com/ef/core/what-is-new/ef-core-9.0/whatsnew), which settles the replica race. It does not settle the rest: the order between contexts, the non-EF tables, and services starting too early.
 
 
 ## The runner: a worker that migrates, then stops
-The runner is a plain worker project (`Microsoft.NET.Sdk.Worker`). It references the projects that own each context, so the migrations stay where `dotnet ef migrations add` already puts them; the runner adds none of its own.
-
-Here is its `Program.cs`, from `back/Blouppy.MigrationRunner/Program.cs`:
+The runner is a plain [worker project](https://learn.microsoft.com/dotnet/core/extensions/workers) (`Microsoft.NET.Sdk.Worker`). It references the projects that own each context, so the migrations stay where `dotnet ef migrations add` puts them; the runner adds none of its own. Here is `back/Blouppy.MigrationRunner/Program.cs`:
 
 ```csharp
 var builder = Host.CreateApplicationBuilder(args);
@@ -62,11 +62,7 @@ await host.RunAsync();
 return Environment.ExitCode;
 ```
 
-A few things to notice:
-- `AddMigrationDbContexts()` registers the four contexts **directly**, not through each host's own registration. Those pull in save-changes interceptors, the whole OpenIddict server, `UserManager`, the gateway's session... none of which a migration needs. The runner stays a database tool rather than a second copy of three applications.
-- `return Environment.ExitCode` hands the outcome of `DatabaseMigrator`, a `BackgroundService`, to whatever orchestrates the process.
-
-Registering the contexts directly has one price: each context's schema and history table is repeated in the runner. Here is one of them:
+`AddMigrationDbContexts()` registers the four contexts **directly**, not through each host's registration, which would pull in interceptors, the OpenIddict server, `UserManager` and the gateway's session. The price is that each context's schema and history table is repeated in the runner:
 
 ```csharp
 builder.Services.AddDbContext<BillingDbContext>(options => options
@@ -74,11 +70,11 @@ builder.Services.AddDbContext<BillingDbContext>(options => options
         .MigrationsHistoryTable(HistoryRepository.DefaultTableName, BillingDbContext.Schema)));
 ```
 
-A mismatch with the host's own registration would migrate into the wrong place, so this duplication is worth reviewing whenever a context changes schema.
+A mismatch with the host's registration would migrate into the wrong place, so review this duplication whenever a context changes schema.
 
 
 ## The migrator
-Now let's look at the core of `DatabaseMigrator`:
+`DatabaseMigrator` is a `BackgroundService`:
 
 ```csharp
 protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -105,11 +101,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 }
 ```
 
-- Any failure is logged and sets the exit code to **1**.
-- `finally` always calls `IHostApplicationLifetime.StopApplication()`: the worker never lingers.
-- `ShouldRunAndSayWhyNot()` is the Production guard, coming next.
-
-And here is the run itself:
+Any failure sets the exit code to **1**, and `finally` always stops the host. `ShouldRunAndSayWhyNot()` is the Production guard, covered below. The run itself writes the order down in one place:
 
 ```csharp
 private async Task MigrateAllAsync(CancellationToken cancellationToken)
@@ -131,19 +123,15 @@ private async Task MigrateAllAsync(CancellationToken cancellationToken)
 }
 ```
 
-The order is now written down in one place instead of being an accident of which container started first.
-
-`MigrateAsync<TContext>` logs the pending migrations by name (`GetPendingMigrationsAsync`), then calls `context.Database.MigrateAsync()`. Before that, it creates the database and the history table if missing (`IRelationalDatabaseCreator`, `IHistoryRepository.CreateIfNotExistsAsync`): on an empty database, EF otherwise queries `__EFMigrationsHistory` before it exists and logs the refused query at Error level, although it recovers. Clean logs, and a real failure still stands out. 👍
-
-> **_Note:_**  Since EF Core 9, `Migrate()` takes a database lock, which helps with the replica race. It does not solve the rest: the order between contexts, the non-EF tables, and services starting too early.
+`MigrateAsync<TContext>` logs the pending migrations by name (`GetPendingMigrationsAsync`), then calls `context.Database.MigrateAsync()`. Before that, it creates the database and the history table if they are missing (`IRelationalDatabaseCreator`, `IHistoryRepository.CreateIfNotExistsAsync`). Otherwise, on an empty database, EF queries `__EFMigrationsHistory` before it exists and logs the refused query at Error level, even though it recovers.
 
 
 ## The tables EF does not own
 ### Quartz.NET
-Quartz.NET's clustered store needs its tables, and the scheduler in the API only *validates* them at startup. So they come in as an ordinary EF migration of `BlouppyDbContext` (`AddQuartzScheduler`), whose `Up` calls `migrationBuilder.EnsureSchema(name: "quartz")` and then `migrationBuilder.Sql(...)` with Quartz's own PostgreSQL script. The runner needs nothing special for it, and a Quartz upgrade that changes those tables is simply a migration of its own.
+Quartz.NET's [clustered ADO.NET job store](https://www.quartz-scheduler.net/documentation/quartz-3.x/tutorial/job-stores.html) needs its tables, and the scheduler in the API only *validates* them at startup. They come in as an ordinary EF migration of `BlouppyDbContext`, `AddQuartzScheduler`, whose `Up` calls `migrationBuilder.EnsureSchema(name: "quartz")` and then `migrationBuilder.Sql(...)` with Quartz's own PostgreSQL script.
 
 ### Wolverine
-Wolverine's tables are a different story: only Wolverine knows their shape. The runner calls a small helper, `MessageStorage.MigrateAsync`, in the messaging adapter:
+Only Wolverine knows the shape of [its PostgreSQL tables](https://wolverinefx.net/guide/durability/postgresql.html). The runner calls a small helper in the messaging adapter, `MessageStorage.MigrateAsync` (argument checks omitted):
 
 ```csharp
 public static async Task MigrateAsync(string connectionString, string schema, CancellationToken cancellationToken = default)
@@ -166,9 +154,9 @@ public static async Task MigrateAsync(string connectionString, string schema, Ca
 }
 ```
 
-The host is **built but never started**, so nothing connects to RabbitMQ and no node joins the cluster; `IMessageStore.Admin.MigrateAsync()` is Wolverine's own migration, which only adds. It runs once per schema: `wolverine` for the API and `wolverine_identity` for the identity host, because one schema would make them one cluster.
+The host is **built but never started**, so nothing connects to RabbitMQ and no node joins the cluster. `IMessageStore.Admin.MigrateAsync()` is Wolverine's own migration, which only adds. It runs once per schema, `wolverine` for the API and `wolverine_identity` for the identity host, because one shared schema would make the two hosts one cluster.
 
-On the other side, the hosts must stop creating these tables themselves. The bus configuration sets `AutoBuildMessageStorageOnStartup` from a `Messaging:AutoCreateStorage` option that is off by default; only the integration tests, which have no runner, switch it on.
+The hosts, in turn, must stop creating these tables. The bus configuration sets `AutoBuildMessageStorageOnStartup` from a `Messaging:AutoCreateStorage` option that is off by default; only the integration tests, which have no runner, switch it on.
 
 
 ## Guarding Production
@@ -180,11 +168,7 @@ internal static bool ShouldRun(IHostEnvironment environment, MigrationRunnerOpti
        && (!environment.IsProduction() || options.AllowInProduction);
 ```
 
-Both settings live in `MigrationRunnerOptions`, bound to the `Migrations` section:
-- `RunOnStartup` is the master switch, on by default, because running the project at all is a request to migrate.
-- `AllowInProduction` defaults to `false`, so the safe state is the one we get when nobody configured anything.
-
-Because `ShouldRun` is static and takes no database, the matrix is easy to test. Here is the case that matters most, from `DatabaseMigratorTests`:
+In `MigrationRunnerOptions` (the `Migrations` section), `RunOnStartup` is on by default and `AllowInProduction` is off, so the safe state is the unconfigured one. `ShouldRun` is static and needs no database, so the matrix is easy to test; here is the case that matters most, from `DatabaseMigratorTests`:
 
 ```csharp
 [Fact]
@@ -202,9 +186,7 @@ public void ShouldRun_ProductionWithDefaults_ReturnsFalse()
 }
 ```
 
-The other tests cover Development and Staging with defaults, Production opted in, and `RunOnStartup = false` in every environment.
-
-> **_Note:_**  Skipping is not failing: when the guard says no, the runner logs a warning and exits **0**. That is the intended behaviour, but it means the environment name has to be right, as we will see with Aspire.
+> **_Note:_**  Skipping is not failing: when the guard says no, the runner logs a warning and exits **0**. That is intended, but it means the [environment name](https://learn.microsoft.com/aspnet/core/fundamentals/environments) has to be right, as the Aspire wiring shows.
 
 
 ## Wiring it into Aspire
@@ -226,56 +208,66 @@ if (migrations is not null)
 }
 ```
 
-- `WaitForCompletion(migrations)` holds the API (and the identity host and the gateway) until the runner has exited successfully. A non-zero exit and they never start.
-- The runner is left out of a Production graph entirely: a second, independent guard on top of `AllowInProduction`.
-- `DOTNET_ENVIRONMENT` is the subtle one. A worker reads `DOTNET_ENVIRONMENT`, while Aspire hands a project `ASPNETCORE_ENVIRONMENT`. Without this line the runner comes up as Production, its guard skips everything, it exits 0... and every other resource starts against a database nobody migrated. 😉
+- `WaitForCompletion(migrations)` holds the API, the identity host and the gateway until the runner has exited successfully. On a non-zero exit, they never start.
+- The runner is left out of a Production graph entirely, a second guard independent of `AllowInProduction`.
+- `DOTNET_ENVIRONMENT` is the subtle line. A worker reads `DOTNET_ENVIRONMENT`, while Aspire hands a project `ASPNETCORE_ENVIRONMENT`. Without it, the runner comes up as Production, its guard skips everything, it exits 0, and every other resource starts against a database nobody migrated.
 
 
 ## Wiring it into Docker Compose
-Compose has the same idea built in. In `deploy/docker-compose.yml`, the runner is a one-shot service built from the shared `back/Dockerfile`:
+Compose has the same idea built in. In `deploy/docker-compose.yml`, the runner is a one-shot service built from the shared `back/Dockerfile` (abridged):
 
-```text
-  migrations:
-    restart: "no"
-    build:
-      context: ../back
-      args:
-        PROJECT: Blouppy.MigrationRunner
-    depends_on:
-      postgres:
-        condition: service_healthy
+```yaml
+migrations:
+  restart: "no"
+  build:
+    context: ../back
+    args:
+      PROJECT: Blouppy.MigrationRunner
+  depends_on:
+    postgres:
+      condition: service_healthy
 
-  api:
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
+api:
+  depends_on:
+    migrations:
+      condition: service_completed_successfully
 ```
 
-`service_completed_successfully` is Compose's equivalent of `WaitForCompletion`: the gateway, the identity host and the API start only once `migrations` has exited 0. The owner of the deployment decides with `Migrations__AllowInProduction` in `deploy/.env`: `true` migrates on every `docker compose up`, `false` leaves it to an explicit step:
+[`service_completed_successfully`](https://docs.docker.com/compose/how-tos/startup-order/) is Compose's equivalent of `WaitForCompletion`: the gateway, the identity host and the API start only once `migrations` has exited 0. The deployment's owner decides with `Migrations__AllowInProduction` in `deploy/.env`: `true` migrates on every `docker compose up`, `false` leaves it to an explicit step:
 
 ```bash
 docker compose run --rm -e Migrations__AllowInProduction=true migrations
 ```
 
-Without Aspire or Compose, it is the same image run as a one-off job with the `blouppy-db` connection string, and the hosts roll out after it exits 0.
+Elsewhere, it is the same image run as a one-off job, with the hosts rolling out after it exits 0.
 
 
 ## Seeding stays with the services
-The runner creates schema, never rows. Seeding needs `UserManager`, `RoleManager` and the domain's own services, and it is only wanted in some environments; migrating needs none of that. So each host seeds its own data, and both ask one shared question, from `Blouppy.Aspire.ServiceDefaults/Database/DataSeedingOptions.cs`:
+The runner creates schema, never rows. Seeding needs `UserManager`, `RoleManager` and the domains' own services, and is only wanted in some environments; migrating needs none of that. Each host seeds its own data, and both ask one shared question, from `Blouppy.Aspire.ServiceDefaults/Database/DataSeedingOptions.cs`:
 
 ```csharp
 public static bool IsDataSeedingEnabled(this IHostEnvironment environment, IConfiguration configuration)
     => configuration.GetValue<bool?>(EnabledKey) ?? environment.IsDevelopment();
 ```
 
-Development seeds, everything else does not, and `Seed:Enabled` overrides it in either direction; in the API, a `true` simply registers a `SampleDataSeeder` hosted service. This split is what lets us run the runner against any environment without writing sample rows into it.
+Development seeds and everything else does not; `Seed:Enabled` overrides it in either direction. In the API, `true` registers a `SampleDataSeeder` hosted service. This split is what lets the runner run against any environment without writing sample rows into it.
 
 
 ## Conclusion
-`Database.Migrate()` at startup mixes two decisions that should be separate: starting a service and changing a schema. Moving migrations into a worker that runs once and exits gives us one owner for every schema (EF contexts, Quartz.NET's tables, Wolverine's storage), a fixed order, and an exit code that gates everything else.
+`Database.Migrate()` at startup mixes two decisions that should be separate: starting a service and changing a schema. A worker that runs once and exits gives every schema one owner (the EF contexts, Quartz.NET's tables, Wolverine's storage), a fixed order, and an exit code that gates everything else.
 
-The cost is small: one more project that references every context's assembly, and one more step in deployment. In return, Aspire's `WaitForCompletion` and Compose's `service_completed_successfully` do the gating for free, and two independent guards keep Production from changing by accident.
+The cost is one more project that references every context's assembly, and one more deployment step. In return, Aspire's `WaitForCompletion` and Compose's `service_completed_successfully` do the gating, and two independent guards keep Production from changing by accident.
 
-This is how migrations are applied in [Blouppy Starter](https://starter.blouppy.com/), where the runner migrates four contexts and two message stores before the API, the identity host and the gateway start. The [migration runner's documentation](https://docs.starter.blouppy.com/choices/migration-runner/) explains the trade-offs.
+This is how migrations are applied in [Blouppy Starter](https://starter.blouppy.com/). The [migration runner's documentation](https://docs.starter.blouppy.com/choices/migration-runner/) explains the trade-offs.
 
-*Thanks for reading! 🙂*
+
+## References
+- [Applying migrations](https://learn.microsoft.com/ef/core/managing-schemas/migrations/applying) — EF Core's strategies, and why runtime migration is a trade-off.
+- [What's new in EF Core 9](https://learn.microsoft.com/ef/core/what-is-new/ef-core-9.0/whatsnew) — protection against concurrent migrations.
+- [Worker services in .NET](https://learn.microsoft.com/dotnet/core/extensions/workers) — the worker template and `BackgroundService`.
+- [Use multiple environments in ASP.NET Core](https://learn.microsoft.com/aspnet/core/fundamentals/environments) — `ASPNETCORE_ENVIRONMENT` and `DOTNET_ENVIRONMENT`.
+- [Docker Compose to AppHost reference](https://aspire.dev/app-host/docker-compose-to-apphost-reference/) — `WaitFor` and `WaitForCompletion` against Compose's `depends_on` conditions.
+- [Control startup order in Compose](https://docs.docker.com/compose/how-tos/startup-order/) — `service_healthy` and `service_completed_successfully`.
+- [Wolverine: PostgreSQL integration](https://wolverinefx.net/guide/durability/postgresql.html) — Wolverine's message storage tables.
+- [Quartz.NET: Job stores](https://www.quartz-scheduler.net/documentation/quartz-3.x/tutorial/job-stores.html) — the ADO.NET job store and its tables.
+- [Blouppy Starter: Migration runner](https://docs.starter.blouppy.com/choices/migration-runner/) — the runner's design choices.

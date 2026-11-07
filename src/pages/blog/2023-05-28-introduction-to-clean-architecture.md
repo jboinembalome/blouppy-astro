@@ -11,7 +11,7 @@ illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/introduction-to-clean-architecture.jpg
-description: Build an API in C# using Clean Architecture principles for maintainable and scalable code.
+description: Learn the four rings of Clean Architecture and how to apply them in a small .NET 10 Web API, with use cases, a repository port and request records.
 tags:
   - Development
   - C#
@@ -20,21 +20,24 @@ tags:
 
 > **Updated November 2026:** the sample now targets .NET 10 and C# 14 (primary constructors, records), and the API no longer accepts the entity as its request body, so a client cannot over-post fields it should not set.
 
-Clean Architecture is a software design principle introduced by **Robert C. Martin**, popularly known as Uncle Bob, in his book "[Clean Architecture: A Craftsman's Guide to Software Structure and Design](https://www.amazon.com/Clean-Architecture-Craftsmans-Software-Structure/dp/0134494164)". It provides a structured and modular approach to building software systems that are flexible, maintainable, and testable. This architectural pattern focuses on separating business logic from infrastructure concerns, enabling developers to create robust and scalable applications.
+Clean Architecture is a way of structuring software introduced by **Robert C. Martin** (Uncle Bob) in [a 2012 blog post](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) and later in his book [Clean Architecture: A Craftsman's Guide to Software Structure and Design](https://www.informit.com/store/clean-architecture-a-craftsmans-guide-to-software-structure-9780134494166). It separates business logic from infrastructure, so that the code stays flexible, maintainable and testable.
 
-In this article, we will explore the key concepts of Clean Architecture and demonstrate its implementation in C# using an example of ToDoList API.
-
+In this article, we go through its key concepts and apply them to a small ToDoList API in C#.
 
 ## Key Concepts of Clean Architecture
 ![Clean Architecture](/img/clean-architecture.jpg)
-1. **Entities**: Entities encapsulate the business rules and logic of the application. They represent the core of the system and are independent of any specific framework or infrastructure. An entity could be a "TodoItem" object, which includes properties like a title, description, due date, and completion status.
+1. **Entities** hold the business rules. They are the core of the system and do not depend on any framework or infrastructure. A `TodoItem` with a title, a description, a due date and a completion status is an entity.
 
-2. **Use Cases**: Use cases represent the application's specific behaviors or features. They encapsulate the application's business rules and orchestrate the interaction between entities and interface adapters. A possible use case could be "CreateTodoItem",  which handles the logic of creating a new task.
+2. **Use Cases** implement the application's features. They orchestrate the entities and declare what they need from the outside world. `CreateTodoItem`, which creates a new task, is a use case.
 
-3. **Interface Adapters**: Interface adapters convert data from the external world into a format that the use cases and entities can understand, and vice versa. They act as intermediaries between the business logic and the external frameworks or tools. Examples of interface adapters include identity, logging, mail, and repositories.
+3. **Interface Adapters** convert data between the use cases and the outside world. Repositories, identity, logging and mail are interface adapters.
 
-4. **Frameworks and Drivers**: This layer contains the external tools, frameworks, and infrastructure components used in the application, such as databases, ## Implementing Clean Architecture in C#
-Let's now dive into the implementation of Clean Architecture in C# by building a simple ToDoList API with .NET 10. The solution has one project per ring, and references only point inward:
+4. **Frameworks and Drivers** are the external tools: the database, the web framework, the UI.
+
+The rule that ties the rings together is the **dependency rule**: source code dependencies only point inward. An inner ring knows nothing about an outer one.
+
+## Implementing Clean Architecture in C#
+The sample is a ToDoList API on .NET 10 with one project per ring. References only point inward:
 
 ```
 src/
@@ -47,9 +50,8 @@ src/
     └── TodoList.Api                (Frameworks and Drivers)  → TodoList.Infrastructure
 ```
 
-First, we will focus on the core components: Entities and Use Cases.
-
-``` csharp
+### Entities and use cases
+```csharp
 // TodoList.Domain (Entities)
 
 namespace TodoList.Domain.Entities;
@@ -92,13 +94,12 @@ internal sealed class CreateTodoItemUseCase(ITodoItemRepository todoItemReposito
 }
 ```
 
-In the above code snippet, we have defined the entities and a use case for creating an item in the ToDoList. The `TodoItem` class represents an entity with its properties. The `CreateTodoItemUseCase` class handles the logic for creating an item, relying on an interface `ITodoItemRepository` for persistence. Notice that this interface lives in the application layer: the use case says what it needs, and it does not care who provides it. 😉
+`TodoItem` is the entity. `CreateTodoItemUseCase` creates an item and relies on `ITodoItemRepository` for persistence. That interface lives in the application project: the use case states what it needs, not who provides it.
 
-> **_Note:_** `CreateTodoItemUseCase(ITodoItemRepository todoItemRepository)` is a primary constructor (C# 12 and later): the parameter is available in the whole class, so there is no need for a private field and a constructor that only assigns it.
+> **_Note:_** `CreateTodoItemUseCase(ITodoItemRepository todoItemRepository)` is a [primary constructor](https://learn.microsoft.com/dotnet/csharp/whats-new/tutorials/primary-constructors) (C# 12 and later). The parameter is in scope in the whole class, so you need neither a private field nor a constructor that assigns it.
 
-Now, let's move on to the interface adapter layer:
-
-``` csharp
+### Interface adapters
+```csharp
 // TodoList.Infrastructure (Interface Adapters)
 
 namespace TodoList.Infrastructure.Persistence.Repositories;
@@ -118,13 +119,14 @@ internal sealed class TodoItemRepository(TodoListDbContext dbContext) : ITodoIte
 }
 ```
 
-In the interface adapter layer, we have implemented the `ITodoItemRepository` interface with a `TodoItemRepository` class that interacts with the data source.
+`TodoItemRepository` implements `ITodoItemRepository` with Entity Framework Core 10. The infrastructure project binds the port to this class with [dependency injection](https://learn.microsoft.com/aspnet/core/fundamentals/dependency-injection) (`AddInfrastructureServices`), as a scoped service like the `DbContext` it uses; the application project registers the use cases the same way (`AddApplicationServices`).
 
-> **_Note:_**  In the above implementation, Entity Framework Core 10 is used as the Object-Relational Mapping (ORM) framework, enabling seamless communication with the database. The sample uses the in-memory provider to stay self-contained; swapping it for SQL Server or PostgreSQL only touches this project.
+> **_Note:_** To stay self-contained, the sample uses the EF Core [in-memory provider](https://learn.microsoft.com/ef/core/providers/in-memory/), which Microsoft does not recommend outside of tests. Switching to SQL Server or PostgreSQL only touches this project.
 
-Finally, let's move on to the frameworks and drivers layer. The API does not expose the entity directly: it accepts a request record that only contains what a client is allowed to send, and returns a response record.
+### Frameworks and drivers
+The API does not expose the entity. It accepts a request record that only contains what a client is allowed to send, and returns a response [record](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/record):
 
-``` csharp
+```csharp
 // TodoList.Api (Frameworks and Drivers)
 
 namespace TodoList.Api.Dtos.TodoItems;
@@ -136,11 +138,14 @@ public sealed record TodoItemDto(int Id, string Title, string? Description, Date
 
 namespace TodoList.Api.Controllers;
 
-public class TodoItemController(
+public sealed class TodoItemController(
     ICreateTodoItemUseCase createTodoItemUseCase,
     IGetTodoItemByIdUseCase getTodoItemByIdUseCase) : ApiControllerBase
 {
     [HttpGet("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TodoItemDto>> Get(int id, CancellationToken cancellationToken)
     {
         if (id <= 0) return BadRequest();
@@ -152,6 +157,8 @@ public class TodoItemController(
     }
 
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<TodoItemDto>> Create(CreateTodoItemDto createTodoItemDto, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(createTodoItemDto.Title)) return BadRequest();
@@ -165,9 +172,29 @@ public class TodoItemController(
 }
 ```
 
-In the frameworks and drivers layer, we have the `TodoItemController` class, which acts as a web API controller responsible for handling incoming HTTP requests related to TodoItems. It depends on the `ICreateTodoItemUseCase` and `IGetTodoItemByIdUseCase` interfaces, which are implemented in the use cases layer. `CreatedAtAction(nameof(Get), ...)` points to the `Get` action, so the response carries a `Location` header to the new item.
+`TodoItemController` handles the HTTP requests and depends only on the use case interfaces. `ApiControllerBase` carries `[ApiController]` and the `api/[controller]` route. A few details:
+- [`CreatedAtAction(nameof(Get), ...)`](https://learn.microsoft.com/aspnet/core/web-api/action-return-types) adds a `Location` header that points to the new item.
+- `[ProducesResponseType]` lists every status code in the [OpenAPI document](https://learn.microsoft.com/aspnet/core/fundamentals/openapi/aspnetcore-openapi) that `Microsoft.AspNetCore.OpenApi` serves at `/openapi/v1.json`.
+- The `CancellationToken` parameter is bound to the request's cancellation and passed down to EF Core, so an aborted request stops its database work.
 
-Why a request record rather than the entity? If the controller accepted `TodoItem`, a client could send `"id"` or `"isCompleted": true` and the model binder would happily set them. With `CreateTodoItemDto`, those fields simply do not exist. Let's try it:
+**Program.cs** wires the rings together and returns [problem details](https://learn.microsoft.com/aspnet/core/fundamentals/error-handling-api) for every error, including an unhandled exception or an unknown route:
+
+```csharp
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices();
+
+builder.Services.AddControllers();
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
+```
+
+### Why a request record?
+If the controller accepted `TodoItem`, a client could send `"id"` or `"isCompleted": true` and the [model binder](https://learn.microsoft.com/aspnet/core/mvc/models/model-binding) would set them. This is [mass assignment](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html). With `CreateTodoItemDto`, those fields do not exist:
 
 ```bash
 curl -i -X POST http://localhost:5041/api/TodoItem \
@@ -183,26 +210,32 @@ Location: http://localhost:5041/api/TodoItem/1
 {"id":1,"title":"Write the article","description":"Clean Architecture in C#","dueDate":"2026-11-30T00:00:00","isCompleted":false}
 ```
 
-The `id` and `isCompleted` sent by the client were ignored. 🙂 And since `Title` is a non-nullable `string`, `[ApiController]` rejects a request without it before the action even runs:
+The API ignored the `id` and `isCompleted` sent by the client. And because `Title` is a non-nullable `string`, `[ApiController]` [rejects a request without it](https://learn.microsoft.com/aspnet/core/mvc/models/validation) before the action runs:
 
 ```
 HTTP/1.1 400 Bad Request
 Content-Type: application/json; charset=utf-8
 
-{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Title":["The Title field is required."]},"traceId":"00-227f6d27b591166ba32b5a4e9a2172b2-35de9ff882fd3d0b-00"}
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Title":["The Title field is required."]},"traceId":"00-b3e997a6fb75da84812d4af99ca990b6-9050338791df07b2-00"}
 ```
 
-
-layer, we have the `TodoItemController` class, which acts as a web API controller responsible for handling incoming HTTP requests related to TodoItems. It depends on the `ICreateTodoItemUseCase` interface, which is implemented in the use cases layer.
-
+> **_Note:_** That implicit check behaves like `[Required(AllowEmptyStrings = true)]`: it rejects a missing title but accepts `""` or `"   "`. This is why the action still tests `string.IsNullOrWhiteSpace`.
 
 ## Conclusion
-By following the Clean Architecture principles, we have achieved a separation of concerns and a clear modular structure. The business logic is encapsulated within the use cases and entities, independent of any specific framework or infrastructure. The interface adapters handle the communication with external dependencies such as databases, while the frameworks and drivers layer handles the web server and HTTP communication.
+Clean Architecture keeps the business logic in the entities and use cases, independent of any framework. The interface adapters handle external dependencies such as the database, and the outer ring handles HTTP. Because each ring depends only on interfaces declared further in, you can replace a component, or mock it in a unit test, without touching the rest of the system.
 
-This architecture promotes testability, maintainability, and scalability. It allows for easy modification or replacement of individual components without affecting the entire system. Additionally, the use of interfaces and dependency injection enables loose coupling and facilitates unit testing and mocking.
+Source code of the article: [GitHub source code](https://github.com/jboinembalome/IntroductionToCleanArchitecture)
 
-In conclusion, Clean Architecture provides a solid foundation for building robust and maintainable applications by separating concerns and dependencies. By applying these principles, we have demonstrated how to structure the codebase and achieve a clean and scalable architecture.
-
-Source code of the article: [Github source code](https://github.com/jboinembalome/IntroductionToCleanArchitecture)
-
-*Happy coding! 🙂*
+## References
+- [Common web application architectures](https://learn.microsoft.com/dotnet/architecture/modern-web-apps-azure/common-web-application-architectures) — Microsoft's guide to Clean Architecture in ASP.NET Core.
+- [Create web APIs with ASP.NET Core](https://learn.microsoft.com/aspnet/core/web-api/) — controllers and the `[ApiController]` attribute.
+- [Controller action return types](https://learn.microsoft.com/aspnet/core/web-api/action-return-types) — `ActionResult<T>` and `CreatedAtAction`.
+- [Model validation](https://learn.microsoft.com/aspnet/core/mvc/models/validation) — automatic 400 responses and non-nullable reference types.
+- [Handle errors in ASP.NET Core APIs](https://learn.microsoft.com/aspnet/core/fundamentals/error-handling-api) — `AddProblemDetails`, the exception handler and status code pages.
+- [Generate OpenAPI documents](https://learn.microsoft.com/aspnet/core/fundamentals/openapi/aspnetcore-openapi) — the built-in `Microsoft.AspNetCore.OpenApi` package.
+- [Dependency injection in ASP.NET Core](https://learn.microsoft.com/aspnet/core/fundamentals/dependency-injection) — service lifetimes and registration.
+- [EF Core in-memory database provider](https://learn.microsoft.com/ef/core/providers/in-memory/) — what the provider is for, and its limits.
+- [Primary constructors](https://learn.microsoft.com/dotnet/csharp/whats-new/tutorials/primary-constructors) and [records](https://learn.microsoft.com/dotnet/csharp/language-reference/builtin-types/record) — the C# features used in the sample.
+- [OWASP Mass Assignment Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html) — why an API should not bind its entities.
+- [The Clean Architecture](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html) — Robert C. Martin's original post.
+- [Clean Architecture: A Craftsman's Guide to Software Structure and Design](https://www.informit.com/store/clean-architecture-a-craftsmans-guide-to-software-structure-9780134494166) — the book.
