@@ -4,7 +4,6 @@ import { GithubIcon, LinkedInIcon, TwitterIcon } from "../icons/svg/social/Icons
 import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
 import { useSiteMetadata } from "../../hooks/useSiteMetadata";
 import { starterDocsUrl, starterUrl } from "../../constants/starter";
-import { openConsentSettings } from "../consent/consent";
 
 interface FooterLink {
   label: string;
@@ -90,12 +89,7 @@ export const Footer = () => {
 
         <div className="flex flex-wrap justify-between gap-3 border-t border-zinc-800 pt-6 text-[0.8125rem] text-zinc-400">
           <span>&copy; {new Date().getFullYear()} Blouppy. All rights reserved.</span>
-          <span className="flex flex-wrap gap-x-5 gap-y-2">
-            <button type="button" className="text-zinc-400 hover:text-white" onClick={openConsentSettings}>
-              Cookie settings
-            </button>
-            <span>Built with Gatsby &amp; Tailwind CSS</span>
-          </span>
+          <span>Built with Gatsby &amp; Tailwind CSS</span>
         </div>
       </div>
     </footer>

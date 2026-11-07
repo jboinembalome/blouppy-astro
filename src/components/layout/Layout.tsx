@@ -1,7 +1,6 @@
 import React from "react";
 import { Footer } from "./Footer";
 import { Navbar } from "./Navbar";
-import { ConsentBanner } from "../consent/ConsentBanner";
 import "../../styles/site.scss";
 
 // Which decoration a page gets (the flamingo layer, DESIGN.md §2.5 of the
@@ -42,7 +41,6 @@ export const Layout = ({ children, kind = "page" }: LayoutProps) => {
         )}
       </main>
       <Footer />
-      <ConsentBanner />
     </div>
   );
 };
