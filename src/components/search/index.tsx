@@ -63,6 +63,7 @@ export default function Search({ indices, openModal, modalClosed }: SearchProps)
                                     <CustomSearchBox className="bg-card text-heading relative" />
                                     <SearchResult className="bg-card text-heading p-4 max-h-72 scroll-py-2 overflow-y-auto py-2 text-sm"
                                         indices={indices}
+                                        onNavigate={() => modalClosed(false)}
                                     />
 
                                 </Dialog.Panel>

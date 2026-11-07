@@ -20,14 +20,14 @@ const HitCount = () => {
   );
 };
 
-const Hits = () => {
+const Hits = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { items } = useHits<ArticleHit>();
 
   return (
     <div>
       {items.map((hit) => (
         <div key={hit.objectID} className="mb-4">
-          <Link to={hit.slug} className="text-accent underline hover:no-underline">
+          <Link to={hit.slug} onClick={onNavigate} className="text-accent underline hover:no-underline">
             <h4 className="mb-2">
               <Highlight attribute="title" hit={hit} highlightedTagName="mark" />
             </h4>
@@ -54,9 +54,12 @@ interface SearchResultProps {
     title: string;
   }[];
   className?: string;
+  // Called when a result is followed: the search dialog lives in the navbar,
+  // which stays mounted across pages, so it has to close itself.
+  onNavigate?: () => void;
 }
 
-const SearchResult = ({ indices, className }: SearchResultProps) => {
+const SearchResult = ({ indices, className, onNavigate }: SearchResultProps) => {
   const { indexUiState } = useInstantSearch();
   const query = indexUiState.query ?? "";
 
@@ -65,7 +68,7 @@ const SearchResult = ({ indices, className }: SearchResultProps) => {
       {indices.map((index) => (
         <Index indexName={index.name} key={index.name}>
           <HitCount />
-          <Hits />
+          <Hits onNavigate={onNavigate} />
         </Index>
       ))}
       <PoweredBy />

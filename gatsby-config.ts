@@ -149,14 +149,21 @@ const config: GatsbyConfig = {
         background_color: `#ffffff`,
         theme_color: `#676dcf`,
         display: `standalone`,
-        // The home-screen icon: the logo on white with the margin iOS and
-        // Android icons keep (an edge-to-edge logo looks oversized next to
-        // other apps, and iOS paints transparent pixels black). The logo sits
-        // inside the maskable safe zone, so the same file serves both purposes.
-        icon: 'static/img/app-icon.png',
-        icon_options: { purpose: 'any maskable' },
-        // The browser tab keeps the edge-to-edge favicons of static/img,
-        // linked from gatsby-ssr: a padded icon would look tiny at 16px.
+        // Home-screen icons, provided as files (static/icons): the logo on the
+        // dark theme's night blue (#020617), where its pastel gradients keep
+        // their contrast, at about 70% of the square like the icons of other apps, and
+        // a maskable variant at about 60% for Android, whose adaptive icons
+        // may crop anything outside a circle of 80% of the side. iOS reads
+        // static/img/apple-touch-icon.png (same 70% artwork), linked from
+        // gatsby-ssr, so the plugin adds no apple-touch-icon links of its own;
+        // the browser tab keeps the edge-to-edge favicons of static/img.
+        icons: [
+          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-maskable-192.png', sizes: '192x192', type: 'image/png', purpose: 'maskable' },
+          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        legacy: false,
         include_favicon: false,
       },
     },
