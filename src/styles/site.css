@@ -27,7 +27,8 @@
   }
 }
 
-/* Two more of Tailwind 3's defaults: a pointer on buttons, a grey placeholder. */
+/* More of Tailwind 3's defaults: a pointer on buttons, a grey placeholder, the
+   table cells' padding. */
 @layer base {
   button:not(:disabled),
   [role="button"]:not(:disabled) {
@@ -37,5 +38,12 @@
   input::placeholder,
   textarea::placeholder {
     color: #9ca3af;
+  }
+
+  /* Tailwind 4's preflight zeroes every element's padding; Tailwind 3 left
+     table cells the browser's 1px, which the article tables were laid out with. */
+  th,
+  td {
+    padding: 1px;
   }
 }
