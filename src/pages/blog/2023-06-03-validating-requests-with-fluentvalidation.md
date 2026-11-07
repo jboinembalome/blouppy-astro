@@ -12,7 +12,7 @@ categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/validating-requests-with-fluentvalidation.jpg
 description: >-
-  Learn how to effectively integrate and utilize FluentValidation for request validation in ASP.NET Core Web API.
+  Learn how to validate ASP.NET Core requests with FluentValidation 12, in a controller and in a Minimal API endpoint filter, and return standard problem details.
 tags:
   - Development
   - C#
@@ -22,46 +22,35 @@ tags:
 
 > **Updated November 2026:** rewritten for .NET 10 and FluentValidation 12. The deprecated `FluentValidation.AspNetCore` package is gone, the controller now returns a proper `ValidationProblem`, and there is a new section for Minimal APIs.
 
-Validation is a critical aspect of any web application, ensuring that the data received from clients is accurate and meets the specified requirements. In **ASP.NET Core Web API**, there are several ways to perform request validation, and one popular library for this purpose is **FluentValidation**. FluentValidation provides a fluent and expressive way to define validation rules and apply them to your API endpoints. 
+Validation makes sure that the data a client sends meets your requirements before you act on it. ASP.NET Core offers several ways to validate requests, and [FluentValidation](https://docs.fluentvalidation.net/en/latest/) is a popular one: it defines validation rules with a fluent, strongly typed API.
 
-In this article, we will explore how to use **FluentValidation** in **ASP.NET Core Web API** to validate incoming requests effectively, both in a controller and in a Minimal API.
-
+In this article, we use **FluentValidation** to validate incoming requests in an **ASP.NET Core Web API**, both in a controller and in a Minimal API.
 
 ## Prerequisites
-Before to start you will need:
-- [Visual Studio Code](https://code.visualstudio.com/) with the [C# Dev Kit extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit).
-- The [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download/dotnet/10.0).
-
-> **_Note:_**  Of course, you can develop with your favourite IDE as well. 🙂
-
+- The [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+- An editor, for example [Visual Studio Code](https://code.visualstudio.com/) with the [C# Dev Kit extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csdevkit).
 
 ## What is FluentValidation?
-FluentValidation is an open-source validation library for .NET applications, designed to provide a fluent and intuitive approach to defining and executing validation rules. It offers a declarative syntax that allows developers to express validation logic in a concise and readable manner. FluentValidation is not specific to ASP.NET Core and can be seamlessly integrated into a Web API project.
-
-Now we will install **FluentValidation**.
-
+FluentValidation is an open-source validation library for .NET. You describe the rules of a type in a validator class, in a readable, declarative style, and you can unit test that class on its own. The library does not depend on ASP.NET Core, but it integrates well with it.
 
 ## Create a new project
-1. Create a new folder named **IntroductionToFluentValidation**.
-2. Open the created folder with **Visual Studio Code**.
-3. Open a new **Terminal** in **Visual Studio Code**.
-4. In the **Terminal**, run the following command to create a new **ASP.NET Core Web API** with controllers on **.NET 10**:
+1. Create a folder named **IntroductionToFluentValidation** and open a terminal in it.
+2. Create an ASP.NET Core Web API with controllers ([`dotnet new webapi`](https://learn.microsoft.com/dotnet/core/tools/dotnet-new-sdk-templates)):
 ```powershell
 dotnet new webapi --use-controllers --framework net10.0
 ```
-5. Install the **FluentValidation** NuGet packages with the following commands:
+3. Add the FluentValidation packages:
 ```powershell
 dotnet add package FluentValidation
 dotnet add package FluentValidation.DependencyInjectionExtensions
 ```
 
-`FluentValidation` holds the validators, and `FluentValidation.DependencyInjectionExtensions` brings `AddValidatorsFromAssembly()` to register them.
+[`FluentValidation`](https://www.nuget.org/packages/FluentValidation) holds the validators, and `FluentValidation.DependencyInjectionExtensions` provides [`AddValidatorsFromAssembly()`](https://docs.fluentvalidation.net/en/latest/di.html) to register them.
 
-> **_Note:_** You may have seen `FluentValidation.AspNetCore` in older tutorials (including the first version of this one 😅). It plugs FluentValidation into the MVC validation pipeline to validate requests automatically. It is now marked as deprecated (legacy) on NuGet, and the FluentValidation documentation no longer recommends that approach for new projects: it is MVC-only, synchronous, and hard to debug. We do not need it here, because we call the validator ourselves.
-
+> **_Note:_** Older tutorials, including the first version of this one, use [`FluentValidation.AspNetCore`](https://www.nuget.org/packages/FluentValidation.AspNetCore). It plugs FluentValidation into the MVC validation pipeline to validate requests automatically. The package is now deprecated on NuGet, and the [FluentValidation documentation](https://docs.fluentvalidation.net/en/latest/aspnet.html) no longer recommends that approach for new projects: it only works with MVC, it cannot run asynchronous rules, and it is hard to debug. We do not need it, because we call the validator ourselves.
 
 ## Create a Validator
-To apply validation rules to incoming requests, we need to create a validator class for each request model. Let's assume we have an API endpoint that is responsible for creating a new user. Here is the request it receives:
+Each request type gets its own validator. Our endpoint creates a user and receives this request:
 
 ```csharp
 namespace IntroductionToFluentValidation.Requests;
@@ -69,7 +58,7 @@ namespace IntroductionToFluentValidation.Requests;
 public sealed record CreateUserRequest(string FirstName, string LastName, string Email);
 ```
 
-Below is an example that demonstrates how to create a validator specifically for the user creation request:
+The validator inherits from `AbstractValidator<T>`:
 
 ```csharp
 using FluentValidation;
@@ -96,61 +85,59 @@ public sealed class CreateUserRequestValidator : AbstractValidator<CreateUserReq
 }
 ```
 
-In the code above, we define validation rules for the `CreateUserRequest` model. The `RuleFor` method allows us to specify the property to validate and chain various validation rules.
-
+`RuleFor` selects the property to validate, and the [built-in validators](https://docs.fluentvalidation.net/en/latest/built-in-validators.html) (`NotEmpty`, `MaximumLength`, `EmailAddress`...) chain on it.
 
 ### Wiring Up FluentValidation
-To enable FluentValidation in our project, we need to add the necessary configuration in the **Program.cs** file:
+Register the validators and configure the controllers in **Program.cs**:
 
 ```csharp
 using FluentValidation;
+using IntroductionToFluentValidation.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 builder.Services.AddValidatorsFromAssembly(typeof(Program).Assembly);
 
 // FluentValidation is the only validation in this sample: do not let MVC reject a missing
 // non-nullable property with its own message before the validator runs.
 builder.Services.AddControllers(options =>
     options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true);
+builder.Services.AddProblemDetails();
+builder.Services.AddOpenApi();
+
+var app = builder.Build();
+
+app.UseExceptionHandler();
+app.UseStatusCodePages();
 ```
 
-With `AddValidatorsFromAssembly()`, all the validators defined in the assembly that contains `Program` will be automatically registered, eliminating the need to manually register each validator. This approach ensures that all validators are available for request validation within our project.
+- `AddValidatorsFromAssembly()` registers every validator of the assembly that contains `Program`, so you do not register them one by one. They are scoped by default.
+- By default, `[ApiController]` [treats every non-nullable property as required](https://learn.microsoft.com/aspnet/core/mvc/models/validation) and answers `"The LastName field is required."` before the action runs, so FluentValidation never sees the request. Setting [`SuppressImplicitRequiredAttributeForNonNullableReferenceTypes`](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.mvc.mvcoptions.suppressimplicitrequiredattributefornonnullablereferencetypes) to `true` leaves the decision, and the messages, to our validator.
+- [`AddProblemDetails()`](https://learn.microsoft.com/aspnet/core/fundamentals/error-handling-api), with the exception handler and status code pages, makes every error, including an unhandled exception, answer with a problem details body.
 
-> **_Note:_** By default, `[ApiController]` treats every non-nullable property as required and answers `"The LastName field is required."` before our action runs, so FluentValidation never sees the request. Setting `SuppressImplicitRequiredAttributeForNonNullableReferenceTypes` to `true` leaves the decision to our validator, with our own messages.
-
-
-### Applying Validation in Controller
-Once we have set up FluentValidation, we can easily apply validation rules to our API endpoint:
+### Applying Validation in a Controller
+Inject `IValidator<CreateUserRequest>` through the controller's primary constructor and call it in the action:
 
 ```csharp
 [ApiController]
 [Route("api/[controller]")]
-public class UsersController(IValidator<CreateUserRequest> validator) : ControllerBase
+public sealed class UsersController(IValidator<CreateUserRequest> validator) : ControllerBase
 {
-```
-
-To incorporate validation, we inject an `IValidator<CreateUserRequest>` through the controller's primary constructor. The `CreateUserRequest` represents the model or DTO (Data Transfer Object) that we want to validate.
-
-```csharp
     [HttpPost]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest, "application/problem+json")]
     public async Task<IActionResult> CreateUser(CreateUserRequest request, CancellationToken cancellationToken)
     {
-        // Validate the request using the injected validator asynchronously
         var validationResult = await validator.ValidateAsync(request, cancellationToken);
 
-        // Check if validation fails
         if (!validationResult.IsValid)
         {
-            // Copy the errors into the ModelState, so that ValidationProblem() formats them
-            // the same way as ASP.NET Core's own validation errors (type, title, status, traceId)
+            // ValidationProblem() then formats the errors like ASP.NET Core's own validation errors.
             foreach (var error in validationResult.Errors)
             {
                 ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
             }
 
-            // Return a 400 Bad Request response with a ValidationProblemDetails body
             return ValidationProblem(ModelState);
         }
 
@@ -160,15 +147,12 @@ To incorporate validation, we inject an `IValidator<CreateUserRequest>` through 
 }
 ```
 
-Within the CreateUser action method, we invoke the asynchronous `ValidateAsync` method on the injected `validator` to validate the incoming `CreateUserRequest`. This validation process checks whether the request data conforms to the defined validation rules.
+[`ValidateAsync`](https://docs.fluentvalidation.net/en/latest/async.html) runs the rules and receives the request's `CancellationToken`. If validation fails, the action copies each error into `ModelState` and returns [`ValidationProblem(ModelState)`](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.mvc.controllerbase.validationproblem). ASP.NET Core turns it into a **400 Bad Request** whose body is a standard `ValidationProblemDetails` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), with a `type` pointing to [RFC 9110 §15.5.1](https://www.rfc-editor.org/rfc/rfc9110#section-15.5.1) and a `traceId` to find the request in the logs. The `[ProducesResponseType]` attributes describe both responses in the [OpenAPI document](https://learn.microsoft.com/aspnet/core/fundamentals/openapi/aspnetcore-openapi).
 
-If the validation fails, we copy each error into the `ModelState`, then return `ValidationProblem(ModelState)`. ASP.NET Core turns it into a **400 Bad Request** whose body is a standard `ValidationProblemDetails` ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), with the `type` pointing to [RFC 9110 §15.5.1](https://www.rfc-editor.org/rfc/rfc9110#section-15.5.1) and a `traceId` to find the request in the logs. 🙂
-
-> **_Note:_** The first version of this article returned `BadRequest(new BadRequestObjectResult(details))`. That wraps a result inside another result, so the client received the details nested under a `"value"` property instead of a problem details body. `ValidationProblem(...)` is the right tool.
-
+> **_Note:_** The first version of this article returned `BadRequest(new BadRequestObjectResult(details))`. That wraps a result inside another result, so the client received the details nested under a `"value"` property instead of a problem details body.
 
 ### Testing the endpoint
-If we attempt to execute the request without providing a last name, FluentValidation will indicate that the last name is required:
+Without a last name, FluentValidation reports that the last name is required:
 
 ```bash
 curl -i -X POST http://localhost:5098/api/users \
@@ -180,21 +164,20 @@ curl -i -X POST http://localhost:5098/api/users \
 HTTP/1.1 400 Bad Request
 Content-Type: application/problem+json; charset=utf-8
 
-{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"LastName":["Last name is required."]},"traceId":"00-b7a75aadf62a3411cd98c69b3db707b6-858d9018c956f3ce-00"}
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"LastName":["Last name is required."]},"traceId":"00-c4e80fa53db5e02577c509a8a8f20c94-b560feaaf2dd5506-00"}
 ```
 
-And every failing rule is reported at once. Here the last name is missing and the email is wrong:
+Every failing rule is reported at once. Here the last name is missing and the email is invalid (`"email":"not-an-email"`):
 
 ```
 HTTP/1.1 400 Bad Request
 Content-Type: application/problem+json; charset=utf-8
 
-{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Email":["Invalid email address."],"LastName":["Last name is required."]},"traceId":"00-21b73606af87de2b7310df9e36cbccbb-a972e5555d549d52-00"}
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"Email":["Invalid email address."],"LastName":["Last name is required."]},"traceId":"00-1eaef520adaef4b6d172a68b0993cd94-5f04268b1a182a3f-00"}
 ```
 
-
 ## Validating a Minimal API
-Minimal APIs have no `ModelState` and no action filters, but they have **endpoint filters**. A small generic filter can validate the request before the handler runs, for every endpoint that needs it:
+Minimal APIs have no `ModelState` and no action filters, but they have [endpoint filters](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/min-api-filters). A generic filter can validate the request before the handler runs, for every endpoint that needs it:
 
 ```csharp
 using FluentValidation;
@@ -209,13 +192,13 @@ public sealed class ValidationFilter<T>(IValidator<T> validator) : IEndpointFilt
         var request = context.Arguments.OfType<T>().FirstOrDefault();
         if (request is null)
         {
-            return Results.BadRequest();
+            return TypedResults.BadRequest();
         }
 
         var validationResult = await validator.ValidateAsync(request, context.HttpContext.RequestAborted);
         if (!validationResult.IsValid)
         {
-            return Results.ValidationProblem(validationResult.ToDictionary());
+            return TypedResults.ValidationProblem(validationResult.ToDictionary());
         }
 
         return await next(context);
@@ -223,32 +206,45 @@ public sealed class ValidationFilter<T>(IValidator<T> validator) : IEndpointFilt
 }
 ```
 
-`ToDictionary()` groups the errors by property name, which is exactly what `Results.ValidationProblem()` expects. Then we attach the filter to the endpoint:
+`ToDictionary()` groups the errors by property name, which is the shape [`TypedResults.ValidationProblem()`](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/responses) expects. Attach the filter to the endpoint, and declare the response it can produce for OpenAPI:
 
 ```csharp
 app.MapPost("/api/minimal/users", (CreateUserRequest request) =>
     {
         // Process the valid request...
-        return Results.Ok();
+        return TypedResults.Ok();
     })
-    .AddEndpointFilter<ValidationFilter<CreateUserRequest>>();
+    .AddEndpointFilter<ValidationFilter<CreateUserRequest>>()
+    .ProducesValidationProblem();
 ```
 
-The handler stays clean, and the answer has the same shape as the controller's:
+The handler only deals with valid requests, and the error has the same shape as the controller's:
 
 ```
 HTTP/1.1 400 Bad Request
 Content-Type: application/problem+json
 
-{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"LastName":["Last name is required."],"Email":["Invalid email address."]}}
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,"errors":{"LastName":["Last name is required."],"Email":["Invalid email address."]},"traceId":"00-905b98e0fbbff377012acff69135e3d4-fe95868c36535190-00"}
 ```
 
-> **_Note:_** Since .NET 10, Minimal APIs can also validate requests on their own: call `builder.Services.AddValidation()` and decorate the request with Data Annotations (`[Required]`, `[EmailAddress]`...). It is a good fit for simple rules. FluentValidation shines when the rules get richer: conditions, rules that depend on other properties, async checks, or validators you want to unit test on their own.
-
+> **_Note:_** Since .NET 10, [Minimal APIs can validate requests on their own](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis): call `builder.Services.AddValidation()` and decorate the request with Data Annotations (`[Required]`, `[EmailAddress]`...). It suits simple rules. FluentValidation is the better fit for richer ones: conditions, rules that depend on other properties, asynchronous checks, or validators you want to unit test on their own.
 
 ## Conclusion
-FluentValidation is a powerful validation library for .NET applications. By leveraging FluentValidation, we can easily define and apply validation rules to our API endpoints, ensuring that incoming requests adhere to the specified criteria. By following a few simple steps, we can integrate FluentValidation into our projects, in controllers as well as in Minimal APIs, and return validation errors in a standard format.
+FluentValidation keeps validation rules in dedicated, testable classes. With a few lines of setup, the same validator serves a controller and a Minimal API, and both return validation errors in the standard problem details format.
 
-Source code of the article: [Github source code](https://github.com/jboinembalome/IntroductionToFluentValidation)
+Source code of the article: [GitHub source code](https://github.com/jboinembalome/IntroductionToFluentValidation)
 
-*Thanks for reading! 🙂*
+## References
+- [Handle errors in ASP.NET Core APIs](https://learn.microsoft.com/aspnet/core/fundamentals/error-handling-api) — `AddProblemDetails`, `ValidationProblem` and the problem details format.
+- [Model validation in ASP.NET Core](https://learn.microsoft.com/aspnet/core/mvc/models/validation) — automatic 400 responses and non-nullable reference types.
+- [MvcOptions.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes](https://learn.microsoft.com/dotnet/api/microsoft.aspnetcore.mvc.mvcoptions.suppressimplicitrequiredattributefornonnullablereferencetypes) — the option that turns the implicit check off.
+- [Filters in Minimal API apps](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/min-api-filters) — `IEndpointFilter` and `AddEndpointFilter`.
+- [Create responses in Minimal API applications](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis/responses) — `TypedResults` and response metadata.
+- [Minimal APIs quick reference](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis) — includes the built-in validation of .NET 10.
+- [Generate OpenAPI documents](https://learn.microsoft.com/aspnet/core/fundamentals/openapi/aspnetcore-openapi) — the built-in `Microsoft.AspNetCore.OpenApi` package.
+- [RFC 9457: Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457) — the format of the error bodies.
+- [FluentValidation documentation](https://docs.fluentvalidation.net/en/latest/) — the library's official documentation.
+- [FluentValidation: ASP.NET Core](https://docs.fluentvalidation.net/en/latest/aspnet.html) — manual validation and why automatic validation is no longer recommended.
+- [FluentValidation: Dependency injection](https://docs.fluentvalidation.net/en/latest/di.html) — `AddValidatorsFromAssembly` and validator lifetimes.
+- [FluentValidation: Built-in validators](https://docs.fluentvalidation.net/en/latest/built-in-validators.html) — `NotEmpty`, `MaximumLength`, `EmailAddress` and the others.
+- [FluentValidation: Asynchronous validation](https://docs.fluentvalidation.net/en/latest/async.html) — `ValidateAsync` and async rules.

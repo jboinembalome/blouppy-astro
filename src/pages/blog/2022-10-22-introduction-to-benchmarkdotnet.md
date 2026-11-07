@@ -12,66 +12,42 @@ categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/introduction-to-benchmarkdotnet.jpg
 description: >-
-  Let's discover the BenchmarkDotNet package for tracking performance and sharing reproducible measurement experiments.
+  Learn how to write, run and read a BenchmarkDotNet benchmark in .NET 10, with parameters, setup and memory diagnostics.
 tags:
   - Development
   - C#
   - Benchmark
 ---
 
-> **Updated November 2026:** rewritten for .NET 10 and BenchmarkDotNet 0.15.8, with `[MemoryDiagnoser]` and freshly measured results. Spoiler: LINQ got a lot faster since I first wrote this! 🚀
+> **Updated November 2026:** rewritten for .NET 10 and BenchmarkDotNet 0.15.8, with `[MemoryDiagnoser]` and freshly measured results. LINQ has become much faster since the first version of this article.
 
-Benchmarking is a process used to evaluate performance measures. We can take advantage of benchmarking to compare performance between different methods or libraries and determine which areas of our code can be optimized. 
-
-In this article, we will create a benchmark in **C#** to compare the performance between 3 ways to retrieve an element by id in an object list:
-- A `foreach` loop.
-- The `FirstOrDefault()` extension. (Linq)
-- The `SingleOrDefault()` extension. (Linq)
-
+Benchmarking measures how fast code runs, so that you can compare implementations and find what is worth optimising. In this article, we create a benchmark in **C#** that compares three ways to find an element by its id in a list:
+- a `foreach` loop,
+- LINQ's [`FirstOrDefault()`](https://learn.microsoft.com/dotnet/api/system.linq.enumerable.firstordefault),
+- LINQ's [`SingleOrDefault()`](https://learn.microsoft.com/dotnet/api/system.linq.enumerable.singleordefault).
 
 ## Prerequisites
-Before to start you will need:
-- [Visual Studio Code](https://code.visualstudio.com/) with the [C# extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp).
 - The [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
-
-> **_Note:_**  Of course, you can develop with your favourite IDE as well. 🙂
-
+- An editor, for example [Visual Studio Code](https://code.visualstudio.com/) with the [C# extension](https://marketplace.visualstudio.com/items?itemName=ms-dotnettools.csharp).
 
 ## BenchmarkDotNet
-**BenchmarkDotNet** is an open source library that can quickly transform our methods into benchmarks. **BenchmarkDotNet** does most of the analysis of performance data for us and presents the results in a user-friendly format. In addition to being extremely powerful, **BenchmarkDotNet** works with **.NET** (and the older **.NET Framework** and **.NET Core**).
-
-Now we will install **BenchmarkDotNet**.
-
+[BenchmarkDotNet](https://benchmarkdotnet.org/) is an open-source library that turns methods into benchmarks. It handles warm-up, repeated measurements and statistics, and prints the results as a table. It supports .NET and .NET Framework.
 
 ## Create a new project
-1. Create a new folder named **IntroductionToBenchmarkDotNet**.
-2. Open the created folder with **Visual Studio Code**.
-3. Open a new **Terminal** in **Visual Studio Code**.
-4. In the **Terminal**, run the following command to create a new **Console App** with **.NET 10**:
+1. Create a folder named **IntroductionToBenchmarkDotNet** and open a terminal in it.
+2. Create a console app ([`dotnet new`](https://learn.microsoft.com/dotnet/core/tools/dotnet-new)):
 ```powershell
 dotnet new console --framework net10.0
 ```
-5. Install the **BenchmarkDotNet** NuGet package with the following command:
+3. Add the [BenchmarkDotNet](https://www.nuget.org/packages/BenchmarkDotNet/0.15.8) package:
 ```powershell
 dotnet add package BenchmarkDotNet --version 0.15.8
 ```
-6. Use the following command to **run** the app:
-```powershell
-dotnet run
-```
 
-If all the steps were successful, you should see on your terminal our fabulous:
-```powershell:clipboard=false
-Hello, World!
-```
-
-Now that we have successfully created our project and installed the **BenchmarkDotNet** package, we can create our first benchmark.
-
-
-## Create a benchmark 
+## Create a benchmark
 
 ### Add a benchmark class
-As we want to evaluate the performance of 3 ways to get an element by its id, we will add a `Person` class which will contain the properties `Id` and `Name` and a new class called `GetByIdBenchmark` with a list of people.
+We need a `Person` class with an `Id` and a `Name`, and a `GetByIdBenchmark` class that holds a list of people:
 ```csharp
 namespace IntroductionToBenchmarkDotNet.Models;
 
@@ -109,67 +85,56 @@ public class GetByIdBenchmark
 }
 ```
 
-Here we have used 3 attributes of **BenchmarkDotNet**, `MemoryDiagnoser`, `Params` and `GlobalSetup`:
-- The `MemoryDiagnoser` attribute adds an **Allocated** column to the results: how much managed memory a single call allocates. Time is only half of the story! 😉
-- The `Params` attribute takes as a parameter a set of values. Each value passed as a parameter will be used in a benchmark.
-- The method marked with `GlobalSetup` runs **once per benchmark case** (a method combined with a parameter value), before its measurements start — not before every call. This is useful to initialise our data in the same way for each benchmark without duplicating code, and without measuring that setup.
+This class uses three BenchmarkDotNet attributes:
+- [`MemoryDiagnoser`](https://benchmarkdotnet.org/articles/configs/diagnosers.html) adds an **Allocated** column to the results: the managed memory allocated by a single call.
+- [`Params`](https://benchmarkdotnet.org/articles/features/parameterization.html) takes a set of values. BenchmarkDotNet runs each benchmark once per value.
+- The [`GlobalSetup`](https://benchmarkdotnet.org/articles/features/setup-and-cleanup.html) method runs **once per benchmark case** (a method combined with a parameter value), before the measurements start. It prepares the same data for every benchmark, and its own duration is not measured.
 
-> **_Note:_** If needed, there is also a `GlobalCleanup` attribute to perform an action once after each benchmark case. E.g. To dispose an unmanaged resource. And if you really need something to run before every single iteration, look at `IterationSetup` (with care, it is meant for benchmarks that take at least 100 ms).
+> **_Note:_** `GlobalCleanup` runs once after each benchmark case, for example to dispose a resource. `IterationSetup` runs before every iteration, but the documentation reserves it for macrobenchmarks, which take at least 100 ms.
 
 ### Add the methods to compare
-Now let's add in the `GetByIdBenchmark` class, the 3 ways to get an element by its id.
+Add the three lookups to `GetByIdBenchmark`. The `Benchmark` attribute marks each method to measure:
 
-- Foreach:
 ```csharp
 [Benchmark]
 public Person? Foreach()
 {
     foreach (var person in people)
     {
-        if (person.Id == id) 
+        if (person.Id == id)
             return person;
     }
 
     return null;
 }
-```
 
-- FirstOrDefault:
-```csharp
 [Benchmark]
-public Person? FirstOrDefault() 
+public Person? FirstOrDefault()
     => people.FirstOrDefault(x => x.Id == id);
-```
 
-- SingleOrDefault:
-```csharp
 [Benchmark]
-public Person? SingleOrDefault() 
+public Person? SingleOrDefault()
     => people.SingleOrDefault(x => x.Id == id);
 ```
 
-This time we have used the `Benchmark` attribute. `Benchmark` allows us to target the methods that will be run as a benchmark.
-
-
-## Run the Benchmark 
-We will use the `BenchmarkRunner` class to run all the benchmarks that are present in the `GetByIdBenchmark` class. To do this, let's update our **Program.cs** file:
+## Run the benchmark
+[`BenchmarkRunner`](https://benchmarkdotnet.org/articles/overview.html) runs every benchmark in a class. Replace the content of **Program.cs**:
 
 ```csharp
 using BenchmarkDotNet.Running;
 using IntroductionToBenchmarkDotNet.Benchmarks;
 
-var summary = BenchmarkRunner.Run<GetByIdBenchmark>();
+BenchmarkRunner.Run<GetByIdBenchmark>();
 ```
 
-Finally, we will launch the project in release mode with the following command:
+Then run the project in Release mode:
 ```powershell
 dotnet run -c Release
 ```
 
-> **_Note:_**  `-c` or `--configuration`, sets the build configuration. The default value is Debug. We always benchmark in Release mode: a Debug build is not optimised, so it measures code that will never run in production. BenchmarkDotNet even refuses to run benchmarks from a non-optimised assembly by default.
+> **_Note:_** `-c` (`--configuration`) sets the build configuration, which defaults to Debug ([`dotnet run`](https://learn.microsoft.com/dotnet/core/tools/dotnet-run)). Always benchmark in Release: a Debug build is not optimised, so it measures code that never runs in production. BenchmarkDotNet refuses to run a non-optimised assembly by default.
 
-Be patient, with the default job each benchmark case is warmed up and measured many times (the 9 cases took about 14 minutes on my machine ☕). If you did not get an error, you should get the result of the benchmarks according to your machine.
-For example, below is the result on my machine (a 4-core Linux virtual machine):
+The default job warms up and measures each case many times: the 9 cases took about 14 minutes on my 4-core Linux virtual machine. Your numbers depend on your hardware. Here are mine:
 
 ```text:clipboard=false
 BenchmarkDotNet v0.15.8, Linux Ubuntu 24.04.5 LTS (Noble Numbat)
@@ -192,40 +157,30 @@ Intel Xeon Processor 2.10GHz, 1 CPU, 4 logical and 4 physical cores
 | SingleOrDefault | 100        | 48.4199 ns | 1.5223 ns | 4.4885 ns | 50.2168 ns |         - |
 ```
 
-Legends:
-- Method: The method name executed
-- Iterations: Value of the 'Iterations' parameter
-- Mean: Arithmetic mean of all measurements (The average time)
-- Error: Half of 99.9% confidence interval
-- StdDev: Standard deviation of all measurements
-- Median: Value separating the higher half of all measurements (50th percentile)
-- Allocated: Allocated memory per single operation (managed only, `-` means nothing was allocated)
-- 1 ns: 1 Nanosecond (0.000000001 sec)
+**Mean** is the arithmetic mean of all measurements, **Error** half of the 99.9% confidence interval, **StdDev** their standard deviation and **Median** the 50th percentile. **Allocated** is the managed memory allocated per operation (`-` means none), and 1 ns is 0.000000001 s.
 
-If we look at the **Mean** column above, here is what the numbers tell us:
-- `foreach` is still the fastest, but `FirstOrDefault` is now really close: less than 1 ns apart. In both cases the size of the list does not matter, because the id we are looking for (`1`) is the first element, so both stop right away.
-- `SingleOrDefault` is the only one that grows with the list (about 6 ns for 10 elements, 48 ns for 100). This makes sense: it has to look through the **whole** list to check that the item is unique.
-- None of the 3 methods allocates anything on .NET 10.
+What the **Mean** column tells us:
+- `foreach` is the fastest, and `FirstOrDefault` is less than 1 ns behind. The list size does not matter for either, because the id we look for (`1`) is the first element, so both stop immediately.
+- `SingleOrDefault` is the only one that grows with the list (about 6 ns for 10 elements, 48 ns for 100): it scans the **whole** list to check that the match is unique.
+- None of the three methods allocates on .NET 10.
 
-> **_Note:_** At this scale (1 or 2 ns), the measurements are noisy: BenchmarkDotNet printed warnings about multimodal distributions and removed a few outliers on my virtual machine. A gap of a fraction of a nanosecond is not something to build a decision on. 😉
+> **_Note:_** At 1 or 2 ns, measurements are noisy. On my virtual machine, BenchmarkDotNet warned about multimodal distributions and removed a few outliers. Do not base a decision on a gap of a fraction of a nanosecond.
 
-When I first wrote this article with .NET 6 (on another machine, so the absolute numbers cannot be compared directly), `FirstOrDefault` took about 23 ns, roughly 20 times slower than the `foreach`, and `SingleOrDefault` about 780 ns for 100 elements. LINQ has been heavily optimised since then, especially for arrays and `List<T>`, so my old conclusion "avoid LINQ here, it is much slower" does not hold anymore. Use `FirstOrDefault` when you want the first match, `SingleOrDefault` only when you really need to check uniqueness (that check has a cost), and measure before rewriting readable LINQ into loops!
+When I first wrote this article with .NET 6, on another machine, `FirstOrDefault` took about 23 ns, roughly 20 times slower than `foreach`, and `SingleOrDefault` about 780 ns for 100 elements. LINQ has been optimised release after release (the .NET team describes each round in its yearly posts, such as [Performance Improvements in .NET 10](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-10/)), so my old advice to avoid LINQ here no longer holds. Use `FirstOrDefault` for the first match, `SingleOrDefault` only when you need the uniqueness check, and measure before you rewrite readable LINQ as a loop.
 
-## Bonus
-We can also run our benchmarks on multiple frameworks. To do this we need to modify the .csproj file to allow the project to target multiple frameworks. 
+## Bonus: compare runtimes
+A benchmark can run on several runtimes. To compare the two current LTS versions, .NET 8 and .NET 10, make the project [target both frameworks](https://learn.microsoft.com/dotnet/standard/frameworks) in the .csproj file. Replace:
 
-For example, if we want to compare the two current LTS versions, .NET 8 and .NET 10, we need to replace the line:
-
-```xml{4}
+```xml
 <TargetFramework>net10.0</TargetFramework>
 ```
-by:
+with:
 
-```xml{4}
+```xml
 <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
 ```
 
-And add the `SimpleJob` attribute above the `GetByIdBenchmark` class:
+Then add one [`SimpleJob`](https://benchmarkdotnet.org/articles/configs/jobs.html) attribute per runtime to `GetByIdBenchmark`:
 ```csharp
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
@@ -240,24 +195,34 @@ public class GetByIdBenchmark
 ...
 ```
 
-> **_Note:_**  You must also install each runtime you want to benchmark if it is not already installed. Also note the name of the moniker: since .NET 10 it is `Net10_0`, not `Net100`.
+> **_Note:_** Each runtime you benchmark must be installed. The .NET 10 moniker is `Net10_0`, not `Net100`.
 
-
-After updating your project, you can run it a second time in release mode with the command:
+Run the project with the host framework set:
 ```powershell
 dotnet run -c Release --framework net10.0
 ```
-> **_Note:_**  This time we added the `--framework net10.0` parameter to host the console application with .NET 10. However, the application will run benchmarks for both frameworks, and the summary gets a **Runtime** column so you can compare them side by side. 😉
 
-> **_Note:_**  For this update, only the .NET 10 runtime was installed on my machine, so I checked that this multi-targeted version builds, but I did not run the .NET 8 job and I have no comparison table to show you this time.
+`--framework net10.0` only selects the runtime that hosts the console app. BenchmarkDotNet still runs both jobs, and the summary gets a **Runtime** column to compare them.
+
+> **_Note:_** Only .NET 10 was installed on my machine for this update: I checked that this project builds, but I did not run the .NET 8 job, so there is no comparison table here.
 
 ## Conclusion
-**BenchmarkDotNet** is a package that allows us to easily measure the performance of our code and observe the results in a readable summary. It is the de facto benchmarking library of the .NET ecosystem: the .NET team itself uses it for the benchmarks of the runtime and libraries in [dotnet/performance](https://github.com/dotnet/performance).
+**BenchmarkDotNet** measures your code and summarises the results in a readable table. It is the standard benchmarking library of the .NET ecosystem: the .NET team uses it in [dotnet/performance](https://github.com/dotnet/performance) for the runtime and libraries.
 
-And as we have seen with LINQ, a benchmark result is not true forever: when you upgrade .NET, run your benchmarks again! 🙂
+As the LINQ results show, a benchmark result does not last forever: run your benchmarks again when you upgrade .NET.
 
-During this article, you have had an introduction to the **BenchmarkDotNet** package. There are many other features offered by the package. If you want to know more, here is the link to the official documentation: [BenchmarkDotNet Doc](https://benchmarkdotnet.org/)
+Source code of the article: [GitHub source code](https://github.com/jboinembalome/IntroductionToBenchmarkDotNet)
 
-Source code of the article: [Github source code](https://github.com/jboinembalome/IntroductionToBenchmarkDotNet)
-
-*Thanks for reading! 🙂*
+## References
+- [BenchmarkDotNet documentation](https://benchmarkdotnet.org/) — the official documentation of the library.
+- [BenchmarkDotNet: Setup and cleanup](https://benchmarkdotnet.org/articles/features/setup-and-cleanup.html) — `GlobalSetup`, `GlobalCleanup`, `IterationSetup` and when each runs.
+- [BenchmarkDotNet: Parameterization](https://benchmarkdotnet.org/articles/features/parameterization.html) — `Params` and related attributes.
+- [BenchmarkDotNet: Diagnosers](https://benchmarkdotnet.org/articles/configs/diagnosers.html) — `MemoryDiagnoser` and the Allocated column.
+- [BenchmarkDotNet: Jobs](https://benchmarkdotnet.org/articles/configs/jobs.html) — `SimpleJob` and runtime monikers.
+- [BenchmarkDotNet: Good practices](https://benchmarkdotnet.org/articles/guides/good-practices.html) — Release builds, noise and other pitfalls.
+- [dotnet run](https://learn.microsoft.com/dotnet/core/tools/dotnet-run) — the `--configuration` and `--framework` options.
+- [Target frameworks in SDK-style projects](https://learn.microsoft.com/dotnet/standard/frameworks) — `TargetFrameworks` and framework monikers.
+- [Enumerable.FirstOrDefault](https://learn.microsoft.com/dotnet/api/system.linq.enumerable.firstordefault) and [Enumerable.SingleOrDefault](https://learn.microsoft.com/dotnet/api/system.linq.enumerable.singleordefault) — the two LINQ methods compared.
+- [Performance Improvements in .NET 10](https://devblogs.microsoft.com/dotnet/performance-improvements-in-net-10/) — the .NET team's overview of this release's optimisations.
+- [BenchmarkDotNet on NuGet](https://www.nuget.org/packages/BenchmarkDotNet/0.15.8) — the package used in this article.
+- [dotnet/performance](https://github.com/dotnet/performance) — the .NET team's benchmarks, built on BenchmarkDotNet.
