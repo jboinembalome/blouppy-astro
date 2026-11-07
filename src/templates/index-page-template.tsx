@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, withPrefix } from "gatsby";
-import { ArticleIndex } from "../components/article-index/ArticleIndex";
+import { HomeArticles } from "../components/article-index/HomeArticles";
 import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
 
 interface IndexPageTemplateProps {
@@ -25,9 +25,9 @@ const Hero = ({ title, subheading }: Pick<IndexPageTemplateProps, "title" | "sub
         <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-heading sm:text-5xl lg:text-[3.5rem]">{title}</h1>
         <p className="mt-5 max-w-md text-lg leading-relaxed text-muted sm:text-xl">{subheading}</p>
         <div className="mt-8 flex flex-wrap gap-3">
-          <a href="#articles" className="btn btn-lg max-sm:flex-1">
+          <Link to="/blog/" className="btn btn-lg max-sm:flex-1">
             Read the articles
-          </a>
+          </Link>
           <Link to="/about" className="btn-outline btn-lg max-sm:flex-1">
             About
           </Link>
@@ -48,7 +48,7 @@ export const IndexPageTemplate = ({ title, subheading, articles }: IndexPageTemp
   <>
     <Hero title={title} subheading={subheading} />
     <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 md:px-6 md:pb-20 lg:px-8">
-      <ArticleIndex articles={articles} />
+      <HomeArticles articles={articles} />
     </div>
   </>
 );

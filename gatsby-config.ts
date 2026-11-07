@@ -1,5 +1,6 @@
 require("dotenv").config()
 import type { GatsbyConfig } from "gatsby";
+import adapter from "gatsby-adapter-netlify";
 
 const defaultSiteUrl = 'https://blouppy.com'
 const {
@@ -12,6 +13,9 @@ const {
 const isNetlifyProduction = NETLIFY_ENV === 'production'
 const siteUrl = isNetlifyProduction ? NETLIFY_SITE_URL : NETLIFY_DEPLOY_URL
 const config: GatsbyConfig = {
+  // Netlify installs this adapter on every build anyway, and disables
+  // gatsby-plugin-netlify for it; declaring it saves that install.
+  adapter: adapter(),
   siteMetadata: {
     title: `Blouppy`,
     author: {
@@ -256,8 +260,6 @@ const config: GatsbyConfig = {
     {
       resolve: 'gatsby-plugin-postcss',
     },
-    // must be after other CSS plugins
-    'gatsby-plugin-netlify', // make sure to keep it last in the array
     // The site used to install gatsby-plugin-offline's service worker, which
     // served the previous deploy to returning readers. This one unregisters it.
     'gatsby-plugin-remove-serviceworker',
