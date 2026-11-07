@@ -149,7 +149,15 @@ const config: GatsbyConfig = {
         background_color: `#ffffff`,
         theme_color: `#676dcf`,
         display: `standalone`,
-        icon: 'static/img/logo.png', // This path is relative to the root of the site.
+        // The home-screen icon: the logo on white with the margin iOS and
+        // Android icons keep (an edge-to-edge logo looks oversized next to
+        // other apps, and iOS paints transparent pixels black). The logo sits
+        // inside the maskable safe zone, so the same file serves both purposes.
+        icon: 'static/img/app-icon.png',
+        icon_options: { purpose: 'any maskable' },
+        // The browser tab keeps the edge-to-edge favicons of static/img,
+        // linked from gatsby-ssr: a padded icon would look tiny at 16px.
+        include_favicon: false,
       },
     },
     {
