@@ -11,7 +11,7 @@ import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
 import { starterUrl } from "../../constants/starter";
 
 const links = [
-  { name: "Articles", href: "/" },
+  { name: "Articles", href: "/blog/" },
   { name: "Tags", href: "/tags" },
   { name: "About", href: "/about" },
   { name: "Contact", href: "/contact" },
@@ -21,14 +21,9 @@ const linkClassName = "text-sm font-medium text-muted transition-colors hover:te
 const activeLinkClassName = "text-sm font-medium text-accent";
 
 // A section stays highlighted on its sub-pages: Articles on an article, Tags
-// on a tag. "/" is a prefix of every path, so Articles is matched by hand.
-const isPartiallyActive =
-  (base: string) =>
-  ({ isPartiallyCurrent, location }: LinkGetProps) => {
-    const active =
-      base === "/" ? location.pathname === "/" || location.pathname.startsWith("/blog/") : isPartiallyCurrent;
-    return active ? { className: activeLinkClassName } : {};
-  };
+// on a tag.
+const isPartiallyActive = ({ isPartiallyCurrent }: LinkGetProps) =>
+  isPartiallyCurrent ? { className: activeLinkClassName } : {};
 
 const mobileLinkClassName = "block rounded-lg px-3 py-2.5 text-base font-medium text-body hover:bg-hover";
 
@@ -53,7 +48,7 @@ export const Navbar = () => {
               </Link>
               <div className="hidden items-center gap-7 md:flex">
                 {links.map((item) => (
-                  <Link key={item.name} to={item.href} getProps={isPartiallyActive(item.href)} className={linkClassName}>
+                  <Link key={item.name} to={item.href} getProps={isPartiallyActive} className={linkClassName}>
                     {item.name}
                   </Link>
                 ))}

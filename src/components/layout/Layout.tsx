@@ -10,8 +10,9 @@ import "../../styles/site.scss";
 // - page: a light band at the top (About, Contact, Tags...).
 export type PageKind = "home" | "article" | "page";
 
+// The Articles list itself (/blog/) is a page; only what is under it is an article.
 export const pageKindOf = (pathname: string): PageKind =>
-  pathname === "/" ? "home" : pathname.startsWith("/blog/") ? "article" : "page";
+  pathname === "/" ? "home" : pathname.startsWith("/blog/") && pathname !== "/blog/" ? "article" : "page";
 
 interface LayoutProps {
   children: JSX.Element | JSX.Element[];

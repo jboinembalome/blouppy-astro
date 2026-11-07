@@ -58,11 +58,11 @@ export const Article = (props: ArticleProps) => {
                 <header className="flex flex-col gap-5">
                     {props.disqusConfig && (
                         <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm font-medium text-muted">
-                            <Link to="/" className="hover:text-accent">Articles</Link>
+                            <Link to="/blog/" className="hover:text-accent">Articles</Link>
                             {topic && (
                                 <>
                                     <span aria-hidden="true">›</span>
-                                    <Link to={`/?topic=${topic.slug}`} className="inline-flex items-center gap-2 text-accent hover:underline">
+                                    <Link to={`/blog/?topic=${topic.slug}`} className="inline-flex items-center gap-2 text-accent hover:underline">
                                         <TopicIcon topic={topic} size="sm" />
                                         {topic.name}
                                     </Link>

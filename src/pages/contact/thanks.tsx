@@ -12,7 +12,7 @@ const Thanks = () => (
       <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">Message sent</h1>
       <p className="mt-4 text-lg leading-relaxed text-muted">Thanks for writing. I'll reply by email as soon as I can.</p>
       <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
-        <Link to="/" className="btn">
+        <Link to="/blog/" className="btn">
           Back to articles
         </Link>
         <Link to="/contact/" className="btn-outline">

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ArticleCard, FeaturedArticleCard } from "../article-card/ArticleCard";
+import { ArticleCard } from "../article-card/ArticleCard";
 import { ArticleSummaryEdge } from "../../types/graphql-queries/ArticleSummaryQuery";
 import { topicBySlug, topics } from "../../constants/topics";
 
@@ -15,9 +15,9 @@ const readTopicFromUrl = () => {
   return topicBySlug(slug)?.slug ?? null;
 };
 
-// The newest post as a large card, then every post in a grid, filtered by
-// topic and revealed nine at a time as the reader scrolls. The topic lives in
-// the URL (?topic=security) so a filtered list can be shared.
+// The Articles page: every post in a grid, filtered by topic and revealed nine
+// at a time as the reader scrolls. The topic lives in the URL
+// (/blog/?topic=security) so a filtered list can be shared.
 export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
   // The HTML is built without a query string, so the topic is read once the
   // page has hydrated: reading it during the first render would not match.
@@ -36,11 +36,8 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
   }, [articles]);
 
   const active = topicBySlug(topicSlug);
-  const featured = articles[0];
-  // Unfiltered, the newest post is already the featured card; filtered, the
-  // grid holds every post of the topic.
   const pool = useMemo(
-    () => (active ? articles.filter(({ node }) => node.frontmatter.topic === active.name) : articles.slice(1)),
+    () => (active ? articles.filter(({ node }) => node.frontmatter.topic === active.name) : articles),
     [articles, active]
   );
   const shown = pool.slice(0, visible);
@@ -85,23 +82,15 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
 
   return (
     <>
-      {featured && !active && (
-        <section aria-labelledby="latest-title" className="mb-14">
-          <h2 id="latest-title" className="section-kicker">
-            Latest article
-          </h2>
-          <FeaturedArticleCard article={featured.node} />
-        </section>
-      )}
-
       <section aria-labelledby="articles-title" id="articles" className="scroll-mt-24">
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <h2 id="articles-title" className="text-3xl font-extrabold tracking-tight text-heading">
+        <div className={`mb-6 flex flex-col gap-4 lg:flex-row lg:items-center ${active ? "lg:justify-between" : ""}`}>
+          {/* The page title already says "Articles": the heading shows only for a topic. */}
+          <h2 id="articles-title" className={active ? "text-3xl font-extrabold tracking-tight text-heading" : "sr-only"}>
             {active ? active.name : "All articles"}
           </h2>
           {/* On a phone the topics scroll sideways rather than wrap. */}
           <ul
-            className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 lg:justify-end"
+            className={`-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:overflow-visible md:px-0 ${active ? "lg:justify-end" : ""}`}
             aria-label="Filter by topic"
           >
             <li className="shrink-0">
@@ -126,11 +115,10 @@ export const ArticleIndex = ({ articles }: ArticleIndexProps) => {
           </ul>
         </div>
 
-        {active && (
-          <p className="-mt-2 mb-6 text-base text-muted" aria-live="polite">
-            {active.description} {pool.length} article{pool.length === 1 ? "" : "s"}.
-          </p>
-        )}
+        <p className="-mt-2 mb-6 text-base text-muted" aria-live="polite">
+          {active ? `${active.description} ` : ""}
+          {pool.length} article{pool.length === 1 ? "" : "s"}.
+        </p>
 
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {shown.map(({ node }) => (
