@@ -12,7 +12,7 @@ categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/difference_between_const_and_readonly_in_csharp.jpg
 description: >-
-  Let's answer a common question that many C# developers ask themselves.
+  What really separates const from readonly in C#: which types each accepts, where it can be declared, and why a public const can go stale across assemblies.
 tags:
   - Development
   - C#
@@ -20,42 +20,35 @@ tags:
   - Readonly
 ---
 
-> **Updated November 2026:** I checked everything again on .NET 10 with two real projects, fixed the list of types a `const` accepts and a sample that no longer compiled, and switched to file-scoped namespaces and top-level statements. 🙂
+> **Updated November 2026:** I checked everything again on .NET 10 with two real projects, fixed the list of types a `const` accepts and a sample that no longer compiled, and switched to file-scoped namespaces and top-level statements.
 
-When we develop, we may use variables that are not modifiable.
-Sometimes we work with `const`, other times we use variables that are `readonly`.
-However, what are the differences between these two keywords from a technical point of view?
+When we need a value that never changes, C# gives us two keywords: `const` and `readonly`. They look interchangeable, but they behave differently, and one difference can break an application after a library update.
 
-## Const keyword
-The `const` keyword is used to declare a variable that cannot be modified after it has been initialized.
-
-Below is an example of a `const` declaration:
+## The const keyword
+A [`const`](https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/const) declares a value that is fixed at compile time:
 
 ```csharp
-public class Colour
+public static class Colour
 {
     public const string ConstRed = "#FF0000";
 }
 ```
 
-- A `const` is implicitly `static`. This means that we can access `ConstRed` without creating a new instance of `Colour` (and we cannot add the `static` keyword ourselves: `error CS0504: The constant 'ConstRed' cannot be marked static`).
-- A `const` can be declared in a method if needed (a local constant), unlike a `readonly`.
-- A `const` only accepts the built-in numeric types (`int`, `double`, `decimal`…), `bool`, `char`, `string` and enums. Any other reference type can only be a `const` with the value `null`. Therefore, it is not possible to use a `const` for a `DateTime` (`error CS0283: The type 'DateTime' cannot be declared const`) or for any other struct: that's a job for `static readonly`.
-- Since C# 10, a `const string` can be an interpolated string, as long as everything inside it is a constant string too:
+- A `const` is implicitly `static`: we read `Colour.ConstRed` without an instance. Adding `static` ourselves is an error: `error CS0504: The constant 'ConstRed' cannot be marked static`.
+- A `const` can also be declared inside a method, as a [local constant](https://learn.microsoft.com/dotnet/csharp/language-reference/statements/declarations).
+- A `const` only accepts the built-in numeric types (`int`, `double`, `decimal`…), `bool`, `char`, `string` and enums. Any other reference type can only be a `const` with the value `null`. A `DateTime`, or any other struct, cannot be a `const` (`error CS0283: The type 'DateTime' cannot be declared const`): that is a job for `static readonly`.
+- Since C# 10, a `const string` can be an [interpolated string](https://learn.microsoft.com/dotnet/csharp/language-reference/tokens/interpolated), as long as every part of it is itself a constant string:
 
 ```csharp
-public class Colour
+public static class Colour
 {
     public const string Hash = "#";
     public const string ConstRed = $"{Hash}FF0000";
 }
 ```
 
-
-## Readonly keyword
-The `readonly` keyword is used to declare a variable which can only be initialized at the declaration time or in constructors.
-
-Below is an example of a `readonly` declaration:
+## The readonly keyword
+A [`readonly`](https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/readonly) field can only be assigned in its declaration, in a constructor of the same class, or in an `init` accessor:
 
 ```csharp
 public class Colour
@@ -74,40 +67,34 @@ public class Colour
 }
 ```
 
-It is also possible to have a static field like this:
+A `readonly` field can also be `static`:
 
 ```csharp
-public class Colour
+public static class Colour
 {
     public static readonly string ReadOnlyRed = "#FF0000";
 }
 ```
 
-- A `readonly` variable can only be declared as a field. Therefore, it is not possible to have a `readonly` local variable inside a method (`error CS0106: The modifier 'readonly' is not valid for this item`).
-- A `readonly` accepts both value types and reference types. It is possible to modify the properties of an object that is in a `readonly` field, but we cannot replace the object with another.
+- As a variable modifier, `readonly` only applies to fields. A `readonly` local variable does not compile: `error CS0106: The modifier 'readonly' is not valid for this item`.
+- A `readonly` field accepts any type, value or reference. With a reference type, `readonly` protects the reference, not the object: we can still change the object's properties, but we cannot replace it with another object.
 
+## The difference that matters
+A `const` is a compile-time constant: the compiler copies its value into every assembly that uses it. A `readonly` field is read at runtime.
 
-## Significant difference
-
-A `const` is a compile time constant that is copied into every assembly that uses it, as opposed to a `readonly` which is a value at runtime. 
-
-Let's take an example to understand this better.
-
-Below we have a `Colour` class present in the Core DLL (a class library project) which is referenced by several applications.
+Let's see what this means in practice. A class library, `Core`, holds a `Colour` class with a `const` and a `static readonly` field of the same value:
 
 ```csharp
 namespace Core;
 
-public class Colour
+public static class Colour
 {
     public const string ConstRed = "#FF0000";
     public static readonly string ReadOnlyRed = "#FF0000";
 }
 ```
 
-As we can see, the `Colour` class has a `const` and a `readonly` with the same value. 
-
-Now let's look at the code of an application (`SampleConstVsReadonly`, a console project with a reference to Core) that uses the Core DLL. With top-level statements, its whole `Program.cs` is:
+A console application, `SampleConstVsReadonly` (in the `App` folder, with a project reference to `Core`), prints both values. With [top-level statements](https://learn.microsoft.com/dotnet/csharp/fundamentals/program-structure/top-level-statements), its whole `Program.cs` is:
 
 ```csharp
 using Core;
@@ -116,35 +103,18 @@ Console.WriteLine($"Const value: {Colour.ConstRed}.");
 Console.WriteLine($"Readonly value: {Colour.ReadOnlyRed}.");
 ```
 
-Once the application is compiled and run, we get the following result:
+Running it prints:
 
 ```bash:clipboard=false
 Const value: #FF0000.
 Readonly value: #FF0000.
 ```
 
-Unfortunately, we are not satisfied with the red colour... As a result, we decide to modify the code of the `Colour` class which is in the DLL.
-
-```csharp
-namespace Core;
-
-public class Colour
-{
-    public const string ConstRed = "#EF4444";
-    public static readonly string ReadOnlyRed = "#EF4444";
-}
-```
-
-Now we compile the updated DLL. Since we haven't changed anything in the application, we simply replace the old DLL with the newer one without recompiling the application:
+Now we change the red to `#EF4444` in both fields of `Core`. Since the application's code has not changed, we rebuild only `Core` and replace its DLL next to the application, without recompiling the application:
 
 ```bash
 dotnet build Core
 cp Core/bin/Debug/net10.0/Core.dll App/bin/Debug/net10.0/Core.dll
-```
-
-Next we restart the application to see the result:
-
-```bash
 dotnet App/bin/Debug/net10.0/SampleConstVsReadonly.dll
 ```
 
@@ -153,23 +123,23 @@ Const value: #FF0000.
 Readonly value: #EF4444.
 ```
 
-And as we can see, only the readonly is updated.
+Only the `readonly` value is updated. When the application was compiled, the compiler replaced `Colour.ConstRed` with `"#FF0000"` in the application's own DLL, so it never asks `Core` for it. The `readonly` field, on the other hand, is read from `Core` every time the application runs.
 
-The reason for this is that when the application is compiled, the compiler replaces the `const` with its value: `"#FF0000"` is written into the application's own DLL, and Core is not even asked for it.
-However, the behaviour is different for `readonly` because the value is read from Core at runtime, so every time we run the application.
+Recompiling the application (`dotnet build App`) fixes it: both lines then show `#EF4444`.
 
-To solve the `const` problem, simply recompile the application with the new DLL (`dotnet build App`), and both lines show `#EF4444`.
-
-That's why a public `const` should only hold values that will truly never change (like `Math.PI`). For a value that may change in a future version of a library, a `static readonly` field is the safer choice.
+This is why the [.NET design guidelines](https://learn.microsoft.com/dotnet/standard/design-guidelines/field) reserve constant fields for values that will never change, such as `Math.PI`. For a public value that may change in a future version of a library, use a `static readonly` field.
 
 ## Conclusion
-The keywords `const` and `readonly` have some things in common but also some differences that can have an impact on our projects.
-The `const` is a compile-time value and the `readonly` a runtime one.
+`const` and `readonly` both prevent a value from changing, but a `const` is resolved at compile time and a `readonly` field at runtime. When a public `const` changes in a library, every project that references it must be recompiled to see the new value.
 
-If we want to update a constant that is in a DLL, 
-we need to recompile all projects that reference that DLL to get the new value of the constant.
+If you have questions about `const` and `readonly`, I will be happy to discuss them in the comments.
 
-I hope I have helped you demystify the differences between `const` and `readonly`.
-If not, I will be happy to exchange with you in comments! 👍
+## References
+- [const keyword](https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/const) — C# reference: the types a constant accepts and local constants.
+- [readonly keyword](https://learn.microsoft.com/dotnet/csharp/language-reference/keywords/readonly) — C# reference: where a `readonly` field can be assigned, and how it differs from `const`.
+- [Constants (C# programming guide)](https://learn.microsoft.com/dotnet/csharp/programming-guide/classes-and-structs/constants) — why a program keeps the old value of a constant until it is recompiled.
+- [Field design guidelines](https://learn.microsoft.com/dotnet/standard/design-guidelines/field) — when to use constant fields and when to use `static readonly` fields.
+- [String interpolation](https://learn.microsoft.com/dotnet/csharp/language-reference/tokens/interpolated) — constant interpolated strings (C# 10).
+- [Top-level statements](https://learn.microsoft.com/dotnet/csharp/fundamentals/program-structure/top-level-statements) — the `Program.cs` style used in the sample.
 
 *Thanks for reading! 🙂*
