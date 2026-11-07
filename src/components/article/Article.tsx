@@ -16,6 +16,7 @@ export interface ArticleProps {
     title: string;
     content: string | JSX.Element | JSX.Element[];
     date?: string;
+    updated?: string;
     description?: string;
     category?: string;
     topic?: string;
@@ -79,7 +80,7 @@ export const Article = (props: ArticleProps) => {
                         </p>
                     )}
                     {props.author && props.date && (
-                        <ArticleInformation author={props.author} authorimage={props.authorimage} date={props.date} readingTime={props.readingTime ?? ''} link={props.link} />
+                        <ArticleInformation author={props.author} authorimage={props.authorimage} date={props.date} updated={props.updated} readingTime={props.readingTime ?? ''} link={props.link} />
                     )}
                 </header>
 

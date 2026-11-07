@@ -37,6 +37,7 @@ const BlogPost = ({ data, pageContext }: PageProps<BlogPostPageQuery, { relatedT
         author={post.frontmatter.author}
         authorimage={post.frontmatter.authorimage}
         date={post.frontmatter.date}
+        updated={post.frontmatter.updated}
         imageCreator={post.frontmatter.featuredauthor}
         imageLink={post.frontmatter.featuredlink}
         image={post.frontmatter.featuredimage}
@@ -70,6 +71,7 @@ export const Head = ({ data, location }: HeadProps<BlogPostPageQuery>) => {
     headline: frontmatter.title,
     description: frontmatter.description,
     datePublished: frontmatter.isoDate,
+    dateModified: frontmatter.isoUpdated ?? frontmatter.isoDate,
     author: { "@type": "Person", name: author.name, url: `${siteUrl}/about/` },
     image: image ? `${siteUrl}${image}` : undefined,
     url: `${siteUrl}${fields.slug}`,
@@ -80,6 +82,7 @@ export const Head = ({ data, location }: HeadProps<BlogPostPageQuery>) => {
   return (
     <Seo title={frontmatter.title} description={frontmatter.description} pathname={location.pathname} image={image} type="article">
       <meta property="article:published_time" content={frontmatter.isoDate} />
+      {frontmatter.isoUpdated && <meta property="article:modified_time" content={frontmatter.isoUpdated} />}
       {frontmatter.tags?.map((tag) => <meta key={tag} property="article:tag" content={tag} />)}
       <script type="application/ld+json">{JSON.stringify(structuredData)}</script>
     </Seo>
@@ -109,6 +112,8 @@ export const pageQuery = graphql`
       frontmatter {
         date(formatString: "MMMM DD, YYYY")
         isoDate: date
+        updated(formatString: "MMMM DD, YYYY")
+        isoUpdated: updated
         title
         description
         category

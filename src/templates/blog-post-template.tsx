@@ -18,6 +18,7 @@ export const BlogPostTemplate = (props: BlogPostTemplateProps) => {
     <Article 
       title={props.title} 
       date={props.date} 
+      updated={props.updated}
       description={props.description} 
       category={props.category}
       topic={props.topic}
