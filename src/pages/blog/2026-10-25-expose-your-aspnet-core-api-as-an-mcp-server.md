@@ -5,6 +5,8 @@ date: 2026-10-25T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Architecture'
+illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/expose-your-aspnet-core-api-as-an-mcp-server.jpg

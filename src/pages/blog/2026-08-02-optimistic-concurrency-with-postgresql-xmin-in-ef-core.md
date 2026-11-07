@@ -5,6 +5,8 @@ date: 2026-08-02T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Data'
+illustration: 3
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/optimistic-concurrency-with-postgresql-xmin-in-ef-core.jpg

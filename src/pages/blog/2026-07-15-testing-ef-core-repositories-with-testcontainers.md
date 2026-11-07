@@ -5,6 +5,8 @@ date: 2026-07-15T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Testing'
+illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/testing-ef-core-repositories-with-testcontainers.jpg

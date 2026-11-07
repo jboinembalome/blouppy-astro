@@ -44,7 +44,7 @@ export default function Search({ indices, openModal, modalClosed }: SearchProps)
                                 leaveFrom="opacity-100"
                                 leaveTo="opacity-0"
                             >
-                                <Dialog.Overlay className="fixed inset-0 bg-gray-500 bg-opacity-25 transition-opacity" />
+                                <Dialog.Overlay className="fixed inset-0 transition-opacity" style={{ backgroundColor: "color-mix(in srgb, var(--blouppy-surface-950) 45%, transparent)" }} />
                             </Transition.Child>
 
                             <Transition.Child
@@ -56,9 +56,9 @@ export default function Search({ indices, openModal, modalClosed }: SearchProps)
                                 leaveFrom="opacity-100 scale-100"
                                 leaveTo="opacity-0 scale-95"
                             >
-                                <div className="mx-auto max-w-xl transform divide-y divide-gray-100 overflow-hidden rounded-xl shadow-2xl transition-all">
-                                    <CustomSearchBox className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 relative" />
-                                    <SearchResult className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 p-4 max-h-72 scroll-py-2 overflow-y-auto py-2 text-sm"
+                                <div className="mx-auto max-w-xl transform divide-y divide-line overflow-hidden rounded-xl border border-line shadow-lg transition-all">
+                                    <CustomSearchBox className="bg-card text-heading relative" />
+                                    <SearchResult className="bg-card text-heading p-4 max-h-72 scroll-py-2 overflow-y-auto py-2 text-sm"
                                         indices={indices} query={query}
                                     />
 

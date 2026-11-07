@@ -5,6 +5,8 @@ date: 2026-08-26T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Security'
+illustration: 3
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/strict-content-security-policy-for-an-angular-spa.jpg

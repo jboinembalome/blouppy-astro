@@ -1,26 +1,25 @@
 ---
 templateKey: 'about-page'
 title: About
-description: About Jimmy Boinembalome
+description: About Jimmy Boinembalome, software engineer and author of Blouppy.
 aboutimage: /img/jimmy2.jpg
 ---
-## Beginning of Programmation
-I started programming when I was working at ETAI as an apprentice. With only a few purely theoretical principles, I asked myself how a developer could create software. And it was here that I created my first... "Hello World!". For an experienced developer, a simple "Hello World!" is not a revolutionary thing.
-However, as a beginner, I found it incredible! 
+I'm Jimmy, a software engineer from France. Blouppy is where I write about software engineering: the patterns I rely on, the trade-offs behind them and the traps I'd rather you didn't fall into.
 
-It was with this simple application that I discovered my passion and went on to higher education while developing with pleasure in my free time.
+## How I started
+I started programming as an apprentice at ETAI. With only a few theoretical principles, I wondered how a developer could actually create software, and that is where I wrote my first "Hello World!". For an experienced developer, it is nothing revolutionary. As a beginner, I found it incredible!
 
-## Tool Used
-Here is the list of tools I usually use:
-- Visual Studio 2022
+That small program is where I found my passion. I went on to higher education, and kept building things in my free time.
+
+## Tools I use
+- JetBrains Rider
 - Visual Studio Code
-- Git Bash (Also Git in VS 2022 and VS Code)
+- Fork
 - Postman
-- Docker Desktop (Sometimes)
+- Docker Desktop
 
 ## Hardware
-I am working on a Dell XPS 15 (9510) Core i7 11th generation with 1TB and 32GB of RAM.
-In addition, this laptop is connected to two Dell UltraSharp 27 (U2719D) monitors.
+I work on a Dell XPS 15 (9510) with an 11th generation Core i7, 1 TB of storage and 32 GB of RAM, connected to two Dell UltraSharp 27 (U2719D) monitors.
 
-## Thank You
-In conclusion, thank you simply for taking the time to read about me.
+## Get in touch
+Questions about an article, an idea for the next one, or something you're building? [Send me a message](/contact/), or find me on [LinkedIn](https://fr.linkedin.com/in/jimmy-boinembalome-87281a189) and [GitHub](https://github.com/jboinembalome).

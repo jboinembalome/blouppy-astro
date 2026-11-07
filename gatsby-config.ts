@@ -18,7 +18,7 @@ const config: GatsbyConfig = {
       name: `Jimmy Boinembalome`,
       summary: `👋 Hi, I am @jboinembalome. I am design and development engineer from France with a passion for application development.`,
     },
-    description: `The personal website of Jimmy Boinembalome.`,
+    description: `Practical software engineering articles, written from the code of a real SaaS.`,
     siteUrl: siteUrl,
     canonicalUrl: siteUrl,
     social: {
@@ -133,6 +133,15 @@ const config: GatsbyConfig = {
             resolve: 'gatsby-remark-copy-linked-files',
             options: {
               destinationDir: 'static',
+            },
+          },
+          {
+            // Anchors on h2/h3, which the article's table of contents links to.
+            resolve: 'gatsby-remark-autolink-headers',
+            options: {
+              elements: ['h2', 'h3'],
+              isIconAfterHeader: true,
+              className: 'anchor',
             },
           },
           {

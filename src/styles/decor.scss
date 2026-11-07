@@ -1,0 +1,160 @@
+// The flamingo decoration (the Starter's flamingo.css, positioned for this
+// site): the home page's hero, and a lighter band at the top of the secondary
+// pages. Articles carry none. Shapes stay in the margins and fade out before
+// the content, so nothing sits behind text.
+
+// --- Home hero -------------------------------------------------------------
+
+.home-hero {
+  --column: 72rem;
+  margin-top: calc(-1 * var(--nav-height));
+  padding-top: var(--nav-height);
+}
+
+.home-hero-shapes {
+  -webkit-mask-image: linear-gradient(#000 70%, transparent);
+  mask-image: linear-gradient(#000 70%, transparent);
+}
+
+.home-hero-left {
+  width: 16rem;
+  height: 16rem;
+  top: -9rem;
+  left: -8rem;
+  background: var(--blouppy-flamingo-peach);
+  --drift-duration: 17s;
+}
+
+.home-hero-right {
+  width: 16rem;
+  height: 16rem;
+  top: -6rem;
+  right: -8rem;
+  background: var(--blouppy-flamingo-pink);
+  --drift-duration: 21s;
+  --drift-delay: -6s;
+  --drift-x: -14px;
+  --drift-y: 14px;
+}
+
+.home-hero-bottom,
+.home-hero-dot,
+.home-hero-ring {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .home-hero-left {
+    width: 22rem;
+    height: 22rem;
+    top: -7rem;
+    left: -11rem;
+  }
+
+  .home-hero-right {
+    width: 18rem;
+    height: 18rem;
+    top: 2rem;
+    right: -9rem;
+  }
+
+  .home-hero-bottom {
+    display: block;
+    width: 20rem;
+    height: 20rem;
+    bottom: -8rem;
+    left: 38%;
+    background: var(--blouppy-flamingo-blue);
+    --drift-duration: 19s;
+    --drift-delay: -11s;
+    --drift-x: -14px;
+  }
+
+  .home-hero-dot {
+    display: block;
+    width: 0.875rem;
+    height: 0.875rem;
+    top: 30%;
+    left: 47%;
+    border-radius: 9999px;
+    background: var(--blouppy-flamingo-pink);
+    --drift-duration: 16s;
+    --drift-delay: -3s;
+  }
+
+  .home-hero-ring {
+    display: block;
+    width: 1.75rem;
+    height: 1.75rem;
+    top: 18%;
+    left: 41%;
+    border: 3px solid var(--blouppy-flamingo-lilac);
+    border-radius: 9999px;
+    --drift-duration: 20s;
+    --drift-delay: -9s;
+    --drift-y: 14px;
+  }
+}
+
+// --- Secondary pages: the light band ----------------------------------------
+
+.page-band {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 24rem;
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  background: radial-gradient(ellipse 60% 70% at 50% 0%, var(--blouppy-flamingo-glow), transparent);
+  -webkit-mask-image: linear-gradient(#000 60%, transparent);
+  mask-image: linear-gradient(#000 60%, transparent);
+}
+
+.page-band-left {
+  width: 20rem;
+  height: 20rem;
+  top: -9rem;
+  left: -9rem;
+  background: var(--blouppy-flamingo-peach);
+  --drift-duration: 18s;
+}
+
+.page-band-right {
+  width: 16rem;
+  height: 16rem;
+  top: -6rem;
+  right: -7rem;
+  background: var(--blouppy-flamingo-pink);
+  --drift-duration: 21s;
+  --drift-delay: -7s;
+  --drift-x: -14px;
+}
+
+.page-band-ring {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .page-band-ring {
+    display: block;
+    width: 1.5rem;
+    height: 1.5rem;
+    top: 5rem;
+    right: 12%;
+    border: 3px solid var(--blouppy-flamingo-lilac);
+    border-radius: 9999px;
+    --drift-duration: 20s;
+    --drift-delay: -4s;
+  }
+}
+
+// --- The donation widget ------------------------------------------------------
+// The Buy me a coffee button floats over the text on a phone, where the column
+// is too narrow to spare its corner: it shows from sm up only.
+
+@media (max-width: 39.99rem) {
+  #bmc-wbtn,
+  #bmc-iframe {
+    display: none !important;
+  }
+}

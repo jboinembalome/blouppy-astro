@@ -4,7 +4,6 @@ import _ from "lodash";
 import { createFilePath } from "gatsby-source-filesystem";
 
 const { fmImagesToRelative } = require("gatsby-remark-relative-images");
-const { paginate } = require("gatsby-awesome-pagination");
 
 export const createPages: GatsbyNode["createPages"] = async ({
   actions,
@@ -52,7 +51,8 @@ export const createPages: GatsbyNode["createPages"] = async ({
 
   posts?.forEach((edge) => {
     const id = edge.node.id;
-    if (edge.node.fields.slug)
+    // Only Markdown that names a template is a page (not, say, a README).
+    if (edge.node.fields.slug && edge.node.frontmatter.templateKey)
       createPage({
         path: edge.node.fields.slug,
         component: resolve(
@@ -61,23 +61,13 @@ export const createPages: GatsbyNode["createPages"] = async ({
         // additional data can be passed via context
         context: {
           id,
+          // An article's related posts are those sharing a tag with it.
+          // "Development" is on every post, so it relates nothing.
+          relatedTags: (edge.node.frontmatter.tags ?? []).filter(
+            (tag: string) => tag !== "Development"
+          ),
         },
       });
-  });
-
-  // Blog list pages with pagination
-  const pathPrefix = ({ pageNumber, numberOfPages }: any) =>
-    pageNumber === 0 ? "/blog" : "/blog/page";
-  const blogPosts = posts?.filter(
-    (edge) => edge.node.frontmatter.templateKey == "blog-post"
-  );
-
-  paginate({
-    createPage, // The Gatsby `createPage` function
-    items: blogPosts, // An array of objects to paginate
-    itemsPerPage: 5, // How many items you want per page
-    pathPrefix: pathPrefix, // Creates pages like `/blog`, `/blog/page/2`, etc
-    component: resolve("src/templates/blogs-template.tsx"),
   });
 
   // Tag pages:
@@ -122,4 +112,17 @@ export const onCreateNode: GatsbyNode["onCreateNode"] = ({
       value,
     });
   }
+};
+
+// Declared rather than inferred: a post may credit its cover photo, but none
+// has to, and an inferred field disappears from the schema when no file has it.
+export const createSchemaCustomization: GatsbyNode["createSchemaCustomization"] = ({ actions }) => {
+  actions.createTypes(`
+    type MarkdownRemarkFrontmatter {
+      topic: String
+      illustration: Int
+      featuredauthor: String
+      featuredlink: String
+    }
+  `);
 };

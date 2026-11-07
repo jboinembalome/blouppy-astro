@@ -5,6 +5,8 @@ date: 2026-06-27T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Front end'
+illustration: 1
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/runtime-theming-with-css-tokens-and-tailwind-4.jpg

@@ -5,6 +5,8 @@ date: 2026-06-21T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Architecture'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/separating-reads-and-writes-without-mediatr.jpg

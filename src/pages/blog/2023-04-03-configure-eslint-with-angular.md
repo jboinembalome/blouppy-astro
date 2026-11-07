@@ -5,10 +5,10 @@ date: 2023-04-03T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Tooling'
+illustration: 2
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Dominik Schröder
-featuredlink: https://unsplash.com/ko/@wirhabenzeit?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/configure-eslint-with-angular.jpg
 description: Quick steps to install EsLint in an Angular project.
 tags:

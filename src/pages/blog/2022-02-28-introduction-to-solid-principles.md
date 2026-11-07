@@ -4,11 +4,11 @@ title: 'Introduction to S.O.L.I.D principles'
 date: 2022-02-28T18:04:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
-category: Best Pratices
+category: Best Practices
+topic: 'Architecture'
+illustration: 1
 categorycolor: bg-green-100 text-green-800
 featuredpost: true
-featuredauthor: Adrian Infernus
-featuredlink: https://unsplash.com/@adrian_infernus
 featuredimage: /img/introduction_to_solid_principles.jpg
 description: >-
   Let's discover the principles of object-oriented programming to produce a better code with some examples in C#.

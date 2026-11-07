@@ -10,17 +10,17 @@ export interface ArticleImageCaptionProps {
 export const ArticleImageCaption = ({ imageLink, imageCreator, source }: ArticleImageCaptionProps) => {
 
   return (
-    <figcaption className="flex text-sm text-gray-500 dark:text-gray-400">
-      <CameraIcon className="flex-none w-5 h-5 text-gray-400" aria-hidden="true" />
+    <figcaption className="flex items-center text-sm text-muted">
+      <CameraIcon className="h-4 w-4 flex-none text-faint" aria-hidden="true" />
       <span className="ml-2">
         Photo by{" "}
-        <a href={imageLink} target="_blank" className="underline hover:text-gray-600 dark:hover:text-gray-500">
+        <a href={imageLink} target="_blank" rel="noopener noreferrer" className="underline hover:text-heading">
           {imageCreator}
         </a>{" "}
         {source && (
           <>
             on{" "}
-            <a href={source} target="_blank" className="underline hover:text-gray-600 dark:hover:text-gray-500">
+            <a href={source} target="_blank" rel="noopener noreferrer" className="underline hover:text-heading">
               Unsplash
             </a>
           </>

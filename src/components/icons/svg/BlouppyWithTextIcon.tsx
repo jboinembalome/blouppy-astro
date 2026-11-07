@@ -1,6 +1,11 @@
 import React from "react";
 
-export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
+// The gradients are referenced by id, and the navbar hides one copy of the
+// logo with display:none while another shows: every copy needs its own ids, or
+// the visible one points at the hidden one's gradients and renders blank.
+export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => {
+  const uid = React.useId().replace(/:/g, "");
+  return (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     viewBox="96.858 168.766 327.592 114.91"
@@ -8,7 +13,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
   >
     <g transform="translate(153.64 226.22)">
       <linearGradient
-        id="SVGID_7"
+        id={`${uid}SVGID_7`}
         x1="46.533"
         x2="160.082"
         y1="84.171"
@@ -19,7 +24,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <stop offset="1" stopColor="#FFB1BB"></stop>
       </linearGradient>
       <path
-        fill="url(#SVGID_7)"
+        fill={`url(#${uid}SVGID_7)`}
         d="M153.7 114.1c-2.5 4.4-5.9 8.6-10 12.4-9.2 8.5-21.1 13.5-33.5 14.8-24.8 2.6-48.2-9.8-44.5-40.2 1.2-9.7 5-18.9 10.7-26.9 1.8-2.6 4-5.2 6.4-7.2.8-.7 2-.7 2.8 0 .5.4.8 1 .8 1.6 0 .3-.1.6-.2 1-14.4 29.3-4.5 51.4 11.5 56.8 16.2 5.4 46-8.6 45.6-32.7.2-7.3-5.9-13.8-13.9-14.9-6.9-.9-15.3 2.1-22.2 12.1-5.4-7.6-3.8-18.7.1-25.7 2.2-4 4.6-7.6 5.9-11 1.4-3.7 1.4-7.1-1.6-10.3-5-5.3-23.4-7.4-42.1 10.3-6.2 5.8-11.1 12.7-14.8 20.3-7.8 16.2-5.8 26.1-5.6 27-10.7-35.6 13.3-67.7 44.6-73.8h.1c4.8-.9 9.8-1.2 14.8-.8 5 .4 9.8 1.8 14 4.4C142.7 43.6 126 65 126 65c30.3-7.5 42.7 23.5 27.7 49.1z"
         transform="translate(-103.29 -84.18)"
         vectorEffect="non-scaling-stroke"
@@ -27,7 +32,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </g>
     <g transform="translate(132.25 206.46)">
       <linearGradient
-        id="SVGID_8"
+        id={`${uid}SVGID_8`}
         x1="46.532"
         x2="117.315"
         y1="64.426"
@@ -38,7 +43,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <stop offset="1" stopColor="#AFC1EE"></stop>
       </linearGradient>
       <path
-        fill="url(#SVGID_8)"
+        fill={`url(#${uid}SVGID_8)`}
         d="M113.1 54.2c1.4-3.7 1.4-7.1-1.6-10.3-5-5.3-23.4-7.4-42.1 10.3-6.1 5.8-11 12.7-14.7 20.3-8 16.6-5.7 26.6-5.6 27.1-10.7-35.7 13.2-67.8 44.6-73.9h.2c21.2-3 29 8.9 19.2 26.5z"
         transform="translate(-81.9 -64.42)"
         vectorEffect="non-scaling-stroke"
@@ -46,7 +51,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </g>
     <g transform="translate(160.69 246.09)">
       <linearGradient
-        id="SVGID_9"
+        id={`${uid}SVGID_9`}
         x1="65.304"
         x2="155.338"
         y1="104.057"
@@ -57,7 +62,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <stop offset="1" stopColor="#EFC2EB"></stop>
       </linearGradient>
       <path
-        fill="url(#SVGID_9)"
+        fill={`url(#${uid}SVGID_9)`}
         d="M153.8 114.1c-.1 0-.1 0 0 0-2.6 4.4-5.9 8.6-10.1 12.4-9.2 8.5-21.1 13.5-33.5 14.8-24.8 2.6-48.2-9.8-44.5-40.2 1.2-9.7 5-18.9 10.7-26.9 1.8-2.6 4-5.2 6.4-7.2.8-.7 2-.7 2.8 0 .5.4.8 1 .8 1.6 0 .3-.1.6-.2 1-14.4 29.3-4.5 51.4 11.5 56.8 16.2 5.4 46-8.6 45.6-32.7.2-7.3-5.9-13.8-13.9-14.9 14.5-.8 31.2 16.6 24.4 35.3z"
         transform="translate(-110.34 -104.06)"
         vectorEffect="non-scaling-stroke"
@@ -65,7 +70,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </g>
     <g transform="translate(137.65 205.99)">
       <linearGradient
-        id="SVGID_10"
+        id={`${uid}SVGID_10`}
         x1="84.312"
         x2="90.188"
         y1="63.867"
@@ -76,7 +81,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <stop offset="1" stopColor="#AFC1EE"></stop>
       </linearGradient>
       <path
-        fill="url(#SVGID_10)"
+        fill={`url(#${uid}SVGID_10)`}
         d="M90.2 65.4l-.8.7c-.4.3-.9.4-1.3.2-.6-.2-1.2-.6-1.7-.9-.1-.1-.1-.1-.2-.1s-.1-.1-.2-.1c-.2-.2-.4-.3-.6-.5-.2-.3-.5-.5-.7-.8l-.1-.1c-.1-.2-.2-.4-.2-.7 0-.2 0-.4.1-.6l.3-.6.1-.2v-.2l1.7 1.3.1.1.3.2.5.4 1 .7 1.3 1 .1.1.3.1z"
         transform="translate(-87.3 -63.95)"
         vectorEffect="non-scaling-stroke"
@@ -142,7 +147,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
     ></path>
     <g transform="translate(143.8 197.04)">
       <linearGradient
-        id="SVGID_11"
+        id={`${uid}SVGID_11`}
         x1="84.719"
         x2="102.108"
         y1="54.862"
@@ -153,7 +158,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <stop offset="1" stopColor="#FFB1BB"></stop>
       </linearGradient>
       <path
-        fill="url(#SVGID_11)"
+        fill={`url(#${uid}SVGID_11)`}
         d="M101.4 52.2c-.5 1.6-1.3 3.4-2.5 5.3-2.1 3.2-4.3 5.1-6.1 6.2-1.1.7-2.1 1.1-2.6 1.3-.1 0-.2.1-.3.1-.2.1-.3.1-.3.1-.2-.1-.4-.1-.6-.2h-.1c-.3-.1-.6-.2-.8-.4-.1 0-.1-.1-.2-.1-.3-.2-.6-.3-.9-.5-.1-.1-.3-.2-.4-.3-.1-.1-.2-.1-.3-.2-.1 0-.1-.1-.1-.1-.1-.1-.2-.1-.3-.2-.3-.3-.6-.6-.8-.9-.1-.1-.2-.3-.3-.5l-.1-.1.1-.2V61.2l.1.1c.5.5 1.1.8 1.8 1.1.1 0 .1.1.2.1.1.1.2.1.4.1.2.1.5.1.7.2.4.1.8.1 1.2.1 1 0 2-.4 2.9-.9 1.6-1.1 3.7-2.8 5.6-5.6-1.2 1-3 1.1-4.3.1-.9-.7-1.4-1.7-1.4-2.8 0-.7.3-1.5.7-2.1l.1-.1s0-.1.1-.1c.2-.2.3-.4.5-.5.2-.1.4-.3.6-.4.1 0 .1 0 .1-.1.1 0 .1-.1.2-.1h.5c.1 0 .3-.1.5-.1h.3c.7 0 1.4.1 2.1.5.1.1.2.1.2.2 1.1.9 1.6 2.3 1.3 3.6.6-1.1 1.1-2.2 1.5-3.2.8-2.5.9-4.6.8-6.1v-.4h.6v.1c0 .1.1.2.1.3-.1 1.1.2 3.7-.8 7z"
         opacity="0.44"
         transform="translate(-93.45 -55)"
@@ -208,7 +213,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
     ></path>
     <g transform="translate(145.65 195.14)">
       <linearGradient
-        id="SVGID_12"
+        id={`${uid}SVGID_12`}
         x1="93.287"
         x2="97.226"
         y1="53.132"
@@ -220,7 +225,7 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <stop offset="1" stopColor="#AFC1EE"></stop>
       </linearGradient>
       <path
-        fill="url(#SVGID_12)"
+        fill={`url(#${uid}SVGID_12)`}
         d="M0 2a2 2 0 114 0 2 2 0 01-4 0z"
         transform="translate(-2 -2)"
         vectorEffect="non-scaling-stroke"
@@ -323,4 +328,5 @@ export const BlouppyWithTextIcon = (props: React.SVGProps<SVGSVGElement>) => (
       vectorEffect="non-scaling-stroke"
     ></path>
   </svg>
-);
+  );
+};

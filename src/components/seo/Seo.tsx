@@ -25,7 +25,7 @@ export const Seo = ({ description, title, url, children }: SeoProps) => {
   return (
     <Helmet title={title && siteName ? `${title} | ${siteName}` : siteName}>
       <meta name="description" content={metaDescription} />
-      <meta property="og:title" content={title} />
+      <meta property="og:title" content={title || siteName} />
       <meta property="og:description" content={metaDescription} />
       <meta property="og:locale" content="en_US" />
       <meta property="og:type" content="website" />
@@ -33,9 +33,9 @@ export const Seo = ({ description, title, url, children }: SeoProps) => {
       <meta property="og:site_name" content={siteName} />
       <meta name="twitter:creator" content={siteMetadata?.social?.twitter || ``} />
       <meta name="twitter:url" content={siteMetadata?.social?.twitterUrl || ``} />
-      <meta name="twitter:card" content="summary" />
-      <meta name="twitter:title" content={siteMetadata?.author?.name || ``} />
-      <meta name="twitter:description" content={siteMetadata?.author?.summary || ``} />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content={title || siteName || ``} />
+      <meta name="twitter:description" content={metaDescription} />
       <meta name="linkedin:url" content={siteMetadata?.social?.linkedinUrl || ``} />
       <meta name="github:url" content={siteMetadata?.social?.githubUrl || ``} />
       <meta name="theme-color" content="#fff" />

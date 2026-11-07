@@ -12,14 +12,14 @@ import { AlgoliaIcon } from "../icons/svg/library/Icons"
 const HitCount = connectStateResults(({ searchResults }) => {
     const hitCount = searchResults && searchResults.nbHits
     return hitCount > 0 ? (
-        <div className="flex justify-end text-gray-900 dark:text-gray-100">
+        <div className="flex justify-end text-heading">
             {hitCount} result{hitCount !== 1 ? `s` : ``}
         </div>
     ) : <>
-        <div className="flex justify-end text-gray-900 dark:text-gray-100">
+        <div className="flex justify-end text-heading">
             0 result
         </div>
-        <p className="flex justify-start p-4 text-sm text-gray-900 dark:text-gray-100">No article found.</p>
+        <p className="flex justify-start p-4 text-sm text-heading">No article found.</p>
     </>
 })
 
@@ -55,7 +55,7 @@ const HitsInIndex = ({ index }: any) => {
 
 const PoweredBy = () => (
     <div className="ais-PoweredBy">
-        <span className="text-gray-900 dark:text-gray-100 text-md mr-2">Search by</span>
+        <span className="text-heading text-md mr-2">Search by</span>
         <a href="https://algolia.com" className="ais-PoweredBy-link w-auto" aria-label="Algolia">
             <AlgoliaIcon />
         </a>

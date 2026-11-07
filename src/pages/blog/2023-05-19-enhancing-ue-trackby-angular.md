@@ -5,10 +5,10 @@ date: 2023-05-19T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Front end'
+illustration: 2
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Alev Takil
-featuredlink: https://unsplash.com/@alevisionco?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/enhancing-ue-trackby-angular.jpg
 description: Tips to avoid excessive DOM re-rendering.
 tags:

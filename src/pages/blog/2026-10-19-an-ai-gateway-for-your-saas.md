@@ -5,6 +5,8 @@ date: 2026-10-19T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Architecture'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/an-ai-gateway-for-your-saas.jpg

@@ -5,6 +5,8 @@ date: 2026-08-20T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Messaging'
+illustration: 3
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/idempotent-message-handlers-with-deterministic-ids.jpg

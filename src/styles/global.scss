@@ -1,62 +1,196 @@
+// Global styles. Colours, radii and shadows follow the Blouppy Starter's
+// DESIGN.md through the tokens in tokens.css: borders and a subtle blur rather
+// than heavy shadows, `rounded-lg` for surfaces, the indigo primary for the one
+// action that matters on a screen.
+
+body {
+  font-family: var(--blouppy-font-sans);
+  background: var(--blouppy-bg);
+  color: var(--blouppy-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 .changing-theme,
 .changing-theme * {
   transition: none !important;
 }
 
-.btn {
-  @apply inline-flex gap-x-2 items-center justify-center px-4 py-2 border border-transparent text-center font-medium rounded-md shadow-sm text-white dark:text-gray-900 bg-primary-500 hover:bg-primary-600 dark:bg-primary-300 hover:dark:bg-primary-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-400;
+:focus-visible {
+  outline: 2px solid var(--blouppy-focus-ring-color);
+  outline-offset: 2px;
 }
 
-.btn-white-sm {
-  @apply inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-center font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-400;
+// Component classes live in the components layer, so a utility on the same
+// element (`bg-white` on a `.btn`) still wins.
+@layer components {
+  // Buttons, as on the Starter's landing page.
+  .btn,
+  .btn-outline,
+  .btn-white-sm {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border px-5 py-2.5 text-center text-[0.9375rem] font-semibold no-underline transition-colors duration-150;
+  }
+
+  .btn {
+    @apply border-transparent bg-fill text-fill-contrast shadow-sm hover:bg-fill-hover;
+  }
+
+  .btn-outline,
+  .btn-white-sm {
+    @apply border-line bg-transparent text-body hover:bg-soft;
+  }
+
+  .btn-sm {
+    @apply px-4 py-2 text-sm;
+  }
+
+  .btn-lg {
+    @apply px-7 py-3.5 text-base;
+  }
+
+  // A small uppercase label above a section title.
+  .section-kicker {
+    @apply mb-3 block text-[0.84375rem] font-bold uppercase tracking-widest text-accent;
+  }
+
+  // A tinted pill: categories, tech chips, the hero badge.
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-accent-border bg-accent-soft px-3 py-0.5 text-sm font-medium text-accent;
+  }
 }
 
-// override style for prismjs
+// ---------------------------------------------------------------------------
+// Articles
+// ---------------------------------------------------------------------------
 
-/* Additional styling from Gatsby -
+.article-body {
+  // Headings get an anchor from gatsby-remark-autolink-headers; leave room for
+  // the sticky navbar when one is followed.
+  h2,
+  h3,
+  h4 {
+    scroll-margin-top: calc(var(--nav-height) + 1.5rem);
+    font-weight: 600;
+  }
 
- * Remove the default PrismJS theme background-color, border-radius, margin, padding and overflow.
- * 1. Make the element just wide enough to fit its content.
- * 2. Always fill the visible space in .gatsby-highlight.
- * 3. Adjust the position of the line numbers
- */
+  h2 {
+    @apply mt-14 border-t border-line pt-10;
+  }
+
+  h3 {
+    @apply mt-10;
+  }
+
+  .anchor {
+    @apply opacity-0 transition-opacity;
+
+    svg {
+      fill: var(--blouppy-faint);
+    }
+  }
+
+  h2:hover .anchor,
+  h3:hover .anchor,
+  h4:hover .anchor,
+  .anchor:focus-visible {
+    @apply opacity-100;
+  }
+
+  a:not(.anchor) {
+    @apply font-medium underline decoration-accent-border underline-offset-2 hover:decoration-current;
+  }
+
+  // The "> **_Note:_**" asides of the posts read as a callout, not a quote.
+  blockquote {
+    @apply my-6 rounded-lg border border-l-4 border-accent-border bg-accent-soft px-5 py-4 font-normal not-italic;
+
+    p {
+      @apply my-0;
+    }
+
+    p::before,
+    p::after {
+      content: none;
+    }
+
+    em {
+      @apply not-italic;
+    }
+  }
+
+  // Inline code: a quiet chip, without the backticks the typography plugin adds.
+  // Prism's theme gives inline code `white-space: pre`; a long identifier must
+  // still wrap on a phone rather than widen the page.
+  :not(pre) > code {
+    @apply rounded-md border border-line bg-subtle px-1.5 py-0.5 text-[0.875em] font-medium;
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+    color: var(--blouppy-heading) !important;
+    text-shadow: none !important;
+    background: var(--blouppy-bg-subtle) !important;
+    border-radius: 0.375rem !important;
+    padding: 0.125rem 0.375rem !important;
+
+    &::before,
+    &::after {
+      content: none;
+    }
+  }
+
+  table {
+    @apply text-sm;
+  }
+
+  img {
+    @apply rounded-lg border border-line;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Code blocks (PrismJS via gatsby-remark-prismjs)
+// ---------------------------------------------------------------------------
 
 .gatsby-highlight {
-  @apply rounded-md rounded-tr-none mb-8;
+  @apply mb-8 overflow-hidden rounded-lg border border-line;
+  background: var(--code-bg);
 }
+
 .gatsby-highlight pre[class*="language-"] {
-  @apply bg-gray-900 dark:bg-gray-900 m-0 p-0 min-w-full rounded-md rounded-tr-none;
+  @apply m-0 min-w-full rounded-none p-0;
+  background: var(--code-bg);
 }
 
 .gatsby-highlight {
-  /* PrismJS Theme styles */
   pre[class*="language-"] {
-    @apply overflow-x-auto;
-    max-width: 88vw;
-    min-width: 300px;
+    @apply overflow-x-auto py-4 pr-4 text-sm leading-relaxed;
+    max-width: 100%;
   }
 }
 
 .gatsby-highlight pre[class*="language-"].line-numbers {
-  @apply pl-12 mt-0;
+  @apply mt-0 pl-12;
+}
+
+.gatsby-highlight pre[class*="language-"] .line-numbers-rows {
+  @apply border-r-0;
 }
 
 .gatsby-highlight-code-line {
-  @apply block pl-3 -ml-6 bg-primary-50/25 border-l-primary-400 dark:border-l-primary-300 border-solid border-l-4;
+  @apply -ml-6 block border-l-4 border-solid border-l-primary-400 bg-primary-500/10 pl-3;
 }
 
-// override style for gatsby-remark-code-buttons
+// The copy button of gatsby-remark-code-buttons sits on the frame's edge.
 .gatsby-code-button-container {
-  max-width: 88vw;
-  min-width: 300px;
-  @apply touch-none flex justify-end top-0 z-30 pointer-events-none;
+  @apply pointer-events-none top-0 z-30 flex touch-none justify-end;
+  max-width: 100%;
+  margin-bottom: -2.25rem;
 }
 
 .gatsby-code-button {
-  @apply flex gap-x-2 pl-1 border border-transparent text-sm font-medium rounded-md rounded-b-none shadow-sm text-white bg-primary-500 hover:bg-primary-600 dark:bg-primary-300 dark:hover:bg-primary-400;
+  @apply pointer-events-auto m-1.5 flex gap-x-2 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-slate-300 hover:bg-white/10;
 
   &:after {
-    @apply absolute whitespace-nowrap hidden rounded-md text-xs pl-1 text-white bg-gray-900 dark:bg-gray-700;
+    @apply absolute hidden whitespace-nowrap rounded-md bg-surface-900 px-1.5 py-0.5 text-xs text-white;
     content: attr(data-tooltip);
   }
 
@@ -67,169 +201,68 @@
     }
   }
 }
+
 .gatsby-code-button-icon {
   @apply w-4;
-  fill: white;
+  fill: currentColor;
 }
 
 .gatsby-code-button-toaster-text {
-  @apply w-auto rounded-md text-white bg-primary-500 dark:bg-primary-300;
+  @apply w-auto rounded-md bg-fill text-fill-contrast;
 }
 
-// unreset class is used to define a default style for pages with markdown
+// ---------------------------------------------------------------------------
+// The table of contents gatsby-transformer-remark builds for an article.
+// ---------------------------------------------------------------------------
+
+.toc {
+  ul {
+    @apply m-0 list-none p-0;
+  }
+
+  ul ul {
+    @apply ml-3 mt-1;
+  }
+
+  li {
+    @apply my-0;
+  }
+
+  a {
+    @apply block border-l border-line py-1 pl-3 text-sm leading-snug text-muted no-underline hover:border-faint hover:text-heading;
+  }
+
+  a.is-active {
+    @apply border-accent font-medium text-accent;
+  }
+
+  p {
+    @apply m-0;
+  }
+}
+
+// unreset is used to define a default style for pages with markdown (About).
 .unreset {
-  img:not(.not-unreset) {
-    @apply rounded-lg;
-  }
   a:not(.not-unreset) {
-    @apply text-blue-700 dark:text-blue-500 underline;
+    @apply text-accent underline;
   }
+
   p:not(.not-unreset) {
     @apply my-4;
   }
 
-  blockquote:not(.not-unreset),
-  figure:not(.not-unreset) {
-    @apply my-4 mx-10;
-  }
-
-  hr:not(.not-unreset) {
-    @apply border;
-  }
-
-  h1:not(.not-unreset) {
-    @apply text-2xl font-bold my-2 text-primary-500 dark:text-primary-300;
-  }
-
-  h2:not(.not-unreset) {
-    @apply text-xl dark:text-gray-100 font-bold my-4 border-b-2 border-primary-500 dark:border-primary-300;
-  }
-
+  h1:not(.not-unreset),
+  h2:not(.not-unreset),
   h3:not(.not-unreset) {
-    @apply text-lg font-bold text-primary-500 dark:text-primary-300 my-4;
+    @apply font-semibold text-heading;
   }
 
-  h4:not(.not-unreset) {
-    @apply text-base dark:text-gray-100 font-bold my-5;
-  }
-
-  h5:not(.not-unreset) {
-    @apply text-sm dark:text-gray-100 font-bold my-6;
-  }
-
-  h6:not(.not-unreset) {
-    @apply text-xs dark:text-gray-100 font-bold my-10;
-  }
-
-  article:not(.not-unreset),
-  aside:not(.not-unreset),
-  nav:not(.not-unreset),
-  section:not(.not-unreset) {
-    h1:not(.not-unreset) {
-      @apply text-2xl dark:text-gray-100 font-bold my-3;
-    }
-
-    article:not(.not-unreset),
-    aside:not(.not-unreset),
-    nav:not(.not-unreset),
-    section:not(.not-unreset) {
-      h1:not(.not-unreset) {
-        @apply text-lg dark:text-gray-100 font-bold my-4;
-      }
-
-      article:not(.not-unreset),
-      aside:not(.not-unreset),
-      nav:not(.not-unreset),
-      section:not(.not-unreset) {
-        h1:not(.not-unreset) {
-          @apply text-base dark:text-gray-100 font-bold my-5;
-        }
-
-        article:not(.not-unreset),
-        aside:not(.not-unreset),
-        nav:not(.not-unreset),
-        section:not(.not-unreset) {
-          h1:not(.not-unreset) {
-            @apply text-sm dark:text-gray-100 font-bold my-6;
-          }
-
-          article:not(.not-unreset),
-          aside:not(.not-unreset),
-          nav:not(.not-unreset),
-          section:not(.not-unreset) {
-            h1:not(.not-unreset) {
-              @apply text-xs dark:text-gray-100 font-bold my-10;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  ul:not(.not-unreset),
-  menu:not(.not-unreset) {
-    // should be my-4 for proper reset, but thats ugly af
-    @apply list-disc my-1 pl-10;
+  ul:not(.not-unreset) {
+    @apply my-1 list-disc pl-10;
   }
 
   ol:not(.not-unreset) {
-    @apply list-decimal my-4 pl-10;
-  }
-
-  ul:not(.not-unreset),
-  ol:not(.not-unreset) {
-    ul:not(.not-unreset) {
-      list-style-type: circle;
-    }
-
-    ul:not(.not-unreset),
-    ol:not(.not-unreset) {
-      ul:not(.not-unreset) {
-        list-style-type: square;
-      }
-    }
-  }
-
-  dd:not(.not-unreset) {
-    @apply pl-10;
-  }
-
-  dl:not(.not-unreset) {
-    @apply my-4;
-  }
-
-  ul:not(.not-unreset),
-  ol:not(.not-unreset),
-  menu:not(.not-unreset),
-  dl:not(.not-unreset) {
-    ul:not(.not-unreset),
-    ol:not(.not-unreset),
-    menu:not(.not-unreset),
-    dl:not(.not-unreset) {
-      margin: 0;
-    }
-  }
-
-  legend:not(.not-unreset) {
-    @apply py-0 px-1;
-  }
-
-  fieldset:not(.not-unreset) {
-    @apply my-0 mx-1 pt-0 px-1 pb-2;
-  }
-
-  b:not(.not-unreset),
-  strong:not(.not-unreset) {
-    font-weight: bold;
-  }
-
-  pre:not(.not-unreset) {
-    @apply my-4;
-  }
-
-  code::before:not(.not-unreset),
-  code::after:not(.not-unreset) {
-    @apply content-none;
+    @apply my-4 list-decimal pl-10;
   }
 }
 
@@ -239,8 +272,9 @@
 }
 
 .ais-PoweredBy-text {
-  @apply mr-2 dark:text-gray-100;
+  @apply mr-2 text-muted;
 }
+
 .ais-PoweredBy {
   @apply flex justify-end text-lg;
 

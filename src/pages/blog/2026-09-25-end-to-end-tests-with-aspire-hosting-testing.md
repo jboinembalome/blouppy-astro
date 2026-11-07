@@ -5,6 +5,8 @@ date: 2026-09-25T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Testing'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/end-to-end-tests-with-aspire-hosting-testing.jpg

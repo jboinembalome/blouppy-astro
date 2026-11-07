@@ -5,10 +5,10 @@ date: 2023-01-01T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Front end'
+illustration: 1
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Jackson Sophat
-featuredlink: https://unsplash.com/@jacksonsophat?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/install-angular-material-in-an-angular-project.jpg
 description: Quick steps to install Angular Material in an Angular project.
 tags:

@@ -5,10 +5,10 @@ date: 2023-06-03T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'C# & .NET'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
-featuredauthor: Scott Webb
-featuredlink: https://unsplash.com/@scottwebb?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/validating-requests-with-fluentvalidation.jpg
 description: >-
   Learn how to effectively integrate and utilize FluentValidation for request validation in ASP.NET Core Web API.

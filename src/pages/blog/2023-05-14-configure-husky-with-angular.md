@@ -5,10 +5,10 @@ date: 2023-05-14T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Tooling'
+illustration: 3
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Roman Synkevych
-featuredlink: https://unsplash.com/@synkevych?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/configure-husky-with-angular.jpg
 description: Quick steps to install Husky in an Angular project.
 tags:

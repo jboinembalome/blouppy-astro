@@ -1,86 +1,54 @@
 import React from "react";
-import { ThreeLastBlogs } from "../components/blog/ThreeLastBlogs";
-import PreviewCompatibleImage from "../components/preview-compatible-image/PreviewCompatibleImage";
-import { IGatsbyImageData } from "gatsby-plugin-image";
-import { SmoothTransition } from "../components/smooth-transition";
-import { ButtonInternalLink } from "../components/button";
+import { Link, withPrefix } from "gatsby";
+import { ArticleIndex } from "../components/article-index/ArticleIndex";
+import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
 
-interface WelcomeProps {
+interface IndexPageTemplateProps {
   title: string;
-  image: {
-    childImageSharp: {
-      gatsbyImageData: IGatsbyImageData;
-    };
-  };
   subheading: string;
+  articles: ArticleSummaryEdge[];
 }
 
-const Welcome = ({ image, title, subheading }: WelcomeProps) => {
-  const imageInfo = { image: image, alt: "" };
-
-  return (
-    <div className="flex flex-col self-center md:self-auto md:flex-row gap-4 md:justify-between">
-      <SmoothTransition className="flex flex-col gap-4 text-center md:text-start md:self-center">
-        <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 dark:text-gray-100 sm:text-5xl md:text-6xl">
-          {title}
-        </h1>
-        <h2 className="text-base text-primary-500 dark:text-primary-300 sm:text-lg sm:max-w-xl md:text-xl">
-          {subheading}
-        </h2>
-      </SmoothTransition>
-      <PreviewCompatibleImage
-        className="w-full max-w-md relative z-0"
-        imageInfo={imageInfo}
-        loading="eager"
+// The hero as the site always had it, text beside the illustration, with the
+// glow and shapes of the Starter's landing in its margins.
+const Hero = ({ title, subheading }: Pick<IndexPageTemplateProps, "title" | "subheading">) => (
+  <header className="home-hero flamingo-glow relative isolate overflow-hidden">
+    <div className="flamingo-shapes home-hero-shapes" aria-hidden="true">
+      <span className="flamingo-shape flamingo-blur home-hero-left" />
+      <span className="flamingo-shape flamingo-blur home-hero-right" />
+      <span className="flamingo-shape flamingo-blur home-hero-bottom" />
+      <span className="flamingo-shape home-hero-dot" />
+      <span className="flamingo-shape home-hero-ring" />
+    </div>
+    <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 pb-8 pt-8 md:grid-cols-2 md:gap-12 md:px-6 md:pb-14 md:pt-14 lg:px-8">
+      <div className="order-2 md:order-1">
+        <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-heading sm:text-5xl lg:text-[3.5rem]">{title}</h1>
+        <p className="mt-5 max-w-md text-lg leading-relaxed text-muted sm:text-xl">{subheading}</p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <a href="#articles" className="btn btn-lg max-sm:flex-1">
+            Read the articles
+          </a>
+          <Link to="/about" className="btn-outline btn-lg max-sm:flex-1">
+            About
+          </Link>
+        </div>
+      </div>
+      <img
+        src={withPrefix("/img/home-illustration.png")}
+        alt=""
+        width={770}
+        height={578}
+        className="order-1 mx-auto w-full max-w-xs justify-self-center md:order-2 md:max-w-lg md:justify-self-end"
       />
     </div>
-  )
-};
+  </header>
+);
 
-interface IntroducingProps {
-  mainpitch: {
-    title: string;
-    description: string;
-  };
-}
-
-const Introducing = ({ mainpitch }: IntroducingProps) => {
-  return (
-    <SmoothTransition className="flex flex-col gap-4">
-      <h1 className="text-base text-center text-primary-500 dark:text-primary-300 font-semibold tracking-wide uppercase">Introducing</h1>
-      <span className="text-3xl text-center leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-        {mainpitch.title}
-      </span>
-      <p className="text-xl text-gray-500 dark:text-gray-400 leading-8">
-        {mainpitch.description}
-      </p>
-    </SmoothTransition>
-  )
-};
-
-const StayUpToDate = () => {
-  return (
-    <SmoothTransition className="flex flex-col gap-4">
-      <h1 className="text-base text-center text-primary-500 dark:text-primary-300 font-semibold tracking-wide uppercase">Stay up to date</h1>
-      <span className="text-3xl text-center leading-8 font-extrabold tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl">
-        Latest Articles
-      </span>
-      <ThreeLastBlogs />
-      <ButtonInternalLink link="/blog" text="Read More Articles" className="mx-auto" />
-    </SmoothTransition>
-  )
-};
-
-interface IndexPageTemplateProps extends WelcomeProps, IntroducingProps{
-  heading: string;
-}
-
-export const IndexPageTemplate = ({ image, title, subheading, mainpitch }: IndexPageTemplateProps) => {
-  return (
-    <section className="flex flex-col gap-12 justify-center">
-      <Welcome image={image} title={title} subheading={subheading} />
-      <Introducing mainpitch={mainpitch} />
-      <StayUpToDate />
-    </section>
-  )
-};
+export const IndexPageTemplate = ({ title, subheading, articles }: IndexPageTemplateProps) => (
+  <>
+    <Hero title={title} subheading={subheading} />
+    <div className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 md:px-6 md:pb-20 lg:px-8">
+      <ArticleIndex articles={articles} />
+    </div>
+  </>
+);

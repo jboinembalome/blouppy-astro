@@ -3,14 +3,16 @@ import React from 'react';
 
 export interface TagProps {
   text?: string;
+  // Kept for the posts' `categorycolor` front matter; the design now gives
+  // every tag the same tinted chip, so it is ignored.
   color?: string;
   link?: string;
   isRoundedFull?: boolean;
-  className?:string;
+  className?: string;
 }
 
-export const Tag = ({ text, link, color = "bg-slate-100 text-slate-800", isRoundedFull = true, className = '' }: TagProps) => {
-  const concatClassName = `inline-flex items-center px-3 py-0.5 ${isRoundedFull ? 'rounded-full' : 'rounded-md'} text-sm font-medium ${color} ${className}`;
+export const Tag = ({ text, link, className = '' }: TagProps) => {
+  const concatClassName = `chip ${link ? 'transition-colors hover:border-accent' : ''} ${className}`;
 
   if (link)
     return <Link to={link} className={concatClassName}>{text}</Link>

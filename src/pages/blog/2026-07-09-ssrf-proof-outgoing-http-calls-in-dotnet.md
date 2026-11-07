@@ -5,6 +5,8 @@ date: 2026-07-09T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Security'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/ssrf-proof-outgoing-http-calls-in-dotnet.jpg

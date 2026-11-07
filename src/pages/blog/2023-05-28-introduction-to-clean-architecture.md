@@ -5,10 +5,10 @@ date: 2023-05-28T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Architecture'
+illustration: 2
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
-featuredauthor: Alex wong
-featuredlink: https://unsplash.com/@killerfvith?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/introduction-to-clean-architecture.jpg
 description: Build an API in C# using Clean Architecture principles for maintainable and scalable code.
 tags:

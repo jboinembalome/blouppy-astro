@@ -5,6 +5,8 @@ date: 2026-08-14T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Testing'
+illustration: 3
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
 featuredimage: /img/visual-review-for-an-angular-app-with-playwright.jpg

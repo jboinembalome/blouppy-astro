@@ -5,10 +5,10 @@ date: 2023-01-29T18:24:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: Angular
+topic: 'Tooling'
+illustration: 1
 categorycolor: bg-red-100 text-red-800
 featuredpost: true
-featuredauthor: Caspar Camille Rubin
-featuredlink: https://unsplash.com/@casparrubin?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText
 featuredimage: /img/configure-prettier-with-angular.jpg
 description: Quick steps to install Prettier in an Angular project.
 tags:

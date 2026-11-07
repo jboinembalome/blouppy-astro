@@ -2,31 +2,29 @@ import React from "react";
 import { graphql, PageProps } from "gatsby";
 import { IndexPageTemplate } from "./index-page-template";
 import { Seo } from "../components/seo/Seo";
-import { HomePageQuery } from "../types/graphql-queries";
+import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
 
-const IndexPage = ({ data: { markdownRemark: { frontmatter } } }: PageProps<HomePageQuery>) => {
-  return (
-    <>
-      <Head description={frontmatter.mainpitch.description} />
-      <IndexPageTemplate
-        image={frontmatter.image}
-        title={frontmatter.title}
-        heading={frontmatter.heading}
-        subheading={frontmatter.subheading}
-        mainpitch={frontmatter.mainpitch}
-      />
-    </>
-  );
+type IndexPageQuery = {
+  markdownRemark: {
+    frontmatter: {
+      title: string;
+      subheading: string;
+    };
+  };
+  articles: {
+    edges: ArticleSummaryEdge[];
+  };
 };
 
-interface HeadProps {
-  description: string;
-}
+const IndexPage = ({ data }: PageProps<IndexPageQuery>) => {
+  const { frontmatter } = data.markdownRemark;
 
-const Head = ({ description }: HeadProps) => {
-  const headDescription = `The personal website of Jimmy Boinembalome. ${description}`;
-
-  return <Seo description={headDescription} />;
+  return (
+    <>
+      <Seo description={frontmatter.subheading} />
+      <IndexPageTemplate title={frontmatter.title} subheading={frontmatter.subheading} articles={data.articles.edges} />
+    </>
+  );
 };
 
 export default IndexPage;
@@ -36,16 +34,16 @@ export const pageQuery = graphql`
     markdownRemark(frontmatter: { templateKey: { eq: "index-page" } }) {
       frontmatter {
         title
-        image {
-          childImageSharp {
-            gatsbyImageData(layout: FULL_WIDTH)
-          }
-        }
-        heading
         subheading
-        mainpitch {
-          title
-          description
+      }
+    }
+    articles: allMarkdownRemark(
+      sort: { frontmatter: { date: DESC } }
+      filter: { frontmatter: { templateKey: { eq: "blog-post" } } }
+    ) {
+      edges {
+        node {
+          ...ArticleSummary
         }
       }
     }

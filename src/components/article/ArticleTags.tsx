@@ -9,22 +9,18 @@ interface ArticleTagsProps {
 
 export const ArticleTags = ({
   tags,
-  title = 'Tags'
+  title = 'Tagged'
 }: ArticleTagsProps) => {
   return (
-    <div className="prose lg:prose-lg dark:prose-invert prose-indigo">
-      <h4>{title}</h4>
-      {tags && tags.length ? (
-        <div className="not-prose">
-          <ul role="list" className="mt-2 pl-0 leading-8">
-            {tags.map((tag) => (
-              <li key={tag + `tag`} className="inline pl-0 pr-2">
-                <Tag text={tag} color="bg-primary-100 text-primary-800" link={`/tags/${kebabCase(tag)}/`} className="no-underline" />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : <></>}
+    <div className="mt-12 flex flex-wrap items-center gap-2">
+      <h2 className="mr-1 text-sm font-semibold text-muted">{title}</h2>
+      <ul role="list" className="flex flex-wrap gap-2">
+        {tags.map((tag) => (
+          <li key={tag + `tag`}>
+            <Tag text={tag} link={`/tags/${kebabCase(tag)}/`} />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 };

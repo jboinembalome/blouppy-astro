@@ -4,10 +4,30 @@ import { BlogPostTemplate } from "./blog-post-template";
 import { Seo } from "../components/seo/Seo";
 import { ImageDataLike, getSrc } from "gatsby-plugin-image";
 import { BlogPostQuery } from "../types/graphql-queries";
+import { ArticleSummaryEdge } from "../types/graphql-queries/ArticleSummaryQuery";
+import { topicByName } from "../constants/topics";
 
-const BlogPost = ({ data }: PageProps<BlogPostQuery>) => {
+type BlogPostPageQuery = BlogPostQuery & {
+  related: { edges: (ArticleSummaryEdge & { node: { frontmatter: { tags: string[] } } })[] };
+};
+
+// The candidates share at least one tag with the post; the three sharing the
+// most come first, the newest breaking ties (the query already sorts by date).
+const pickRelated = (candidates: BlogPostPageQuery["related"]["edges"], tags: string[]) =>
+  candidates
+    .map((edge, index) => ({
+      edge,
+      index,
+      shared: edge.node.frontmatter.tags.filter((tag) => tags.includes(tag)).length,
+    }))
+    .sort((a, b) => b.shared - a.shared || a.index - b.index)
+    .slice(0, 3)
+    .map(({ edge }) => edge);
+
+const BlogPost = ({ data, pageContext }: PageProps<BlogPostPageQuery, { relatedTags: string[] }>) => {
   const { markdownRemark: post } = data;
   const readingTime = `${post.timeToRead} min read`;
+  const related = pickRelated(data.related.edges, pageContext.relatedTags ?? []);
 
   return (
     <>
@@ -17,6 +37,7 @@ const BlogPost = ({ data }: PageProps<BlogPostQuery>) => {
         slug={post.fields.slug}
         siteUrl={data.site.siteMetadata.siteUrl}
         featuredimage={post.frontmatter.featuredimage}
+        topic={post.frontmatter.topic}
       />
       <BlogPostTemplate
         content={post.html}
@@ -29,8 +50,12 @@ const BlogPost = ({ data }: PageProps<BlogPostQuery>) => {
         image={post.frontmatter.featuredimage}
         slug={post.fields.slug}
         readingTime={readingTime}
+        category={post.frontmatter.category}
+        topic={post.frontmatter.topic}
         tags={post.frontmatter.tags}
         title={post.frontmatter.title}
+        tableOfContents={post.tableOfContents}
+        related={related}
       />
     </>
   );
@@ -41,25 +66,26 @@ interface HeadProps {
   description: string;
   slug: string;
   siteUrl: string;
-  featuredimage: ImageDataLike;
+  featuredimage?: ImageDataLike;
+  topic?: string;
 }
 
-const Head = ({ title, description, slug, siteUrl, featuredimage }: HeadProps) => {
+const Head = ({ title, description, slug, siteUrl, featuredimage, topic }: HeadProps) => {
+  // A shared link shows the topic's image (static/img/topics); a post without a
+  // topic falls back to its own cover, if it has one.
+  const topicImage = topicByName(topic) ? `/img/topics/${topicByName(topic)!.slug}.jpg` : undefined;
+  const image = topicImage ?? (featuredimage ? getSrc(featuredimage) : undefined);
+
   return (
     <Seo
       title={title}
       description={description}
       url={`${siteUrl}${slug}`}
     >
-      <meta
-        name="image"
-        content={`${siteUrl}${getSrc(featuredimage)}`}
-      />
+      {image ? <meta name="image" content={`${siteUrl}${image}`} /> : <></>}
+      {image ? <meta property="og:image" content={`${siteUrl}${image}`} /> : <></>}
       <meta property="og:image:alt" content={title} />
-      <meta
-        property="og:image"
-        content={`${siteUrl}${getSrc(featuredimage)}`}
-      />
+      <meta property="og:type" content="article" />
     </Seo>
   );
 };
@@ -67,7 +93,7 @@ const Head = ({ title, description, slug, siteUrl, featuredimage }: HeadProps) =
 export default BlogPost;
 
 export const pageQuery = graphql`
-  query BlogPost($id: String!) {
+  query BlogPost($id: String!, $relatedTags: [String]) {
     site {
       siteMetadata {
         siteUrl
@@ -77,6 +103,7 @@ export const pageQuery = graphql`
       id
       html
       timeToRead
+      tableOfContents(maxDepth: 3)
       fields {
         slug
       }
@@ -84,6 +111,8 @@ export const pageQuery = graphql`
         date(formatString: "MMMM DD, YYYY")
         title
         description
+        category
+        topic
         tags
         featuredauthor
         featuredlink
@@ -96,6 +125,23 @@ export const pageQuery = graphql`
         authorimage {
           childImageSharp {
             gatsbyImageData(layout: FULL_WIDTH)
+          }
+        }
+      }
+    }
+    related: allMarkdownRemark(
+      filter: {
+        id: { ne: $id }
+        frontmatter: { templateKey: { eq: "blog-post" }, tags: { in: $relatedTags } }
+      }
+      sort: { frontmatter: { date: DESC } }
+      limit: 30
+    ) {
+      edges {
+        node {
+          ...ArticleSummary
+          frontmatter {
+            tags
           }
         }
       }

@@ -5,6 +5,8 @@ date: 2026-05-16T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'Data'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 featuredimage: /img/strongly-typed-ids-with-ef-core.jpg

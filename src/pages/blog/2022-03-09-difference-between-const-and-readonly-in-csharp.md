@@ -5,10 +5,10 @@ date: 2022-03-09T18:04:10.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
 category: C#
+topic: 'C# & .NET'
+illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
-featuredauthor: Ahsan Avi
-featuredlink: https://unsplash.com/@mizajmicrofilms
 featuredimage: /img/difference_between_const_and_readonly_in_csharp.jpg
 description: >-
   Let's answer a common question that many C# developers ask themselves.

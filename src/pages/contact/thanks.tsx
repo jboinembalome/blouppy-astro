@@ -1,34 +1,33 @@
-import React from 'react'
-import { Seo } from "../../components/seo/Seo"
-import { useSiteMetadata } from "../../hooks/useSiteMetadata"
-import { ButtonInternalLink } from '../../components/button';
+import React from "react";
+import { Link } from "gatsby";
+import { CheckIcon } from "@heroicons/react/24/outline";
+import { Seo } from "../../components/seo/Seo";
+import { useSiteMetadata } from "../../hooks/useSiteMetadata";
 
 const Thanks = () => (
   <>
     <Head />
-    <section className="min-h-full px-4 py-16 sm:px-6 sm:py-24 md:grid md:place-items-center lg:px-8">
-      <main className="sm:flex">
-        <p className="text-4xl font-extrabold text-indigo-600 dark:text-indigo-400 sm:text-5xl">🙏🏼</p>
-        <div className="sm:ml-6">
-          <div className="sm:border-l sm:border-gray-200 sm:pl-6">
-            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-gray-100 tracking-tight sm:text-5xl">Thank you for contacting me!</h1>
-            <p className="mt-1 text-base text-gray-500"> I will answer you as soon as possible by e-mail. 😉</p>
-          </div>
-          <div className="mt-10 flex space-x-3 sm:border-l sm:border-transparent sm:pl-6">
-            <ButtonInternalLink link="/" text="Go back home" />
-
-            <ButtonInternalLink link="/contact" text=" Contact Me Again" />
-          </div>
-        </div>
-      </main>
-    </section>
+    <div className="mx-auto flex max-w-xl flex-col items-center py-10 text-center sm:py-16">
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent" aria-hidden="true">
+        <CheckIcon className="h-7 w-7" />
+      </span>
+      <h1 className="mt-6 text-3xl font-extrabold tracking-tight text-heading sm:text-4xl">Message sent</h1>
+      <p className="mt-4 text-lg leading-relaxed text-muted">Thanks for writing. I'll reply by email as soon as I can.</p>
+      <div className="mt-8 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+        <Link to="/" className="btn">
+          Back to articles
+        </Link>
+        <Link to="/contact/" className="btn-outline">
+          Send another message
+        </Link>
+      </div>
+    </div>
   </>
-)
+);
 
 const Head = () => {
   const { siteUrl } = useSiteMetadata();
-  const description = "Thank you page"
-  return <Seo title="Thanks" description={description} url={`${siteUrl}/contact/thanks`} />
+  return <Seo title="Message sent" description="Your message has been sent." url={`${siteUrl}/contact/thanks`} />;
 };
 
 export default Thanks;

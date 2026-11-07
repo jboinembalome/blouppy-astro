@@ -15,11 +15,12 @@ export const ArticleImage = ({ image, alt }: ArticleImageProps) => {
   const imageInfo = {image: image, alt: alt};
 
   return (
-    <div className="flex-shrink-0 rounded-lg shadow-lg overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-line">
         {image ? (
           <PreviewCompatibleImage
-            className="rounded-lg shadow-lg object-cover object-center aspect-w-13 aspect-h-7 z-0"
+            className="z-0 object-cover object-center"
             imageInfo={imageInfo}
+            loading="eager"
           />
         ) : (
           <div className="relative h-64 w-64" />
