@@ -325,5 +325,3 @@ The SOLID principles help us build robust software that is easy to maintain and 
 - [Solid Relevance](https://blog.cleancoder.com/uncle-bob/2020/10/18/Solid-Relevance.html) — Robert C. Martin: why the principles still apply today.
 - [SOLID](https://en.wikipedia.org/wiki/SOLID) — Wikipedia: the 2000 paper and the acronym coined by Michael Feathers.
 - [Liskov substitution principle](https://en.wikipedia.org/wiki/Liskov_substitution_principle) — Wikipedia: Barbara Liskov's definition and behavioural subtyping.
-
-*Thanks for reading! 🙂*

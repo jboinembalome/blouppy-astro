@@ -141,5 +141,3 @@ If you have questions about `const` and `readonly`, I will be happy to discuss t
 - [Field design guidelines](https://learn.microsoft.com/dotnet/standard/design-guidelines/field) — when to use constant fields and when to use `static readonly` fields.
 - [String interpolation](https://learn.microsoft.com/dotnet/csharp/language-reference/tokens/interpolated) — constant interpolated strings (C# 10).
 - [Top-level statements](https://learn.microsoft.com/dotnet/csharp/fundamentals/program-structure/top-level-statements) — the `Program.cs` style used in the sample.
-
-*Thanks for reading! 🙂*
