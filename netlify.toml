@@ -4,11 +4,6 @@
 [build.environment]
   NODE_VERSION = "22"
   NPM_FLAGS = "--legacy-peer-deps"
-  # Netlify installed its Gatsby plugin when the site was a Gatsby one, from
-  # the UI, where it has no card to disable. The site is built by Astro now:
-  # this documented switch makes the plugin do nothing, where it would
-  # otherwise fail the build looking for Gatsby's cache.
-  NETLIFY_SKIP_GATSBY_BUILD_PLUGIN = "true"
 
 # Every article is listed on /blog/; its old numbered pages point there, and
 # so do the topic filters that briefly lived on the home page.
