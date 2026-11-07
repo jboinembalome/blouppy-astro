@@ -181,7 +181,7 @@
 }
 
 .gatsby-highlight-code-line {
-  @apply -ml-6 block border-l-4 border-solid border-l-primary-400 bg-primary-500/10 pl-3;
+  @apply -ml-6 block border-l-4 border-solid border-l-primary-400 bg-[rgb(103_109_207/0.1)] pl-3;
 }
 
 /* The copy button of gatsby-remark-code-buttons sits on the frame's edge. */
@@ -191,8 +191,10 @@
   margin-bottom: -2.25rem;
 }
 
+/* Translucent colours written as rgb(): Tailwind 4 mixes `bg-white/5` in oklab,
+   a shade off what the design was drawn with. */
 .gatsby-code-button {
-  @apply pointer-events-auto m-1.5 flex gap-x-2 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-slate-300 hover:bg-white/10;
+  @apply pointer-events-auto m-1.5 flex gap-x-2 rounded-md border border-[rgb(255_255_255/0.1)] bg-[rgb(255_255_255/0.05)] px-2 py-1 text-xs font-medium text-slate-300 hover:bg-[rgb(255_255_255/0.1)];
 
   &:after {
     @apply absolute hidden whitespace-nowrap rounded-md bg-surface-900 px-1.5 py-0.5 text-xs text-white;
