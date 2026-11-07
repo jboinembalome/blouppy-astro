@@ -2,6 +2,12 @@ require("dotenv").config()
 import type { GatsbyConfig } from "gatsby";
 import adapter from "gatsby-adapter-netlify";
 
+// An adapter's cache hooks are optional: without them Gatsby builds from scratch.
+const withoutBuildCache = <T extends { cache?: unknown }>(netlify: T): Omit<T, "cache"> => {
+  const { cache: _cache, ...rest } = netlify;
+  return rest;
+};
+
 const defaultSiteUrl = 'https://blouppy.com'
 const {
   NODE_ENV,
@@ -15,7 +21,11 @@ const siteUrl = isNetlifyProduction ? NETLIFY_SITE_URL : NETLIFY_DEPLOY_URL
 const config: GatsbyConfig = {
   // Netlify installs this adapter on every build anyway, and disables
   // gatsby-plugin-netlify for it; declaring it saves that install.
-  adapter: adapter(),
+  // Its cache hooks are left out on purpose: they restore .cache and public
+  // from the previous deploy after `gatsby clean`, and a plugin removed since
+  // then is still listed in that cache, which fails the build ("There was a
+  // problem loading plugin ..."). A full build takes about three minutes.
+  adapter: withoutBuildCache(adapter()),
   siteMetadata: {
     title: `Blouppy`,
     author: {
