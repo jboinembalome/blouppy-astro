@@ -1,9 +1,8 @@
 import React, { useState } from "react";
-import { Link } from "gatsby";
 import { Disclosure } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
-import { LinkGetProps } from "@reach/router";
+import { Link, withTrailingSlash } from "../link/Link";
 import Search, { searchConfigured } from "../search";
 import { ThemeToggle } from "../theme-toggle/ThemeToggle";
 import { BlouppyIcon } from "../icons/svg/BlouppyIcon";
@@ -22,14 +21,14 @@ const activeLinkClassName = "text-sm font-medium text-accent";
 
 // A section stays highlighted on its sub-pages: Articles on an article, Tags
 // on a tag.
-const isPartiallyActive = ({ isPartiallyCurrent }: LinkGetProps) =>
-  isPartiallyCurrent ? { className: activeLinkClassName } : {};
+const isPartiallyActive = (href: string, currentPath?: string) =>
+  currentPath !== undefined && withTrailingSlash(currentPath).startsWith(withTrailingSlash(href));
 
 const mobileLinkClassName = "block rounded-lg px-3 py-2.5 text-base font-medium text-body hover:bg-hover";
 
 const searchIndices = [{ name: `Pages`, title: `Pages` }];
 
-export const Navbar = () => {
+export const Navbar = ({ currentPath }: { currentPath?: string }) => {
   const [toggleSearch, setToggleSearch] = useState(false);
 
   return (
@@ -42,13 +41,18 @@ export const Navbar = () => {
         <>
           <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
             <div className="flex items-center gap-8">
-              <Link to="/" className="flex items-center text-heading" aria-label="Blouppy, home">
+              <Link to="/" currentPath={currentPath} className="flex items-center text-heading" aria-label="Blouppy, home">
                 <BlouppyIcon className="block h-11 w-11 p-1.5 lg:hidden" />
                 <BlouppyWithTextIcon className="hidden w-32 p-1.5 lg:block" />
               </Link>
               <div className="hidden items-center gap-7 md:flex">
                 {links.map((item) => (
-                  <Link key={item.name} to={item.href} getProps={isPartiallyActive} className={linkClassName}>
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    currentPath={currentPath}
+                    className={isPartiallyActive(item.href, currentPath) ? activeLinkClassName : linkClassName}
+                  >
                     {item.name}
                   </Link>
                 ))}
@@ -83,7 +87,7 @@ export const Navbar = () => {
           <Disclosure.Panel className="border-t border-line md:hidden">
             <div className="space-y-1 px-4 pb-4 pt-3">
               {links.map((item) => (
-                <Disclosure.Button key={item.name} as={Link} to={item.href} className={mobileLinkClassName}>
+                <Disclosure.Button key={item.name} as={Link} to={item.href} currentPath={currentPath} className={mobileLinkClassName}>
                   {item.name}
                 </Disclosure.Button>
               ))}

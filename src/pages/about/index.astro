@@ -1,0 +1,18 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { AboutPageTemplate } from "../../templates/about-page-template";
+import { getPage } from "../../lib/posts";
+import { renderMarkdown } from "../../lib/markdown";
+import { photo } from "../../lib/images";
+import { site } from "../../lib/site";
+
+const { frontmatter, body } = getPage("about");
+const { html } = await renderMarkdown(body);
+// Shown 16rem wide; the shared link takes the photo at its own size.
+const aboutimage = await photo(frontmatter.aboutimage, 256, 320);
+const shareImage = await photo(frontmatter.aboutimage, 1544, 2048, { forSharing: true });
+---
+
+<Layout title={frontmatter.title} description={frontmatter.description} image={shareImage?.src} imageAlt={`Portrait of ${site.author.name}`}>
+  <AboutPageTemplate title={frontmatter.title ?? ""} aboutimage={aboutimage} content={html} />
+</Layout>

@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
-import { Link } from "gatsby";
+import { Link } from "../link/Link";
 import { ArticleCard, FeaturedArticleCard } from "../article-card/ArticleCard";
-import { ArticleSummaryEdge } from "../../types/graphql-queries/ArticleSummaryQuery";
+import type { ArticleSummaryEdge } from "../../lib/posts";
 import { topics } from "../../constants/topics";
 import { TopicIcon } from "../topic/TopicIcon";
 

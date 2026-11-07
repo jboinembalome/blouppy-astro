@@ -1,0 +1,14 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { ArticleIndex } from "../../components/article-index/ArticleIndex";
+import { PageHeader } from "../../components/page-header/PageHeader";
+import { getPosts, summarizeAll } from "../../lib/posts";
+
+const description = "Every article, newest first: architecture, security, messaging, data, testing, front end, C# & .NET and tooling.";
+const articles = (await summarizeAll(getPosts())).map((node) => ({ node }));
+---
+
+<Layout title="Articles" description={description}>
+  <PageHeader title="Articles" subtitle={description} />
+  <ArticleIndex client:load articles={articles} />
+</Layout>

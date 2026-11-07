@@ -1,0 +1,17 @@
+---
+import Layout from "../layouts/Layout.astro";
+import { ButtonInternalLink } from "../components/button";
+---
+
+<Layout title="Page not found" noindex>
+  <div class="flex-grow mx-auto max-w-7xl w-full flex flex-col">
+    <div class="flex-shrink-0 my-auto py-16 sm:py-32">
+      <p class="text-sm font-semibold text-accent uppercase tracking-wide">404 error</p>
+      <h1 class="mt-2 text-4xl font-extrabold text-heading tracking-tight sm:text-5xl">Page not found</h1>
+      <p class="mt-2 text-base text-muted">Sorry, we couldn’t find the page you’re looking for.</p>
+      <div class="mt-6">
+        <ButtonInternalLink link="/" text="Go back home" />
+      </div>
+    </div>
+  </div>
+</Layout>

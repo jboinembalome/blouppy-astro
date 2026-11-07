@@ -1,0 +1,131 @@
+---
+// In the order Gatsby bundled them: the code buttons' plugin first, then
+// gatsby-browser's imports (the font, the site, Prism's styles last).
+import "../lib/markdown/vendor/code-buttons/styles.css";
+import "@fontsource-variable/inter";
+import "../styles/site.scss";
+import "prismjs/plugins/line-numbers/prism-line-numbers.css";
+import "prismjs/plugins/command-line/prism-command-line.css";
+import "prismjs/themes/prism-tomorrow.css";
+import Seo from "../components/seo/Seo.astro";
+import { Navbar } from "../components/layout/Navbar";
+import { Footer } from "../components/layout/Footer";
+import { site } from "../lib/site";
+
+// Which decoration a page gets (the flamingo layer, DESIGN.md §2.5 of the
+// Starter, applied here to the blog's pages):
+// - home: lays out its own full-width hero, glow and shapes included;
+// - article: none, so nothing competes with the text;
+// - page: a light band at the top (About, Contact, Tags...).
+export type PageKind = "home" | "article" | "page";
+
+type Props = Omit<import("astro/types").ComponentProps<typeof Seo>, "pathname"> & { kind?: PageKind };
+
+const { kind = "page", ...seo } = Astro.props;
+const pathname = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="theme-color" content="#676dcf" />
+    <!-- Before the body is painted: a reader who chose the dark theme never sees the light one flash first. -->
+    <script is:inline>
+      try {
+        if (localStorage.theme === "dark" || (!("theme" in localStorage) && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+      } catch (_) {}
+    </script>
+    <Seo {...seo} pathname={pathname}><slot name="head" /></Seo>
+    <link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />
+    <link rel="alternate" type="application/rss+xml" title="Blouppy" href="/rss.xml" />
+    <link rel="manifest" href="/manifest.webmanifest" crossorigin="anonymous" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/img/apple-touch-icon.png" />
+    <link rel="icon" href="/img/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/img/favicon-16x16.png" />
+    <link rel="mask-icon" href="/img/safari-pinned-tab.svg" color="#676dcf" />
+    <style is:inline>
+      .anchor.before { position: absolute; top: 0; left: 0; transform: translateX(-100%); padding-right: 4px; }
+      .anchor.after { display: inline-block; padding-left: 4px; }
+      h1 .anchor svg, h2 .anchor svg, h3 .anchor svg, h4 .anchor svg, h5 .anchor svg, h6 .anchor svg { visibility: hidden; }
+      h1:hover .anchor svg, h2:hover .anchor svg, h3:hover .anchor svg, h4:hover .anchor svg, h5:hover .anchor svg, h6:hover .anchor svg,
+      h1 .anchor:focus svg, h2 .anchor:focus svg, h3 .anchor:focus svg, h4 .anchor:focus svg, h5 .anchor:focus svg, h6 .anchor:focus svg { visibility: visible; }
+    </style>
+    <!-- A link to a heading lands on it once the page has rendered (gatsby-remark-autolink-headers). -->
+    <script is:inline>
+      document.addEventListener("DOMContentLoaded", function () {
+        var hash = window.decodeURI(location.hash.replace("#", ""));
+        if (hash !== "") {
+          var element = document.getElementById(hash);
+          if (element) {
+            var scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+            var clientTop = document.documentElement.clientTop || document.body.clientTop || 0;
+            var offset = element.getBoundingClientRect().top + scrollTop - clientTop;
+            setTimeout(function () {
+              window.scrollTo(0, offset - 0);
+            }, 0);
+          }
+        }
+      });
+    </script>
+    {
+      import.meta.env.PROD && (
+        <>
+          <link rel="preconnect" href="https://www.googletagmanager.com" />
+          <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        </>
+      )
+    }
+  </head>
+  <body>
+    <div class="flex min-h-screen flex-col bg-page text-body">
+      <Navbar client:load currentPath={pathname} />
+      <main class="main relative isolate flex-1 overflow-x-clip">
+        {
+          kind === "page" && (
+            <div class="page-band" aria-hidden="true">
+              <span class="flamingo-shape flamingo-blur page-band-left" />
+              <span class="flamingo-shape flamingo-blur page-band-right" />
+              <span class="flamingo-shape page-band-ring" />
+            </div>
+          )
+        }
+        {
+          kind === "home" ? (
+            <slot />
+          ) : (
+            <div class="mx-auto w-full max-w-6xl px-4 py-10 md:px-6 md:py-14 lg:px-8">
+              <slot />
+            </div>
+          )
+        }
+      </main>
+      <Footer currentPath={pathname} />
+    </div>
+    <script>
+      import "../scripts/code-buttons";
+      import "../scripts/buy-me-a-coffee";
+    </script>
+    {
+      import.meta.env.PROD && (
+        <>
+          <script async src={`https://www.googletagmanager.com/gtag/js?id=${site.analyticsId}`} />
+          <script
+            is:inline
+            set:html={`window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag("js", new Date());
+gtag("config", ${JSON.stringify(site.analyticsId)});`}
+          />
+        </>
+      )
+    }
+  </body>
+</html>

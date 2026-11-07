@@ -1,0 +1,70 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { BlogPostTemplate, disqusConfigOf } from "../../templates/blog-post-template";
+import { ArticleToc } from "../../components/article/ArticleToc";
+import { ArticleComments } from "../../components/article/ArticleComments";
+import { getPosts, getRelated, summarizeAll, formatDate, type Post } from "../../lib/posts";
+import { renderMarkdown } from "../../lib/markdown";
+import { photo } from "../../lib/images";
+import { topicByName } from "../../constants/topics";
+import { site } from "../../lib/site";
+
+export const getStaticPaths = () =>
+  getPosts().map((post) => ({ params: { slug: post.slug.slice("/blog/".length, -1) }, props: { post } }));
+
+const { post } = Astro.props as { post: Post };
+const { frontmatter, slug } = post;
+const { html, toc, timeToRead } = await renderMarkdown(post.body);
+const related = (await summarizeAll(getRelated(post))).map((node) => ({ node }));
+const authorimage = await photo(frontmatter.authorimage, 40, 40);
+const date = formatDate(frontmatter.date);
+const updated = frontmatter.updated ? formatDate(frontmatter.updated) : undefined;
+
+// A shared link shows the topic's image (public/img/topics); a post without a
+// topic falls back to its own cover, if it has one.
+const topic = topicByName(frontmatter.topic);
+const image = topic ? `/img/topics/${topic.slug}.jpg` : frontmatter.featuredimage;
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: frontmatter.title,
+  description: frontmatter.description,
+  datePublished: frontmatter.date,
+  dateModified: frontmatter.updated ?? frontmatter.date,
+  author: { "@type": "Person", name: site.author.name, url: `${site.siteUrl}/about/` },
+  image: image ? `${site.siteUrl}${image}` : undefined,
+  url: `${site.siteUrl}${slug}`,
+  mainEntityOfPage: `${site.siteUrl}${slug}`,
+  keywords: frontmatter.tags?.join(", "),
+};
+---
+
+<Layout kind="article" title={frontmatter.title} description={frontmatter.description} image={image} type="article">
+  <Fragment slot="head">
+    <meta property="article:published_time" content={frontmatter.date} />
+    {frontmatter.updated && <meta property="article:modified_time" content={frontmatter.updated} />}
+    {frontmatter.tags?.map((tag) => <meta property="article:tag" content={tag} />)}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(structuredData)} />
+  </Fragment>
+  <BlogPostTemplate
+    content={html}
+    description={frontmatter.description}
+    author={frontmatter.author}
+    authorimage={authorimage}
+    date={date}
+    updated={updated}
+    imageCreator={frontmatter.featuredauthor}
+    imageLink={frontmatter.featuredlink}
+    slug={slug}
+    readingTime={`${timeToRead} min read`}
+    category={frontmatter.category}
+    topic={frontmatter.topic}
+    tags={frontmatter.tags}
+    title={frontmatter.title}
+    tableOfContents={toc}
+    related={related}
+  >
+    <ArticleToc slot="toc" client:idle html={toc} />
+    <ArticleComments slot="comments" client:visible disqusConfig={disqusConfigOf(slug, frontmatter.title)} />
+  </BlogPostTemplate>
+</Layout>

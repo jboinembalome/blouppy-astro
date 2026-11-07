@@ -1,16 +1,15 @@
-import { IGatsbyImageData } from "gatsby-plugin-image";
 import React from "react";
-import { Link } from "gatsby";
+import { Link } from "../link/Link";
 import { Content, HTMLContent } from "../layout/Content";
 import { ArticleInformation } from "./ArticleInformation";
 import { ArticleTags } from "./ArticleTags";
-import { DisqusConfig } from "gatsby-plugin-disqus";
-import { ArticleComments } from "./ArticleComments";
+import { ArticleComments, type DisqusConfig } from "./ArticleComments";
 import { ArticleToc } from "./ArticleToc";
 import { TopicIcon } from "../topic/TopicIcon";
 import { topicByName } from "../../constants/topics";
 import { CompactArticleCard } from "../article-card/ArticleCard";
-import { ArticleSummaryEdge } from "../../types/graphql-queries/ArticleSummaryQuery";
+import type { ArticleSummaryEdge } from "../../lib/posts";
+import type { ImageSource } from "../../lib/images";
 
 export interface ArticleProps {
     title: string;
@@ -22,17 +21,8 @@ export interface ArticleProps {
     topic?: string;
     tags?: string[];
     author?: string;
-    authorimage?: {
-        childImageSharp: {
-            gatsbyImageData: IGatsbyImageData;
-        };
-    };
+    authorimage?: ImageSource;
     readingTime?: string;
-    image?: {
-        childImageSharp: {
-            gatsbyImageData: IGatsbyImageData;
-        };
-    };
     imageLink?: string;
     imageCreator?: string;
     imageSource?: string;
@@ -41,6 +31,10 @@ export interface ArticleProps {
     // Blog posts only: the "On this page" list and the posts to read next.
     tableOfContents?: string;
     related?: ArticleSummaryEdge[];
+    // Filled by the Astro page with the interactive parts, hydrated on their
+    // own: the rest of the article stays static HTML.
+    toc?: React.ReactNode;
+    comments?: React.ReactNode;
 }
 
 // The reading page, laid out like the Starter's docs: one column of text at a
@@ -107,14 +101,14 @@ export const Article = (props: ArticleProps) => {
                 )}
 
                 {props.disqusConfig && (
-                    <ArticleComments disqusConfig={props.disqusConfig} />
+                    props.comments ?? <ArticleComments disqusConfig={props.disqusConfig} />
                 )}
             </article>
 
             {hasToc && (
                 <aside className="hidden lg:block">
                     <div className="sticky top-[calc(var(--nav-height)_+_2rem)] max-h-[calc(100vh_-_var(--nav-height)_-_4rem)] overflow-y-auto pb-6">
-                        <ArticleToc html={props.tableOfContents as string} />
+                        {props.toc ?? <ArticleToc html={props.tableOfContents as string} />}
                     </div>
                 </aside>
             )}

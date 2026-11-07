@@ -1,8 +1,8 @@
 import React from "react";
-import { Link } from "gatsby";
+import { Link } from "../link/Link";
 import { GithubIcon, LinkedInIcon, TwitterIcon } from "../icons/svg/social/Icons";
 import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
-import { useSiteMetadata } from "../../hooks/useSiteMetadata";
+import { site } from "../../lib/site";
 import { starterDocsUrl, starterUrl } from "../../constants/starter";
 
 interface FooterLink {
@@ -33,21 +33,20 @@ const columns: { title: string; links: FooterLink[] }[] = [
 const linkClassName = "block py-1 text-zinc-400 hover:text-white";
 
 // Dark in both schemes, as the Starter's landing footer is.
-export const Footer = () => {
-  const siteMetadata = useSiteMetadata();
+const social = [
+  { name: "LinkedIn", href: site.social.linkedinUrl, Icon: LinkedInIcon },
+  { name: "Twitter", href: site.social.twitterUrl, Icon: TwitterIcon },
+  { name: "GitHub", href: site.social.githubUrl, Icon: GithubIcon },
+];
 
-  const social = [
-    { name: "LinkedIn", href: siteMetadata?.social?.linkedinUrl, Icon: LinkedInIcon },
-    { name: "Twitter", href: siteMetadata?.social?.twitterUrl, Icon: TwitterIcon },
-    { name: "GitHub", href: siteMetadata?.social?.githubUrl, Icon: GithubIcon },
-  ];
+export const Footer = ({ currentPath }: { currentPath?: string }) => {
 
   return (
     <footer className="bg-zinc-950 px-4 pb-8 pt-16 text-sm text-zinc-400 md:px-6 lg:px-8 dark:border-t dark:border-line dark:bg-slate-950">
       <div className="mx-auto w-full max-w-6xl">
         <div className="mb-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
           <div>
-            <Link to="/" className="mb-3.5 flex items-center text-white" aria-label="Blouppy, home">
+            <Link to="/" currentPath={currentPath} className="mb-3.5 flex items-center text-white" aria-label="Blouppy, home">
               <BlouppyWithTextIcon className="w-32" />
             </Link>
             <p className="max-w-xs">
@@ -76,7 +75,7 @@ export const Footer = () => {
                         {link.label}
                       </a>
                     ) : (
-                      <Link className={linkClassName} to={link.href}>
+                      <Link className={linkClassName} to={link.href} currentPath={currentPath}>
                         {link.label}
                       </Link>
                     )}
@@ -89,7 +88,7 @@ export const Footer = () => {
 
         <div className="flex flex-wrap justify-between gap-3 border-t border-zinc-800 pt-6 text-[0.8125rem] text-zinc-400">
           <span>&copy; {new Date().getFullYear()} Blouppy. All rights reserved.</span>
-          <span>Built with Gatsby &amp; Tailwind CSS</span>
+          <span>Built with Astro &amp; Tailwind CSS</span>
         </div>
       </div>
     </footer>

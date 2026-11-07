@@ -10,6 +10,8 @@ const BlogPostPreview = ({ entry, widgetFor }: any) => {
       tags={tags && tags.toJS()}
       title={entry.getIn(['data', 'title'])}
       slug={entry.get('slug') ?? ''}
+      // No comment thread in the editor: Disqus would load into the CMS itself.
+      comments={false}
     />
   )
 }

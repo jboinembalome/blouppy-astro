@@ -1,4 +1,4 @@
-import { Link } from "gatsby";
+import { Link } from "../link/Link";
 import React from "react";
 import { Highlight, Index, Snippet, useHits, useInstantSearch } from "react-instantsearch";
 import type { Hit as AlgoliaHit } from "instantsearch.js";

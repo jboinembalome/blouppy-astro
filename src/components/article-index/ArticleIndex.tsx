@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ArticleCard } from "../article-card/ArticleCard";
-import { ArticleSummaryEdge } from "../../types/graphql-queries/ArticleSummaryQuery";
+import type { ArticleSummaryEdge } from "../../lib/posts";
 import { topicBySlug, topics } from "../../constants/topics";
 
 // Three columns on a wide screen: nine is three full rows.

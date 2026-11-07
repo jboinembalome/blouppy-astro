@@ -1,26 +1,7 @@
 import React from "react";
-import { Link, graphql } from "gatsby";
-import { ArticleSummary } from "../../types/graphql-queries/ArticleSummaryQuery";
+import { Link } from "../link/Link";
+import type { ArticleSummary } from "../../lib/posts";
 import { TopicIllustration } from "../topic/TopicIllustration";
-
-export const articleSummaryFragment = graphql`
-  fragment ArticleSummary on MarkdownRemark {
-    id
-    timeToRead
-    excerpt(pruneLength: 200)
-    fields {
-      slug
-    }
-    frontmatter {
-      title
-      date(formatString: "MMMM DD, YYYY")
-      description
-      topic
-      illustration
-      tags
-    }
-  }
-`;
 
 const Meta = ({ article }: { article: ArticleSummary }) => (
   <p className="mt-auto flex flex-wrap gap-x-1.5 pt-1 text-xs text-faint">

@@ -1,0 +1,20 @@
+---
+// Decap CMS, at /admin/ as before. Netlify Identity signs the editor in; the
+// CMS reads public/admin/config.yml.
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Content Manager</title>
+    <meta name="robots" content="none" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script is:inline src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  </head>
+  <body>
+    <script>
+      import "../../cms/cms";
+    </script>
+  </body>
+</html>

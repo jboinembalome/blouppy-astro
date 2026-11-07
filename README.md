@@ -2,9 +2,9 @@
 
 [![Netlify Status](https://api.netlify.com/api/v1/badges/b654c94e-08a6-4b79-b443-7837581b1d8d/deploy-status)](https://app.netlify.com/sites/blouppy-ci/deploys)
 
-**Note:** Blouppy uses [Gatsby v4](https://www.gatsbyjs.com/gatsby-5/).
+**Note:** Blouppy uses [Astro 7](https://astro.build/), with React for the interactive parts.
 
-This repository contains the source code for the **[Blouppy](https://www.blouppy.com/)** website that is built with [Gatsby](https://www.gatsbyjs.org/), [Netlify CMS](https://www.netlifycms.org) and [Tailwind](https://tailwindcss.com/).
+This repository contains the source code for the **[Blouppy](https://www.blouppy.com/)** website that is built with [Astro](https://astro.build/), [Decap CMS](https://decapcms.org) and [Tailwind](https://tailwindcss.com/).
 
 It follows the [JAMstack architecture](https://jamstack.org) by using Git as a single source of truth, and [Netlify](https://www.netlify.com) for continuous deployment.
 
@@ -19,8 +19,8 @@ It follows the [JAMstack architecture](https://jamstack.org) by using Git as a s
 - Dark Mode with Tailwind V3
 - Blog search with Algolia
 - Widget BuyMeACoffee
-- Blazing fast loading times thanks to pre-rendered HTML and automatic chunk loading of JS files
-- Uses `gatsby-plugin-image` with Netlify-CMS preview support
+- Pre-rendered HTML, with JavaScript only for the interactive parts (navigation, search, article list, table of contents, comments, contact form)
+- Author photos resized by `astro:assets`; CMS previews render the site's own templates
 - Separate components for everything
 - Netlify deploy configuration
 - Netlify function support, see `lambda` folder
@@ -29,8 +29,7 @@ It follows the [JAMstack architecture](https://jamstack.org) by using Git as a s
 
 ## Prerequisites
 
-- Node (I recommend using v18.15.0 or higher)
-- [Gatsby CLI](https://www.gatsbyjs.org/docs/)
+- Node 22.23.4 or higher
 - [Netlify CLI](https://github.com/netlify/cli)
 
 ## Getting Started (Recommended)

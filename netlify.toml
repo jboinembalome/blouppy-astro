@@ -1,9 +1,14 @@
 [build]
-  publish = "public"
+  publish = "dist"
   command = "npm run build"
 [build.environment]
   NODE_VERSION = "22"
   NPM_FLAGS = "--legacy-peer-deps"
+  # Netlify installed its Gatsby plugin when the site was a Gatsby one, from
+  # the UI, where it has no card to disable. The site is built by Astro now:
+  # this documented switch makes the plugin do nothing, where it would
+  # otherwise fail the build looking for Gatsby's cache.
+  NETLIFY_SKIP_GATSBY_BUILD_PLUGIN = "true"
 
 # Every article is listed on /blog/; its old numbered pages point there, and
 # so do the topic filters that briefly lived on the home page.
@@ -44,3 +49,19 @@
   from = "/portfolio/*"
   to = "/"
   status = 301
+
+# The headers gatsby-adapter-netlify set: no caching of the pages themselves,
+# a year for the fingerprinted assets.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    cache-control = "public, max-age=0, must-revalidate"
+    x-xss-protection = "1; mode=block"
+    x-content-type-options = "nosniff"
+    referrer-policy = "same-origin"
+    x-frame-options = "DENY"
+
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    cache-control = "public, max-age=31536000, immutable"

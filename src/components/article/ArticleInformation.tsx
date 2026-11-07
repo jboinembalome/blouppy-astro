@@ -1,7 +1,6 @@
 import React from "react";
-import PreviewCompatibleImage from "../preview-compatible-image/PreviewCompatibleImage";
 import { GithubIcon } from "../icons/svg/social/Icons";
-import { ImageDataLike } from "gatsby-plugin-image";
+import type { ImageSource } from "../../lib/images";
 
 interface ArticleInformationProps {
   author: string;
@@ -9,7 +8,7 @@ interface ArticleInformationProps {
   updated?: string;
   readingTime?: string;
   link?: string;
-  authorimage?: ImageDataLike;
+  authorimage?: ImageSource;
   className?: string;
 }
 
@@ -27,12 +26,15 @@ export const ArticleInformation = ({
       <div className="flex items-center">
         {authorimage && (
           <div className="flex-shrink-0">
-            <PreviewCompatibleImage
-              className="relative z-0 h-10 w-10 rounded-full"
-              imageInfo={{
-                image: authorimage,
-                alt: `featured image thumbnail for post ${author}`,
-              }}
+            <img
+              className="relative z-0 h-10 w-10 rounded-full object-cover"
+              src={authorimage.src}
+              srcSet={authorimage.srcSet}
+              width={authorimage.width}
+              height={authorimage.height}
+              loading="lazy"
+              decoding="async"
+              alt={`featured image thumbnail for post ${author}`}
             />
           </div>
         )}

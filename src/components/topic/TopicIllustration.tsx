@@ -1,5 +1,4 @@
 import React from "react";
-import { withPrefix } from "gatsby";
 import { topicByName } from "../../constants/topics";
 
 interface TopicIllustrationProps {
@@ -16,7 +15,7 @@ export const TopicIllustration = ({ topic, variant, className = "" }: TopicIllus
   const found = topicByName(topic);
   if (!found) return null;
   const index = variant && variant >= 1 && variant <= 3 ? variant : 1;
-  const file = (scheme: "light" | "dark") => withPrefix(`/img/illustrations/${found.slug}-${index}-${scheme}.svg`);
+  const file = (scheme: "light" | "dark") => `/img/illustrations/${found.slug}-${index}-${scheme}.svg`;
 
   return (
     <div className={`flex items-center justify-center bg-accent-soft ${className}`} aria-hidden="true">
