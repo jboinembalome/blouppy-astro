@@ -3,7 +3,7 @@ import { Link } from "../link/Link";
 import { Content, HTMLContent } from "../layout/Content";
 import { ArticleInformation } from "./ArticleInformation";
 import { ArticleTags } from "./ArticleTags";
-import { ArticleComments, type DisqusConfig } from "./ArticleComments";
+import { ArticleComments } from "./ArticleComments";
 import { ArticleToc } from "./ArticleToc";
 import { TopicIcon } from "../topic/TopicIcon";
 import { topicByName } from "../../constants/topics";
@@ -27,7 +27,8 @@ export interface ArticleProps {
   imageCreator?: string;
   imageSource?: string;
   link?: string;
-  disqusConfig?: DisqusConfig;
+  // Set on a blog post: the breadcrumb and the comments show.
+  isPost?: boolean;
   // Blog posts only: the "On this page" list and the posts to read next.
   tableOfContents?: string;
   related?: ArticleSummaryEdge[];
@@ -51,7 +52,7 @@ export const Article = (props: ArticleProps) => {
     <div className={hasToc ? "lg:grid lg:grid-cols-[minmax(0,1fr)_14rem] lg:gap-14" : ""}>
       <article className="mx-auto w-full min-w-0 max-w-3xl">
         <header className="flex flex-col gap-5">
-          {props.disqusConfig && (
+          {props.isPost && (
             <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-sm font-medium text-muted">
               <Link to="/blog/" className="hover:text-accent">
                 Articles
@@ -111,7 +112,7 @@ export const Article = (props: ArticleProps) => {
           </section>
         )}
 
-        {props.disqusConfig && (props.comments ?? <ArticleComments disqusConfig={props.disqusConfig} />)}
+        {props.isPost && (props.comments ?? <ArticleComments />)}
       </article>
 
       {hasToc && (

@@ -1,13 +1,13 @@
 import { site } from "./site";
 
-// The reader's choice about the two services that set cookies: audience
-// measurement (Google Analytics) and comments (Disqus). Neither loads before a
-// choice is made, as French law requires for trackers that are not strictly
-// necessary (CNIL guidelines). The choice is kept in localStorage, which needs
-// no consent, and asked again after six months, as the CNIL recommends.
+// The reader's choice about the one service that sets cookies: audience
+// measurement (Google Analytics). It does not load before a choice is made, as
+// French law requires for trackers that are not strictly necessary (CNIL
+// guidelines). The choice is kept in localStorage, which needs no consent, and
+// asked again after six months, as the CNIL recommends. (A choice saved while
+// Disqus ran still carries a `comments` field, which nothing reads any more.)
 export interface Consent {
   analytics: boolean;
-  comments: boolean;
   at: number;
 }
 
@@ -45,7 +45,7 @@ export const subscribe = (listener: Listener) => {
   };
 };
 
-export const saveConsent = (choice: Pick<Consent, "analytics" | "comments">) => {
+export const saveConsent = (choice: Pick<Consent, "analytics">) => {
   current = { ...choice, at: Date.now() };
   try {
     localStorage.setItem(storageKey, JSON.stringify(current));

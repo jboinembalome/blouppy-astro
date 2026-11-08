@@ -35,14 +35,14 @@ const algoliaResponse = (body: { requests?: { indexName: string; query?: string 
   }),
 });
 
-type Consent = { analytics: boolean; comments: boolean } | null;
+type Consent = { analytics: boolean } | null;
 
 // Every test: no third party (they are not ours to test), Algolia answered
 // locally, and neither a script error nor a Content Security Policy violation.
 // The cookie choice is made beforehand (everything refused), so the banner
 // stays out of the way; the consent tests set `consent` to null to see it.
 export const test = base.extend<{ page: Page; consent: Consent }>({
-  consent: [{ analytics: false, comments: false }, { option: true }],
+  consent: [{ analytics: false }, { option: true }],
   page: async ({ page, consent }, use) => {
     if (consent) {
       await page.addInitScript(
@@ -58,7 +58,7 @@ export const test = base.extend<{ page: Page; consent: Consent }>({
         (window as unknown as { __csp: string[] }).__csp.push(`${event.effectiveDirective} ${event.blockedURI}`),
       );
     });
-    await page.route(/buymeacoffee|disqus|googletagmanager|google-analytics/, (route) => route.abort());
+    await page.route(/buymeacoffee|giscus|googletagmanager|google-analytics/, (route) => route.abort());
     await page.route(/algolia/, (route) =>
       route.fulfill({ json: algoliaResponse(JSON.parse(route.request().postData() ?? "{}")) }),
     );
