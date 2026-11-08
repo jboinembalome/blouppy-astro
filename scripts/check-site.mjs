@@ -7,6 +7,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { parse } from "node-html-parser";
+import { publishedPosts } from "./published.mjs";
 
 const root = process.argv[2] ?? "dist";
 const problems = [];
@@ -91,7 +92,7 @@ for (const url of pages.map(urlOf)) {
 }
 
 // The feed carries every article, in full.
-const posts = readdirSync("src/content/blog").filter((name) => name.endsWith(".md")).length;
+const posts = (await publishedPosts()).length;
 const feed = readFileSync(join(root, "rss.xml"), "utf8");
 const items = [...feed.matchAll(/<item>([\s\S]*?)<\/item>/g)].map(([, item]) => item);
 if (items.length !== posts) fail("rss.xml", `${items.length} items for ${posts} articles`);

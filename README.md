@@ -51,6 +51,8 @@ drafts/             articles not published yet
 
 From the CMS at `/admin/` (Netlify Identity), or by adding a Markdown file to `src/content/blog/` named `YYYY-MM-DD-slug.md`, with the same front matter as the other articles. See [`drafts/README.md`](drafts/README.md) for drafts.
 
+An article dated after today (UTC) is **scheduled**: the production build leaves it out (pages, tags, feed, sitemap, search) until its day, while deploy previews and local builds show it for review. A GitHub Actions workflow, `.github/workflows/publish.yml`, rebuilds the site every morning at 05:17 UTC through a Netlify build hook kept in the repository secret `NETLIFY_BUILD_HOOK`; without the secret, scheduled articles go out at the next deploy.
+
 ## Deployment
 
 Netlify builds `master` (and every pull request, as a deploy preview) with `npm run build` and publishes `dist/`; `netlify.toml` holds the headers and redirects. The Algolia index is pushed from production builds only.

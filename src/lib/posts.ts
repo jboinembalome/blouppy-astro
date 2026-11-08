@@ -82,6 +82,15 @@ const parse = (raw: string) => {
   return { frontmatter: { title: "", ...toJson(data) }, body: content };
 };
 
+// An article dated after today is scheduled: the production build leaves it
+// out until its day, and a daily rebuild (.github/workflows/publish.yml)
+// publishes it. Deploy previews, CI and the dev server show it, so it can be
+// reviewed before it goes out. scripts/published.mjs holds the same rule.
+const hidesScheduled = process.env.CONTEXT === "production";
+// By day, in UTC: an article dated today is out all day, whatever its hour.
+const endOfToday = new Date().setUTCHours(23, 59, 59, 999);
+const scheduled = (date: string) => hidesScheduled && Date.parse(date) > endOfToday;
+
 const fileName = (path: string) => path.slice(path.lastIndexOf("/") + 1, -".md".length);
 
 const allPosts: Post[] = Object.entries(postFiles)
@@ -90,6 +99,7 @@ const allPosts: Post[] = Object.entries(postFiles)
     return { slug: `/blog/${fileName(path)}/`, frontmatter: frontmatter as PostFrontmatter, body };
   })
   .filter((post) => post.frontmatter.templateKey === "blog-post")
+  .filter((post) => !scheduled(post.frontmatter.date))
   .sort((a, b) => Date.parse(b.frontmatter.date) - Date.parse(a.frontmatter.date));
 
 // Newest first.
