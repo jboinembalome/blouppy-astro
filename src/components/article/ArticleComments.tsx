@@ -1,5 +1,7 @@
 import React, { useEffect } from "react";
 import { site } from "../../lib/site";
+import { getConsent, saveConsent } from "../../lib/consent";
+import { useConsent } from "../consent/useConsent";
 
 export interface DisqusConfig {
   url: string;
@@ -43,11 +45,30 @@ export interface ArticleCommentsProps {
   disqusConfig: DisqusConfig;
 }
 
-export const ArticleComments = ({ disqusConfig }: ArticleCommentsProps) => (
-  <section aria-labelledby="comments-title" className="mt-12 rounded-xl border border-line bg-card px-4 py-4 sm:px-6">
-    <h2 id="comments-title" className="mb-2 text-lg font-semibold text-heading">
-      Comments
-    </h2>
-    <Disqus config={disqusConfig} />
-  </section>
-);
+// Disqus sets cookies, so it loads only once the reader has agreed to it;
+// until then the section offers to load it.
+export const ArticleComments = ({ disqusConfig }: ArticleCommentsProps) => {
+  const consent = useConsent();
+
+  return (
+    <section aria-labelledby="comments-title" className="mt-12 rounded-xl border border-line bg-card px-4 py-4 sm:px-6">
+      <h2 id="comments-title" className="mb-2 text-lg font-semibold text-heading">
+        Comments
+      </h2>
+      {consent?.comments ? (
+        <Disqus config={disqusConfig} />
+      ) : (
+        <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted">Comments are provided by Disqus, which sets cookies once loaded.</p>
+          <button
+            type="button"
+            className="btn-outline btn-sm shrink-0"
+            onClick={() => saveConsent({ analytics: Boolean(getConsent()?.analytics), comments: true })}
+          >
+            Load comments
+          </button>
+        </div>
+      )}
+    </section>
+  );
+};

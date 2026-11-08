@@ -10,6 +10,7 @@ import "prismjs/themes/prism-tomorrow.css";
 import Seo from "../components/seo/Seo.astro";
 import { Navbar } from "../components/layout/Navbar";
 import { Footer } from "../components/layout/Footer";
+import { ConsentBanner } from "../components/consent/ConsentBanner";
 
 // Which decoration a page gets (the flamingo layer, DESIGN.md §2.5 of the
 // Starter, applied here to the blog's pages):
@@ -137,12 +138,12 @@ const pathname = Astro.url.pathname;
       </main>
       <Footer currentPath={pathname} />
     </div>
+    <ConsentBanner client:load />
     <script>
       import "../scripts/code-buttons";
       import "../scripts/buy-me-a-coffee";
 
-      // Google Analytics counts the production site only, as before.
-      if (import.meta.env.PROD) import("../scripts/analytics");
+      import "../scripts/consent";
     </script>
   </body>
 </html>

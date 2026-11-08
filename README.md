@@ -13,6 +13,7 @@ It is a static site built with [Astro](https://astro.build/), with [React](https
 - Search with [Algolia](https://www.algolia.com/), loaded the first time the dialog opens.
 - Light and dark themes, following the system by default.
 - Comments with [Disqus](https://disqus.com/), a contact form handled by [Netlify Forms](https://docs.netlify.com/forms/setup/).
+- A cookie banner: Google Analytics and Disqus load only after the reader agrees, per purpose, and the choice can be changed from the footer.
 - SEO: canonical URLs, Open Graph and Twitter tags, JSON-LD, RSS, sitemap, robots.txt by deploy context.
 - A Content Security Policy built from the hashes of the page's own scripts.
 
