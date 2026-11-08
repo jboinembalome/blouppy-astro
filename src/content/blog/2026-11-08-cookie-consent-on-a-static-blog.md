@@ -45,8 +45,6 @@ The result, per service:
 | Buy Me a Coffee (the donation widget) | none |
 | Algolia (the search) | none |
 
-Disqus was the surprise. The comments themselves are free because the embed carries advertising and tracking, and a reader who only scrolls to the end of an article gets all of it. Testing the site's Content Security Policy had already caught one of its scripts, an ad tracker, being injected into the host page.
-
 
 ## What the rules ask
 In the European Union, the ePrivacy directive (article 5(3)) requires consent before anything is stored in, or read from, the reader's device, unless it is strictly necessary for a service the reader asked for. In France, the CNIL's guidelines and recommendation spell out what that means in practice:
@@ -58,7 +56,7 @@ In the European Union, the ePrivacy directive (article 5(3)) requires consent be
 
 Audience measurement has an exemption, but only for a tool configured within strict limits (anonymous statistics for the site alone, no cross-site tracking, limited lifetime). Google Analytics as this blog uses it does not fit those limits, so there were two options: switch to an exempt tool, or ask. We kept Google Analytics and ask.
 
-Disqus needed consent too. Putting it behind the same banner works, but a reader who refuses then sees no comments at all, so we replaced it with a comment system that sets no tracker: that is [a story of its own](/blog/2026-11-08-replacing-disqus-with-giscus/). This article covers what is left, Google Analytics.
+Disqus needed consent too. Rather than add it to the banner, we [replaced it with Giscus](/blog/2026-11-08-replacing-disqus-with-giscus/), which sets no tracker. Google Analytics is what is left to ask about.
 
 
 ## A consent store with no framework
@@ -242,7 +240,7 @@ A third test accepts, reopens the banner from the footer, refuses, and checks th
 
 
 ## Conclusion
-Start by measuring: the list of cookies a page really sets is quicker to get than an opinion on whether a blog needs a banner, and it may hold surprises, as Disqus did here. For what needs consent, the code is small: a store in `localStorage`, a module that loads the script only after a yes and cleans up after a no, a banner where refusing is one click, and a way back from every page. And for what can do without consent, a tool that sets no tracker is often simpler than another question in the banner.
+Start by measuring: the list of cookies a page really sets is quicker to get than an opinion on whether a blog needs a banner, and it may show a tracker you can remove rather than ask about. For what needs consent, the code is small: a store in `localStorage`, a module that loads the script only after a yes and cleans up after a no, a banner where refusing is one click, and a way back from every page. And for what can do without consent, a tool that sets no tracker is often simpler than another question in the banner.
 
 
 ## References
