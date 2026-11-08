@@ -66,10 +66,10 @@ Three things are worth knowing before going further:
 ## What gets hashed, and what does not
 On this blog, Astro hashed every inline script it rendered: the theme script that avoids a flash of the wrong theme, the script that scrolls to a heading on load, and the island loaders. One did not make it: the analytics bootstrap, written with `set:html`. The browser blocked it, and analytics silently stopped.
 
-Instead of adding a hash by hand, the code moved to a module of the site, which `'self'` allows. The module also creates the external script itself:
+Instead of adding a hash by hand, the code moved to a module of the site, which `'self'` allows. The module also creates the external script itself (on this blog, only once the reader has agreed to it in the cookie banner):
 
 ```ts
-// src/scripts/analytics.ts
+// A module of the site, loaded from the layout
 window.dataLayer = window.dataLayer || [];
 window.gtag = function gtag() {
   // gtag.js reads the arguments object itself, not an array.
