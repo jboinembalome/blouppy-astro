@@ -1,6 +1,6 @@
 ---
 templateKey: 'blog-post'
-title: 'Cookie consent on a static blog, and comments without cookies'
+title: 'Cookie consent on a static blog'
 date: 2026-11-08T18:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
@@ -10,7 +10,7 @@ illustration: 2
 categorycolor: bg-orange-100 text-orange-800
 featuredpost: true
 description: >-
-  Measure the cookies a static site really sets, ask before loading Google Analytics with a small consent store and banner, and replace Disqus with Giscus so the comments need no consent at all.
+  Measure the cookies a static site really sets, see what the rules ask of a blog, and load Google Analytics only after consent, with a small store, a fair banner and tests that check it.
 tags:
   - Development
   - Astro
@@ -21,7 +21,7 @@ tags:
 
 This blog loaded Google Analytics and Disqus on every page, before the reader had a say. It is a static site, with no account and no form apart from the contact page, so it is easy to think the cookie rules are for shops and SaaS products. They are not: they apply to any tracker that a site places in a reader's browser.
 
-In this article, we will measure what the pages actually stored, see what the rules ask of a blog, add a consent banner for Google Analytics, and replace Disqus with Giscus, which needs no consent at all.
+In this article, we will measure what the pages actually stored, see what the rules ask of a blog, and load Google Analytics only once the reader agrees: a consent store, a banner where refusing is as easy as accepting, and tests that check nothing loads before a yes.
 
 
 ## What the pages actually set
@@ -58,7 +58,7 @@ In the European Union, the ePrivacy directive (article 5(3)) requires consent be
 
 Audience measurement has an exemption, but only for a tool configured within strict limits (anonymous statistics for the site alone, no cross-site tracking, limited lifetime). Google Analytics as this blog uses it does not fit those limits, so there were two options: switch to an exempt tool, or ask. We kept Google Analytics and ask.
 
-Disqus needed consent too. Putting it behind the same banner would work, but a reader who refuses would see no comments at all. That is what led to replacing it, further down.
+Disqus needed consent too. Putting it behind the same banner works, but a reader who refuses then sees no comments at all, so we replaced it with a comment system that sets no tracker: that is [a story of its own](/blog/2026-11-08-replacing-disqus-with-giscus-on-an-astro-blog/). This article covers what is left, Google Analytics.
 
 
 ## A consent store with no framework
@@ -187,81 +187,6 @@ Withdrawing must be as easy as accepting, so the footer of every page has a "Coo
 The banner is a `section` with a heading, not a modal dialog: it does not trap the focus or block the page. A reader can read the article and never answer, and nothing loads.
 
 
-## Comments with Giscus
-[Giscus](https://giscus.app/) stores the comments of each page in a GitHub Discussion of a repository. The thread shows in an iframe served by giscus.app. Reading it stores nothing in the reader's browser. Writing needs a GitHub account: after signing in, the session is kept in the page's `localStorage` (`giscus-session`), which serves the action the reader asked for. No consent is needed, so the comments load as soon as they come into view, for every reader.
-
-The setup takes a few minutes:
-
-1. The repository must be public, with Discussions enabled (Settings, Features).
-2. Install the [giscus GitHub app](https://github.com/apps/giscus) on that repository.
-3. Create a category for the comments. The Announcements type is the one giscus recommends: only maintainers and giscus can then open a discussion.
-4. On giscus.app, enter the repository and the category, pick how pages map to discussions, and copy the identifiers from the generated snippet.
-
-We picked the `pathname` mapping: the first comment on an article creates a discussion named after its path. The old Disqus threads were not imported. Disqus can export them, but they would land in GitHub under the name of whoever imports them, not their authors', so we started from zero.
-
-The generated snippet is a `<script>` tag with `data-` attributes. In a React island, the component creates the same element once the island has mounted. Hydrating it with `client:visible` means nothing is fetched until the reader reaches the end of the article:
-
-```tsx
-// src/components/article/ArticleComments.tsx
-const themeOf = () => (document.documentElement.classList.contains("dark") ? "transparent_dark" : "light");
-
-const Giscus = () => {
-  const container = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const element = container.current;
-    if (!element || element.querySelector("script, iframe")) return;
-
-    const script = document.createElement("script");
-    script.src = "https://giscus.app/client.js";
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    Object.entries({
-      repo: giscus.repo,
-      repoId: giscus.repoId,
-      category: giscus.category,
-      categoryId: giscus.categoryId,
-      mapping: "pathname",
-      reactionsEnabled: "1",
-      inputPosition: "bottom",
-      theme: themeOf(),
-      lang: "en",
-      loading: "lazy",
-    }).forEach(([key, value]) => (script.dataset[key] = value));
-    element.appendChild(script);
-
-    // The theme menu switches the page's scheme without a reload.
-    const observer = new MutationObserver(() => {
-      const frame = element.querySelector<HTMLIFrameElement>("iframe.giscus-frame");
-      frame?.contentWindow?.postMessage({ giscus: { setConfig: { theme: themeOf() } } }, "https://giscus.app");
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-
-  return <div ref={container} className="giscus" />;
-};
-```
-
-Two details. The snippet offers `preferred_color_scheme`, which follows the system, but this site has its own theme menu: the component passes the site's theme instead, and posts a `setConfig` message to the iframe whenever the `dark` class of `<html>` changes. And `transparent_dark` lets the card behind the comments show through, so the dark thread matches the page.
-
-`giscus.repoId` and `giscus.categoryId` are public identifiers, not secrets: they are in every page's HTML anyway.
-
-
-## The Content Security Policy
-The policy lists the hosts allowed to run scripts. The Disqus hosts went, `https://giscus.app` came in. The tests passed with that, but a check of the real page found a violation: `client.js` also adds a stylesheet, `giscus.app/default.css`, and `style-src` did not allow it.
-
-```js
-// astro.config.mjs
-scriptDirective: {
-  resources: ["'self'", "https://www.googletagmanager.com", "https://cdnjs.buymeacoffee.com", "https://giscus.app"],
-},
-styleDirective: { resources: ["'self'", "'unsafe-inline'", "https://giscus.app"] },
-```
-
-The browser tests block every third party, on purpose. So they cannot see what a third party loads in turn. When one of them changes, load a real page once, with the console open.
-
-
 ## Tests
 The Playwright fixture already failed a test on any script error or CSP violation. It gained a `consent` option, set to "refused" by default, so the banner stays out of the way of the other tests:
 
@@ -313,20 +238,17 @@ test.describe("cookie consent", () => {
 });
 ```
 
-A third test accepts, reopens the banner from the footer, refuses, and checks the stored choice. And the comments test checks that `giscus.app/client.js` is requested once the comments come into view, with no consent given.
+A third test accepts, reopens the banner from the footer, refuses, and checks the stored choice.
 
 
 ## Conclusion
-Start by measuring: the list of cookies a page really sets is shorter to get than an opinion on whether a blog needs a banner, and it may hold surprises, as Disqus did here. For what needs consent, the code is small: a store in `localStorage`, a module that loads the script only after a yes and cleans up after a no, a banner where refusing is one click, and a way back from every page. For what can do without consent, a tool that sets no tracker is often simpler than a banner: the comments now show for every reader, and the banner only asks one question.
+Start by measuring: the list of cookies a page really sets is quicker to get than an opinion on whether a blog needs a banner, and it may hold surprises, as Disqus did here. For what needs consent, the code is small: a store in `localStorage`, a module that loads the script only after a yes and cleans up after a no, a banner where refusing is one click, and a way back from every page. And for what can do without consent, a tool that sets no tracker is often simpler than another question in the banner.
 
 
 ## References
 - [Directive 2002/58/EC (ePrivacy), article 5(3)](https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX:32002L0058) — consent for storing or reading information on the reader's device.
 - [CNIL: cookies and other trackers](https://www.cnil.fr/en/cookies-and-other-tracking-devices) — the guidelines, the recommendation, and the audience measurement exemption.
-- [Giscus](https://giscus.app/) — configuration and the generated snippet.
-- [Giscus advanced usage](https://github.com/giscus/giscus/blob/main/ADVANCED-USAGE.md) — the `setConfig` message to the iframe.
 - [Disable Google Analytics](https://developers.google.com/tag-platform/devguides/privacy#turn_off_google_analytics) — the `ga-disable-<id>` flag.
 - [useSyncExternalStore](https://react.dev/reference/react/useSyncExternalStore) — subscribing React to a store outside it.
-- [Astro: client directives](https://docs.astro.build/en/reference/directives-reference/#client-directives) — `client:visible` and the others.
 - [Playwright: BrowserContext.cookies](https://playwright.dev/docs/api/class-browsercontext#browser-context-cookies) — listing every cookie of a page.
 - [Playwright fixtures](https://playwright.dev/docs/test-fixtures) — options and the extended `page`.
