@@ -1,0 +1,24 @@
+# Publishes the scheduled articles: an article dated in the future stays out of
+# the production build until its day (src/lib/posts.ts), so the site is rebuilt
+# every morning. The build hook comes from Netlify (Project configuration >
+# Build & deploy > Build hooks) and is kept in the NETLIFY_BUILD_HOOK secret.
+name: Publish scheduled articles
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger a Netlify production build
+        env:
+          NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
+        run: |
+          if [ -z "$NETLIFY_BUILD_HOOK" ]; then
+            echo "No NETLIFY_BUILD_HOOK secret: nothing to trigger."
+            exit 0
+          fi
+          curl --fail --silent --show-error -X POST -d '{}' "$NETLIFY_BUILD_HOOK"
