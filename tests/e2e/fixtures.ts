@@ -35,10 +35,21 @@ const algoliaResponse = (body: { requests?: { indexName: string; query?: string 
   }),
 });
 
+type Consent = { analytics: boolean; comments: boolean } | null;
+
 // Every test: no third party (they are not ours to test), Algolia answered
 // locally, and neither a script error nor a Content Security Policy violation.
-export const test = base.extend<{ page: Page }>({
-  page: async ({ page }, use) => {
+// The cookie choice is made beforehand (everything refused), so the banner
+// stays out of the way; the consent tests set `consent` to null to see it.
+export const test = base.extend<{ page: Page; consent: Consent }>({
+  consent: [{ analytics: false, comments: false }, { option: true }],
+  page: async ({ page, consent }, use) => {
+    if (consent) {
+      await page.addInitScript(
+        (choice) => localStorage.setItem("blouppy-consent", JSON.stringify({ ...choice, at: Date.now() })),
+        consent,
+      );
+    }
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.addInitScript(() => {

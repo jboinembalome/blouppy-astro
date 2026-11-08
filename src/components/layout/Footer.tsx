@@ -94,7 +94,13 @@ export const Footer = ({ currentPath }: { currentPath?: string }) => {
 
         <div className="flex flex-wrap justify-between gap-3 border-t border-zinc-800 pt-6 text-[0.8125rem] text-zinc-400">
           <span>&copy; {new Date().getFullYear()} Blouppy. All rights reserved.</span>
-          <span>Built with Astro &amp; Tailwind CSS</span>
+          <span className="flex flex-wrap gap-x-5 gap-y-2">
+            {/* Opens the cookie choice again (src/scripts/consent.ts). */}
+            <button type="button" data-consent-settings className="text-zinc-400 hover:text-white">
+              Cookie settings
+            </button>
+            <span>Built with Astro &amp; Tailwind CSS</span>
+          </span>
         </div>
       </div>
     </footer>
