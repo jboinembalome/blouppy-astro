@@ -206,7 +206,7 @@ if (RouteScope.Resolve<TId>(context.RouteData, routeValueName) is { } scopeId)
 }
 ```
 
-`InvalidateAsync` is one call, [`RemoveByTagAsync`](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid), which drops every entry of that workspace **for every user**. The scope is deliberately coarse: a write that names its workspace cannot forget a route the way a list of routes would. HybridCache records the tag invalidation in the shared store, so another replica checks its in-process copy against it rather than serving it stale, with no message to broadcast.
+`InvalidateAsync` is one call, [`RemoveByTagAsync`](https://learn.microsoft.com/aspnet/core/performance/caching/hybrid), which drops every entry of that workspace **for every user**. The scope is deliberately coarse: a write that names its workspace cannot forget a route the way a list of routes would. The invalidation reaches Redis and this replica's own memory. Another replica's in-memory copy is not told: it lives until its local expiration, which is why the Starter keeps that one short (`LocalDuration`, 15 seconds by default) and leaves the longer lifetime to Redis.
 
 > **_Note:_**  A write that does not go through an attributed action (a message consumer, a seeder, a bulk `ExecuteUpdate`) does not invalidate. The short expiry bounds that gap, which is why it is a minute rather than an hour.
 
