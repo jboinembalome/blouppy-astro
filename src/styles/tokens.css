@@ -2,10 +2,10 @@
  *
  * Source: front/libs/ui/src/tokens/tokens.css and flamingo.css in the Starter,
  * explained by its DESIGN.md. The names and values are the same, so the blog
- * and the product read as one family. Two differences, both forced by this
- * site running Tailwind 3: the neutrals are written as hex values (Tailwind 3
- * exposes no --color-zinc-* variables), and only the roles this site uses are
- * declared. tailwind.config.js turns these roles into utilities.
+ * and the product read as one family. Two differences: the neutrals are
+ * written as hex values (the site keeps Tailwind 3's palette, see
+ * tailwind.v3-theme.cjs), and only the roles this site uses are declared.
+ * tailwind.config.cjs turns these roles into utilities.
  */
 :root {
   color-scheme: light;
@@ -40,8 +40,10 @@
   --blouppy-surface-900: #18181b;
   --blouppy-surface-950: #09090b;
 
-  --blouppy-font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-  --blouppy-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --blouppy-font-sans:
+    "Inter Variable", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
+    "Noto Color Emoji";
+  --blouppy-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 
   --blouppy-bg: var(--blouppy-surface-0);
   --blouppy-bg-soft: var(--blouppy-surface-50);

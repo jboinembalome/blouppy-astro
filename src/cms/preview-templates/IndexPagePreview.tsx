@@ -1,20 +1,10 @@
-import React from 'react'
-import { IndexPageTemplate } from '../../templates/index-page-template'
+import React from "react";
+import type { PreviewTemplateComponentProps } from "decap-cms-core";
+import { IndexPageTemplate } from "../../templates/index-page-template";
+import { textField } from "../entry";
 
-const IndexPagePreview = ({ entry }: any) => {
-  const data = entry.getIn(['data']).toJS()
+const IndexPagePreview = ({ entry }: PreviewTemplateComponentProps) => (
+  <IndexPageTemplate title={textField(entry, "title")} subheading={textField(entry, "subheading")} articles={[]} />
+);
 
-  if (data) {
-    return (
-      <IndexPageTemplate
-        title={data.title}
-        subheading={data.subheading}
-        articles={[]}
-      />
-    )
-  } else {
-    return <div>Loading...</div>
-  }
-}
-
-export default IndexPagePreview
+export default IndexPagePreview;

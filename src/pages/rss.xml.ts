@@ -19,7 +19,7 @@ export const GET = async () => {
         content: html,
         customData: `<guid isPermaLink="false">${url}</guid>`,
       };
-    })
+    }),
   );
 
   return rss({

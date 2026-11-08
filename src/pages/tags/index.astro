@@ -8,12 +8,10 @@ import { getTags } from "../../lib/posts";
 <Layout title="Tags" description="Every tag the articles use, with the number of posts for each.">
   <PageHeader kicker="Blog" title="Tags" subtitle="Every topic the articles cover, with how many posts each one has." />
   <ul class="flex flex-wrap gap-2">
-    {
-      getTags().map((tag) => (
-        <li>
-          <TagWithCount tag={tag} />
-        </li>
-      ))
-    }
+    {getTags().map((tag) => (
+      <li>
+        <TagWithCount tag={tag} />
+      </li>
+    ))}
   </ul>
 </Layout>

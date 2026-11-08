@@ -1,28 +1,31 @@
-import React from 'react';
+import React from "react";
 
-export interface ButtonProps extends React.DetailedHTMLProps<React.ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>, React.AriaAttributes {
+export interface ButtonProps
+  extends
+    React.DetailedHTMLProps<React.ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>,
+    React.AriaAttributes {
   text?: string;
   className?: string;
-  color?: 'primary' | 'basic';
-  size?: 'sm' | 'md' | 'lg';
+  color?: "primary" | "basic";
+  size?: "sm" | "md" | "lg";
 }
 
-export const Button = ({ text = "Button 1", color = 'primary', size = 'md', className, ...rest }: ButtonProps) => {
-  const buttonColor = color === 'primary' ? "btn" : "btn-white-sm";
+export const Button = ({ text = "Button 1", color = "primary", size = "md", className, ...rest }: ButtonProps) => {
+  const buttonColor = color === "primary" ? "btn" : "btn-white-sm";
 
-  let buttonSize = '';
+  let buttonSize = "";
   switch (size) {
-    case 'sm':
+    case "sm":
       buttonSize = "text-sm";
       break;
-    case 'md':
+    case "md":
       buttonSize = "text-base";
       break;
-    case 'lg':
+    case "lg":
       buttonSize = "text-lg";
       break;
   }
-  
+
   return (
     <button className={`${buttonColor} ${buttonSize} ${className}`} {...rest}>
       {text}

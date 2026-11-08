@@ -1,5 +1,6 @@
-# Builds the site on every pull request, as Netlify will: a broken page, type
-# or plugin fails here rather than on the deploy.
+# Checks every pull request as Netlify will build it, then checks the result:
+# types, lint and format, the build, the built site (links, SEO tags, feeds),
+# and the pages in a browser.
 name: Build
 
 on:
@@ -16,6 +17,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - run: npm run check
+      - run: npm run lint
+      - run: npm run format:check
+      # Placeholder Algolia keys show the search button, so the tests can open
+      # it; the tests answer its requests themselves.
       - run: npm run build
+        env:
+          GATSBY_ALGOLIA_APP_ID: e2e
+          GATSBY_ALGOLIA_SEARCH_KEY: e2e
+      - run: npm run test:site
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e

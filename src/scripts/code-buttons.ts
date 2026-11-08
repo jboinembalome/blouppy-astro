@@ -1,44 +1,41 @@
+// gatsby-remark-code-buttons' browser half: the "Copy" button above a code
+// block carries the code in `data-code` (see src/lib/markdown/vendor/code-buttons),
+// and one listener for the whole page copies it, then shows the toaster.
 
-// gatsby-remark-code-buttons' browser half: the "Copy" button of a code block
-// calls window.copyToClipboard from its onclick attribute.
-declare global {
-  interface Window {
-    copyToClipboard: (str: string, toasterId?: string) => void;
-    showClipboardToaster: (toasterId: string) => void;
-  }
-}
+const showToaster = (container: HTMLElement) => {
+  const { toasterClass = "", toasterTextClass = "", toasterText, toasterDuration } = container.dataset;
+  if (!toasterText) return;
+  const toaster = document.createElement("div");
+  toaster.className = toasterClass;
+  const text = document.createElement("div");
+  text.className = toasterTextClass;
+  text.textContent = toasterText;
+  toaster.appendChild(text);
+  document.body.appendChild(toaster);
+  setTimeout(() => toaster.remove(), Number(toasterDuration));
+};
 
-window.copyToClipboard = (str, toasterId) => {
-  const el = document.createElement("textarea");
-  el.className = "gatsby-code-button-buffer";
-  el.innerHTML = str;
-  document.body.appendChild(el);
-  const range = document.createRange();
-  range.selectNode(el);
-  window.getSelection()?.removeAllRanges();
-  window.getSelection()?.addRange(range);
+const copy = (code: string) => {
+  // A selection copied with execCommand, as the plugin did: it also works where
+  // the asynchronous Clipboard API is not allowed.
+  const buffer = document.createElement("textarea");
+  buffer.className = "gatsby-code-button-buffer";
+  buffer.value = code;
+  document.body.appendChild(buffer);
+  buffer.select();
   document.execCommand("copy");
   (document.activeElement as HTMLElement | null)?.blur();
   setTimeout(() => {
     document.getSelection()?.removeAllRanges();
-    document.body.removeChild(el);
+    buffer.remove();
   }, 100);
-
-  if (toasterId) window.showClipboardToaster(toasterId);
 };
 
-window.showClipboardToaster = (toasterId) => {
-  const textElem = document.querySelector<HTMLElement>(`[data-toaster-id="${toasterId}"]`);
-  if (!textElem) return;
+document.addEventListener("click", (event) => {
+  const container = (event.target as Element | null)?.closest<HTMLElement>(".gatsby-code-button-container[data-code]");
+  if (!container) return;
+  copy(container.dataset.code ?? "");
+  showToaster(container);
+});
 
-  const el = document.createElement("div");
-  el.className = textElem.dataset.toasterClass ?? "";
-  el.innerHTML = `
-      <div class="${textElem.dataset.toasterTextClass}">
-        ${textElem.dataset.toasterText}
-      </div>
-    `.trim();
-  document.body.appendChild(el);
-  setTimeout(() => document.body.removeChild(el), Number(textElem.dataset.toasterDuration));
-};
 export {};

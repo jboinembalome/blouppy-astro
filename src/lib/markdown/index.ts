@@ -6,10 +6,7 @@ import { join } from "node:path";
 // project root: once bundled, this module no longer sits next to it.
 const require = createRequire(join(process.cwd(), "src/lib/markdown/"));
 const { render } = require("./vendor/pipeline.js") as {
-  render: (
-    markdown: string,
-    options: { tocMaxDepth?: number; excerptLengths?: number[] }
-  ) => Promise<RenderedMarkdown>;
+  render: (markdown: string, options: { tocMaxDepth?: number; excerptLengths?: number[] }) => Promise<RenderedMarkdown>;
 };
 
 export interface RenderedMarkdown {

@@ -14,7 +14,6 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 var visit = require('unist-util-visit');
 
-var qs = require('query-string');
 
 module.exports = function gatsbyRemarkCodeButtons(_ref, _ref2) {
   var markdownAST = _ref.markdownAST;
@@ -34,7 +33,9 @@ module.exports = function gatsbyRemarkCodeButtons(_ref, _ref2) {
         language = _split2[0],
         params = _split2[1];
 
-    var actions = qs.parse(params);
+    // The options after the language (`bash:clipboard=false`), parsed as a query
+    // string; query-string's parse did the same for the options used here.
+    var actions = Object.fromEntries(new URLSearchParams(params || ''));
     var clipboard = actions.clipboard;
 
     if (!language) {
@@ -56,10 +57,13 @@ module.exports = function gatsbyRemarkCodeButtons(_ref, _ref2) {
       var toasterDuration = customToasterDuration ? customToasterDuration : 3500;
       var toasterId = toasterText ? Math.random() * Math.pow(100, 10) : '';
       var code = parent.children[index].value;
-      code = code.replace(/"/gm, '&quot;').replace(/`/gm, '\\`').replace(/\$/gm, '\\$');
+      // The code travels in a data attribute, read by src/scripts/code-buttons.ts,
+      // rather than in an inline onclick handler, which a CSP built from hashes
+      // refuses to run.
+      code = code.replace(/&/gm, '&amp;').replace(/"/gm, '&quot;').replace(/</gm, '&lt;').replace(/>/gm, '&gt;');
       var buttonNode = {
         type: 'html',
-        value: "\n            <div\n              class=\"".concat(buttonContainerClass, "\"\n              data-toaster-id=\"").concat(toasterId, "\"\n              data-toaster-class=\"").concat(toasterClass, "\"\n              data-toaster-text-class=\"").concat(toasterTextClass, "\"\n              data-toaster-text=\"").concat(toasterText, "\"\n              data-toaster-duration=\"").concat(toasterDuration, "\"\n              onClick=\"copyToClipboard(`").concat(code, "`, `").concat(toasterId, "`)\"\n            >\n              <div\n                class=\"").concat(buttonClass, "\"\n                data-tooltip=\"").concat(tooltipText, "\"\n              >\n                ").concat(buttonText).concat(svgIcon, "\n              </div>\n            </div>\n            ").trim()
+        value: "\n            <div\n              class=\"".concat(buttonContainerClass, "\"\n              data-toaster-id=\"").concat(toasterId, "\"\n              data-toaster-class=\"").concat(toasterClass, "\"\n              data-toaster-text-class=\"").concat(toasterTextClass, "\"\n              data-toaster-text=\"").concat(toasterText, "\"\n              data-toaster-duration=\"").concat(toasterDuration, "\"\n              data-code=\"").concat(code, "\"\n            >\n              <div\n                class=\"").concat(buttonClass, "\"\n                data-tooltip=\"").concat(tooltipText, "\"\n              >\n                ").concat(buttonText).concat(svgIcon, "\n              </div>\n            </div>\n            ").trim()
       };
       parent.children.splice(index, 0, buttonNode);
       actions['clipboard'] = 'false';

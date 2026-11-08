@@ -1,0 +1,49 @@
+/* Tailwind CSS 4, still configured by tailwind.config.cjs (the colour roles,
+   the fonts and the article typography read the tokens below). */
+@import "tailwindcss";
+@config "../../tailwind.config.cjs";
+
+/* The Starter's design tokens: every class below reads them. */
+@import "./tokens.css";
+
+/* Global classes that can be used anywhere. */
+@import "./global.css";
+
+/* The flamingo decoration of the home hero and the secondary pages. */
+@import "./decor.css";
+
+/* The dark scheme follows the `dark` class the theme script sets on <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tailwind 4 draws borders in currentColor by default; Tailwind 3, which the
+   components were written for, used gray-200 (#e5e7eb). */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: #e5e7eb;
+  }
+}
+
+/* More of Tailwind 3's defaults: a pointer on buttons, a grey placeholder, the
+   table cells' padding. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af;
+  }
+
+  /* Tailwind 4's preflight zeroes every element's padding; Tailwind 3 left
+     table cells the browser's 1px, which the article tables were laid out with. */
+  th,
+  td {
+    padding: 1px;
+  }
+}

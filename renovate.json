@@ -1,3 +1,79 @@
 {
-  "extends": ["github>netlify/renovate-config:netlify-cms-starter"]
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Weekly updates; minor and patch ones merge themselves once CI (types, lint, build, site check, browser tests) is green.",
+  "extends": ["config:recommended", ":dependencyDashboard"],
+  "timezone": "Europe/Paris",
+  "schedule": ["before 9am on monday"],
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 5,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "automerge": true,
+    "schedule": ["before 9am on the first day of the month"]
+  },
+  "packageRules": [
+    {
+      "description": "Minor and patch updates in one pull request, merged once CI passes.",
+      "matchUpdateTypes": ["minor", "patch"],
+      "matchCurrentVersion": "!/^0/",
+      "groupName": "minor and patch updates",
+      "automerge": true
+    },
+    {
+      "description": "GitHub Actions together, merged once CI passes.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "automerge": true
+    },
+    {
+      "description": "The Markdown pipeline is pinned to the versions gatsby-transformer-remark used, so the articles' HTML stays the same (src/lib/markdown): no new minor or major. A patch still comes, for review.",
+      "matchPackageNames": [
+        "remark",
+        "remark-gfm",
+        "remark-footnotes",
+        "mdast-util-to-hast",
+        "mdast-util-to-string",
+        "mdast-util-toc",
+        "hast-util-to-html",
+        "unist-util-visit",
+        "github-slugger",
+        "parse-numeric-range",
+        "underscore.string",
+        "sanitize-html",
+        "gray-matter"
+      ],
+      "matchUpdateTypes": ["major", "minor"],
+      "enabled": false
+    },
+    {
+      "description": "Reviewed by hand: the Markdown pipeline's patches, and Decap CMS, which CI builds but does not open.",
+      "matchPackageNames": [
+        "remark",
+        "remark-gfm",
+        "remark-footnotes",
+        "mdast-util-to-hast",
+        "mdast-util-to-string",
+        "mdast-util-toc",
+        "hast-util-to-html",
+        "unist-util-visit",
+        "github-slugger",
+        "parse-numeric-range",
+        "underscore.string",
+        "sanitize-html",
+        "gray-matter",
+        "decap-cms-app"
+      ],
+      "groupName": null,
+      "automerge": false
+    },
+    {
+      "description": "Major updates one by one, never merged automatically.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "labels": ["security"],
+    "automerge": false
+  }
 }

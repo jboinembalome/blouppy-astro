@@ -31,7 +31,7 @@ const objects = await Promise.all(
     const slug = `/blog/${file.slice(0, -".md".length)}/`;
     const { excerpts } = await render(content, { excerptLengths: [5000] });
     return { objectID: slug, title: data.title, slug, excerpt: excerpts[5000] };
-  })
+  }),
 );
 
 const client = algoliasearch(appId, adminKey);

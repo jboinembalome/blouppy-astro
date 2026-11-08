@@ -3,7 +3,6 @@
   command = "npm run build"
 [build.environment]
   NODE_VERSION = "22"
-  NPM_FLAGS = "--legacy-peer-deps"
 
 # Every article is listed on /blog/; its old numbered pages point there, and
 # so do the topic filters that briefly lived on the home page.
@@ -45,13 +44,14 @@
   to = "/"
   status = 301
 
-# The headers gatsby-adapter-netlify set: no caching of the pages themselves,
-# a year for the fingerprinted assets.
+# No caching of the pages themselves, a year for the fingerprinted assets. The
+# Content Security Policy is in each page's <meta> (astro.config.mjs), built from
+# the hashes of its scripts; X-XSS-Protection is gone, as browsers dropped the
+# filter it switched on and MDN advises against it.
 [[headers]]
   for = "/*"
   [headers.values]
     cache-control = "public, max-age=0, must-revalidate"
-    x-xss-protection = "1; mode=block"
     x-content-type-options = "nosniff"
     referrer-policy = "same-origin"
     x-frame-options = "DENY"

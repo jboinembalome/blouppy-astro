@@ -14,8 +14,19 @@ export const TopicIcon = ({ topic, size = "md", className = "" }: TopicIconProps
   const glyph = size === "sm" ? "h-4 w-4" : "h-5 w-5";
 
   return (
-    <span className={`flex shrink-0 items-center justify-center bg-accent-soft text-accent ${box} ${className}`} aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={glyph}>
+    <span
+      className={`flex shrink-0 items-center justify-center bg-accent-soft text-accent ${box} ${className}`}
+      aria-hidden="true"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={glyph}
+      >
         {topic.icon.map((d) => (
           <path key={d} d={d} />
         ))}

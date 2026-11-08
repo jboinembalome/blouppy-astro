@@ -1,9 +1,14 @@
-import React, { useState } from "react";
+import React, { Suspense, lazy, useState } from "react";
 import { Disclosure } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/solid";
 import { Link, withTrailingSlash } from "../link/Link";
-import Search, { searchConfigured } from "../search";
+import { searchConfigured } from "../search/config";
+
+// Algolia's client and InstantSearch make up most of the navbar's JavaScript,
+// and only a reader who opens the search needs them: they load on that first
+// click, and stay for the next ones.
+const Search = lazy(() => import("../search"));
 import { ThemeToggle } from "../theme-toggle/ThemeToggle";
 import { BlouppyIcon } from "../icons/svg/BlouppyIcon";
 import { BlouppyWithTextIcon } from "../icons/svg/BlouppyWithTextIcon";
@@ -30,6 +35,7 @@ const searchIndices = [{ name: `Pages`, title: `Pages` }];
 
 export const Navbar = ({ currentPath }: { currentPath?: string }) => {
   const [toggleSearch, setToggleSearch] = useState(false);
+  const [searchRequested, setSearchRequested] = useState(false);
 
   return (
     <Disclosure
@@ -41,7 +47,12 @@ export const Navbar = ({ currentPath }: { currentPath?: string }) => {
         <>
           <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 md:px-6 lg:px-8">
             <div className="flex items-center gap-8">
-              <Link to="/" currentPath={currentPath} className="flex items-center text-heading" aria-label="Blouppy, home">
+              <Link
+                to="/"
+                currentPath={currentPath}
+                className="flex items-center text-heading"
+                aria-label="Blouppy, home"
+              >
                 <BlouppyIcon className="block h-11 w-11 p-1.5 lg:hidden" />
                 <BlouppyWithTextIcon className="hidden w-32 p-1.5 lg:block" />
               </Link>
@@ -64,13 +75,24 @@ export const Navbar = ({ currentPath }: { currentPath?: string }) => {
                 <>
                   <button
                     type="button"
-                    onClick={() => setToggleSearch(true)}
+                    onClick={() => {
+                      setSearchRequested(true);
+                      setToggleSearch(true);
+                    }}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading"
                   >
                     <span className="sr-only">Search articles</span>
                     <MagnifyingGlassIcon className="h-5 w-5" aria-hidden="true" />
                   </button>
-                  <Search indices={searchIndices} openModal={toggleSearch} modalClosed={setToggleSearch} />
+                  {/* The search's root is a flex item of this bar, gap included:
+                      an empty one stands in until it loads. */}
+                  {searchRequested ? (
+                    <Suspense fallback={<div />}>
+                      <Search indices={searchIndices} openModal={toggleSearch} modalClosed={setToggleSearch} />
+                    </Suspense>
+                  ) : (
+                    <div />
+                  )}
                 </>
               )}
               <ThemeToggle />
@@ -79,7 +101,11 @@ export const Navbar = ({ currentPath }: { currentPath?: string }) => {
               </a>
               <Disclosure.Button className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-heading md:hidden">
                 <span className="sr-only">{open ? "Close main menu" : "Open main menu"}</span>
-                {open ? <XMarkIcon className="h-6 w-6" aria-hidden="true" /> : <Bars3Icon className="h-6 w-6" aria-hidden="true" />}
+                {open ? (
+                  <XMarkIcon className="h-6 w-6" aria-hidden="true" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" aria-hidden="true" />
+                )}
               </Disclosure.Button>
             </div>
           </div>
@@ -87,11 +113,17 @@ export const Navbar = ({ currentPath }: { currentPath?: string }) => {
           <Disclosure.Panel className="border-t border-line md:hidden">
             <div className="space-y-1 px-4 pb-4 pt-3">
               {links.map((item) => (
-                <Disclosure.Button key={item.name} as={Link} to={item.href} currentPath={currentPath} className={mobileLinkClassName}>
+                <Disclosure.Button
+                  key={item.name}
+                  as={Link}
+                  to={item.href}
+                  currentPath={currentPath}
+                  className={mobileLinkClassName}
+                >
                   {item.name}
                 </Disclosure.Button>
               ))}
-              <a href={starterUrl} className="btn mt-3 w-full" rel="noopener">
+              <a href={starterUrl} className="btn w-full" rel="noopener">
                 Blouppy Starter
               </a>
             </div>

@@ -21,7 +21,7 @@ export const photo = async (
   publicPath: string | undefined,
   width: number,
   height: number,
-  { forSharing = false } = {}
+  { forSharing = false } = {},
 ): Promise<ImageSource | undefined> => {
   if (!publicPath) return undefined;
   const asset = photos[`/src/assets/photos/${publicPath.slice(publicPath.lastIndexOf("/") + 1)}`];

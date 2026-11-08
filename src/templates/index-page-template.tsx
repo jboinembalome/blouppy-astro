@@ -22,8 +22,10 @@ const Hero = ({ title, subheading }: Pick<IndexPageTemplateProps, "title" | "sub
     </div>
     <div className="mx-auto grid w-full max-w-6xl items-center gap-8 px-4 pb-8 pt-8 md:grid-cols-2 md:gap-12 md:px-6 md:pb-14 md:pt-14 lg:px-8">
       <div className="order-2 md:order-1">
-        <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-heading sm:text-5xl lg:text-[3.5rem]">{title}</h1>
-        <p className="mt-5 max-w-md text-lg leading-relaxed text-muted sm:text-xl">{subheading}</p>
+        <h1 className="text-4xl font-extrabold leading-[1.08] tracking-tight text-heading sm:text-5xl sm:leading-none lg:text-[3.5rem]">
+          {title}
+        </h1>
+        <p className="mt-5 max-w-md text-lg leading-relaxed text-muted sm:text-xl sm:leading-7">{subheading}</p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link to="/blog/" className="btn btn-lg max-sm:flex-1">
             Read the articles
