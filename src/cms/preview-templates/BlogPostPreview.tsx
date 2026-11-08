@@ -10,7 +10,7 @@ const BlogPostPreview = ({ entry, widgetFor }: PreviewTemplateComponentProps) =>
     tags={listField(entry, "tags")}
     title={textField(entry, "title")}
     slug={String(entry.get("slug") ?? "")}
-    // No comment thread in the editor: Disqus would load into the CMS itself.
+    // No comment thread in the editor.
     comments={false}
   />
 );

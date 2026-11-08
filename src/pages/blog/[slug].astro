@@ -1,6 +1,6 @@
 ---
 import Layout from "../../layouts/Layout.astro";
-import { BlogPostTemplate, disqusConfigOf } from "../../templates/blog-post-template";
+import { BlogPostTemplate } from "../../templates/blog-post-template";
 import { ArticleToc } from "../../components/article/ArticleToc";
 import { ArticleComments } from "../../components/article/ArticleComments";
 import { getPosts, getRelated, summarizeAll, formatDate, type Post } from "../../lib/posts";
@@ -67,6 +67,6 @@ const structuredData = {
     related={related}
   >
     <ArticleToc slot="toc" client:idle html={toc} />
-    <ArticleComments slot="comments" client:visible disqusConfig={disqusConfigOf(slug, frontmatter.title)} />
+    <ArticleComments slot="comments" client:visible />
   </BlogPostTemplate>
 </Layout>

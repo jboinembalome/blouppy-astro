@@ -12,8 +12,8 @@ It is a static site built with [Astro](https://astro.build/), with [React](https
 - An Articles page filtered by topic, revealed as the reader scrolls; a page per tag.
 - Search with [Algolia](https://www.algolia.com/), loaded the first time the dialog opens.
 - Light and dark themes, following the system by default.
-- Comments with [Disqus](https://disqus.com/), a contact form handled by [Netlify Forms](https://docs.netlify.com/forms/setup/).
-- A cookie banner: Google Analytics and Disqus load only after the reader agrees, per purpose, and the choice can be changed from the footer.
+- Comments with [Giscus](https://giscus.app/), on the repository's GitHub Discussions, a contact form handled by [Netlify Forms](https://docs.netlify.com/forms/setup/).
+- A cookie banner: Google Analytics loads only after the reader agrees, and the choice can be changed from the footer. Giscus sets no tracking cookie and needs no consent.
 - SEO: canonical URLs, Open Graph and Twitter tags, JSON-LD, RSS, sitemap, robots.txt by deploy context.
 - A Content Security Policy built from the hashes of the page's own scripts.
 
