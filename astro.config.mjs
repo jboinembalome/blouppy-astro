@@ -30,7 +30,8 @@ export default defineConfig({
   compressHTML: true,
   // A Content Security Policy in a <meta> of every page: scripts only from the
   // site, the inline ones Astro hashes, and the third parties the pages load.
-  // Styles stay open, as React and the Markdown write style attributes.
+  // Styles stay open, as React and the Markdown write style attributes; Giscus
+  // adds its own stylesheet.
   security: {
     csp: {
       directives: ["object-src 'none'", "base-uri 'self'", "form-action 'self'"],
@@ -39,11 +40,10 @@ export default defineConfig({
           "'self'",
           "https://www.googletagmanager.com",
           "https://cdnjs.buymeacoffee.com",
-          "https://*.disqus.com",
-          "https://*.disquscdn.com",
+          "https://giscus.app",
         ],
       },
-      styleDirective: { resources: ["'self'", "'unsafe-inline'"] },
+      styleDirective: { resources: ["'self'", "'unsafe-inline'", "https://giscus.app"] },
     },
   },
   prefetch: { prefetchAll: false, defaultStrategy: "hover" },

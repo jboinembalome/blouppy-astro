@@ -77,18 +77,11 @@ test.describe("articles", () => {
     await expect(page.locator(`.toc a.is-active[href$="#${id}"]`)).toBeVisible();
   });
 
-  test("loads the comments once the reader asks for them", async ({ page }) => {
-    let requested = false;
-    page.on("request", (request) => {
-      if (/disqus\.com\/embed\.js/.test(request.url())) requested = true;
-    });
+  test("loads the comments from Giscus when they come into view", async ({ page }) => {
     await page.goto(article);
+    const client = page.waitForRequest(/giscus\.app\/client\.js/);
     await page.getByRole("heading", { name: "Comments" }).scrollIntoViewIfNeeded();
-    expect(requested, "Disqus before consent").toBe(false);
-
-    const embed = page.waitForRequest(/blouppy\.disqus\.com\/embed\.js/);
-    await page.getByRole("button", { name: "Load comments" }).click();
-    await embed;
+    await client;
   });
 });
 

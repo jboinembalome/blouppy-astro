@@ -28,7 +28,15 @@ export const site = {
     githubUrl: "https://github.com/jboinembalome",
   },
   analyticsId: "G-RDNQF6X1VT",
-  disqusShortname: "blouppy",
+  // The comments' GitHub Discussions (giscus.app): public identifiers of the
+  // repository and of its "Comments" category.
+  giscus: {
+    repo: "jboinembalome/blouppy-blog",
+    repoId: "R_kgDOG_phXA",
+    category: "Comments",
+    categoryId: "DIC_kwDOG_phXM4DKpjH",
+  },
 } as const;
 
 export type Site = typeof site;
+export const giscus = site.giscus;
