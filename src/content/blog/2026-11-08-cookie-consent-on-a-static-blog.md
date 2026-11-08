@@ -58,7 +58,7 @@ In the European Union, the ePrivacy directive (article 5(3)) requires consent be
 
 Audience measurement has an exemption, but only for a tool configured within strict limits (anonymous statistics for the site alone, no cross-site tracking, limited lifetime). Google Analytics as this blog uses it does not fit those limits, so there were two options: switch to an exempt tool, or ask. We kept Google Analytics and ask.
 
-Disqus needed consent too. Putting it behind the same banner works, but a reader who refuses then sees no comments at all, so we replaced it with a comment system that sets no tracker: that is [a story of its own](/blog/2026-11-08-replacing-disqus-with-giscus-on-an-astro-blog/). This article covers what is left, Google Analytics.
+Disqus needed consent too. Putting it behind the same banner works, but a reader who refuses then sees no comments at all, so we replaced it with a comment system that sets no tracker: that is [a story of its own](/blog/2026-11-08-replacing-disqus-with-giscus/). This article covers what is left, Google Analytics.
 
 
 ## A consent store with no framework

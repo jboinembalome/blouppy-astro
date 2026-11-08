@@ -1,27 +1,27 @@
 ---
 templateKey: 'blog-post'
-title: 'Replacing Disqus with Giscus on an Astro blog'
+title: 'Replacing Disqus with Giscus'
 date: 2026-11-08T20:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
-category: Astro
+category: React
 topic: 'Front end'
 illustration: 3
 categorycolor: bg-orange-100 text-orange-800
 featuredpost: true
 description: >-
-  Move a blog's comments from Disqus to Giscus and GitHub Discussions: why, the setup, a React island that follows the site's theme, the Content Security Policy and a test.
+  Move a blog's comments from Disqus to Giscus and GitHub Discussions: why, the setup, a React component that loads on demand and follows the site's theme, the Content Security Policy and a test.
 tags:
   - Development
-  - Astro
   - React
   - Giscus
+  - GitHub
   - Privacy
 ---
 
 This blog's comments ran on Disqus for years. It is free and takes one script tag, but it is not light: on an article page, Disqus set about twenty cookies, most of them from the ad networks it loads, and injected an ad tracker into the page itself. When we [asked readers for consent before any tracker](/blog/2026-11-08-cookie-consent-on-a-static-blog/), Disqus had to go behind the banner too, and a reader who refused would have seen no comments at all.
 
-In this article, we will replace Disqus with Giscus, which keeps the comments in GitHub Discussions and sets no tracker: the setup, a React island that follows the site's theme, the Content Security Policy, a test, and what we did with the old comments.
+In this article, we will replace Disqus with Giscus, which keeps the comments in GitHub Discussions and sets no tracker: the setup, a React component that follows the site's theme, the Content Security Policy, a test, and what we did with the old comments.
 
 
 ## How Giscus works
@@ -39,8 +39,8 @@ The setup takes a few minutes:
 We picked the `pathname` mapping: the first comment on an article creates a discussion named after its path, so an article with no comment costs nothing in the repository.
 
 
-## A React island for the comments
-The generated snippet is a `<script>` tag with `data-` attributes. In a React island, the component creates the same element once the island has mounted. Hydrating it with `client:visible` means nothing is fetched until the reader reaches the end of the article:
+## A React component for the comments
+The generated snippet is a `<script>` tag with `data-` attributes. Any site can paste it where the comments go. In a React component, the same element is created once the component has mounted. This blog is built with Astro, where the component is an island hydrated with `client:visible`: nothing is fetched until the reader reaches the end of the article. Elsewhere, an `IntersectionObserver` that mounts the component does the same, and `loading: "lazy"` already defers the iframe itself:
 
 ```tsx
 // src/components/article/ArticleComments.tsx
@@ -90,7 +90,7 @@ Two details. The snippet offers `preferred_color_scheme`, which follows the syst
 
 
 ## The Content Security Policy
-The policy lists the hosts allowed to run scripts. The Disqus hosts went, `https://giscus.app` came in. The tests passed with that, but a check of the real page found a violation: `client.js` also adds a stylesheet, `giscus.app/default.css`, and `style-src` did not allow it.
+The policy lists the hosts allowed to run scripts (here in Astro's configuration, but the directives are the same in a header). The Disqus hosts went, `https://giscus.app` came in. The tests passed with that, but a check of the real page found a violation: `client.js` also adds a stylesheet, `giscus.app/default.css`, and `style-src` did not allow it.
 
 ```js
 // astro.config.mjs
@@ -121,13 +121,14 @@ Disqus can export its threads as XML, but nothing turns them into GitHub Discuss
 
 
 ## Conclusion
-Giscus trades Disqus' convenience for a constraint, a GitHub account to write, and gets rid of the trackers in return. For a technical blog, whose readers mostly have one, that is a good trade: the comments show for every reader without a consent banner, they live in a repository you own, and they follow the site's theme. Wire it in an island hydrated on visibility, pass your own theme rather than the system's, and load a real page once to see what the Content Security Policy needs.
+Giscus trades Disqus' convenience for a constraint, a GitHub account to write, and gets rid of the trackers in return. For a technical blog, whose readers mostly have one, that is a good trade: the comments show for every reader without a consent banner, they live in a repository you own, and they follow the site's theme. Load it only when the comments come into view, pass your own theme rather than the system's, and load a real page once to see what the Content Security Policy needs.
 
 
 ## References
 - [Giscus](https://giscus.app/) — configuration and the generated snippet.
 - [Giscus advanced usage](https://github.com/giscus/giscus/blob/main/ADVANCED-USAGE.md) — the `setConfig` message to the iframe.
 - [GitHub Discussions](https://docs.github.com/en/discussions) — enabling Discussions and managing categories.
-- [Astro: client directives](https://docs.astro.build/en/reference/directives-reference/#client-directives) — `client:visible` and the others.
+- [Astro: client directives](https://docs.astro.build/en/reference/directives-reference/#client-directives) — `client:visible`, as used on this blog.
+- [IntersectionObserver](https://developer.mozilla.org/docs/Web/API/Intersection_Observer_API) — loading on visibility without a framework.
 - [style-src](https://developer.mozilla.org/docs/Web/HTTP/Reference/Headers/Content-Security-Policy/style-src) — the directive the Giscus stylesheet needed.
 - [Playwright: waitForRequest](https://playwright.dev/docs/api/class-page#page-wait-for-request) — waiting for a request in a test.
