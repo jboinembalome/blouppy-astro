@@ -20,226 +20,91 @@ tags:
 
 A request goes through the gateway, the API, PostgreSQL and RabbitMQ, then a consumer sends an e-mail. It fails somewhere. Each host has written its own log lines, in its own container, and nothing ties them together. We grep timestamps and guess.
 
-[OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) fixes this with three signals that share one context: **traces** (what happened, across processes), **metrics** (how often and how long) and **logs** (with the trace id attached). In .NET, the APIs are already in the runtime (`ActivitySource`, `Meter`, `ILogger`); OpenTelemetry collects and exports them.
-
-In this article, we will read what Aspire's `AddServiceDefaults` actually wires, look at the dashboard in development, add our own spans and metrics, light up EF Core, Npgsql, Wolverine and Redis, and send everything to a real backend in production. The real example is [Blouppy Starter](https://starter.blouppy.com/), whose three hosts and migration runner all start with `builder.AddServiceDefaults()`.
+[OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) fixes this with three signals that share one context: **traces** (what happened, across processes), **metrics** (how often, how long) and **logs**, with the trace id attached. In .NET, the APIs are already in the runtime: `ActivitySource`, `Meter` and `ILogger`. OpenTelemetry collects and exports them. Aspire's `AddServiceDefaults` wires most of it, and the rest is a list we have to keep.
 
 
 ## What AddServiceDefaults wires
-The Aspire template generates a `ServiceDefaults` project that every host references. Its entry point is short:
+The Aspire template generates a `ServiceDefaults` project that every host references and calls with `builder.AddServiceDefaults()`. Besides health checks, service discovery and resilience, it calls `ConfigureOpenTelemetry`. Here it is in [Blouppy Starter](https://starter.blouppy.com/), trimmed of its comments:
 
 ```csharp
-public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder)
-    where TBuilder : IHostApplicationBuilder
+builder.Logging.AddOpenTelemetry(logging =>
 {
-    builder.ConfigureOpenTelemetry();
+    logging.IncludeFormattedMessage = true;
+    logging.IncludeScopes = true;
+});
 
-    builder.AddDefaultHealthChecks();
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(metrics => metrics
+        .AddMeter(builder.Environment.ApplicationName)
+        .AddMeter("Wolverine*")
+        .AddMeter(Telemetry.SmtpClient.MeterName)
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddRuntimeInstrumentation())
+    .WithTracing(tracing => tracing
+        .AddSource(builder.Environment.ApplicationName)
+        .AddSource("Wolverine")
+        .AddSource(Telemetry.SmtpClient.ActivitySourceName)
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation());
 
-    builder.Services.AddServiceDiscovery();
-
-    builder.Services.ConfigureHttpClientDefaults(http =>
-    {
-        http.AddStandardResilienceHandler();
-        http.AddServiceDiscovery();
-    });
-
-    return builder;
-}
+builder.AddOpenTelemetryExporters();
 ```
 
-The resilience handler applied to every `HttpClient` has its own trap, covered in [The AddStandardResilienceHandler trap](/blog/2026-06-15-the-addstandardresiliencehandler-trap/). Here we care about `ConfigureOpenTelemetry`. In the Starter, it reads:
+Logs go through an OpenTelemetry logger provider, so every line written inside a request carries its trace id. Metrics come from ASP.NET Core, `HttpClient`, the runtime and every meter listed with `AddMeter`. Traces come from ASP.NET Core, `HttpClient` and every source listed with `AddSource`.
 
-```csharp
-public static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder)
-    where TBuilder : IHostApplicationBuilder
-{
-    builder.Logging.AddOpenTelemetry(logging =>
-    {
-        logging.IncludeFormattedMessage = true;
-        logging.IncludeScopes = true;
-    });
+The lists are the important part. Libraries create sources and meters whether or not anyone listens. OpenTelemetry subscribes **only to the names we give it**, so an unlisted one exports nothing. Wolverine names its meter after the service, hence the wildcard. MailKit's names come from its own `Telemetry` class.
 
-    // Required by MailKit to enable metrics
-    Telemetry.SmtpClient.Configure();
-
-    builder.Services.AddOpenTelemetry()
-        .WithMetrics(metrics => metrics
-            // Wolverine names its meter after the service (Wolverine:blouppy), hence the wildcard.
-            .AddMeter("Wolverine*")
-            .AddMeter(Telemetry.SmtpClient.MeterName)
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddRuntimeInstrumentation())
-        .WithTracing(tracing => tracing
-            .AddSource(builder.Environment.ApplicationName)
-            .AddSource("Wolverine")
-            .AddSource(Telemetry.SmtpClient.ActivitySourceName)
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation());
-
-    builder.AddOpenTelemetryExporters();
-
-    return builder;
-}
-```
-
-Three things happen:
-- **Logs** go through an OpenTelemetry logger provider. `IncludeFormattedMessage` keeps the rendered message next to the template and its parameters; `IncludeScopes` exports the values of `BeginScope`. Every log written inside a request carries that request's trace id and span id.
-- **Metrics** come from ASP.NET Core (request duration, active requests), `HttpClient`, the runtime (GC, thread pool) and every `Meter` whose name is listed with `AddMeter`.
-- **Traces** come from ASP.NET Core, `HttpClient` and every `ActivitySource` listed with `AddSource`.
-
-The lists are the important part. The runtime and the libraries create `ActivitySource`s and `Meter`s whether or not anyone listens. OpenTelemetry subscribes **only to the names we give it**. A source that is not listed costs almost nothing and exports nothing.
-
-The exporter is added on one condition:
-
-```csharp
-private static TBuilder AddOpenTelemetryExporters<TBuilder>(this TBuilder builder)
-    where TBuilder : IHostApplicationBuilder
-{
-    var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
-
-    if (useOtlpExporter)
-    {
-        builder.Services.AddOpenTelemetry().UseOtlpExporter();
-    }
-
-    return builder;
-}
-```
-
-`UseOtlpExporter` registers one OTLP exporter for the three signals at once, configured by the standard `OTEL_EXPORTER_OTLP_*` variables (endpoint, protocol, headers). Without the variable, the host collects nothing beyond what it needs for its console logs, and no code path changes. That is what makes the same binary run under Aspire, in a test and in a container.
+`AddOpenTelemetryExporters` adds one OTLP exporter for the three signals, and only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Without it, the host logs to the console and nothing else changes. That is what lets the same binary run under Aspire, in a test and in a container.
 
 
-## The dashboard in development
-We never set `OTEL_EXPORTER_OTLP_ENDPOINT` by hand in development. When the AppHost starts a project with `AddProject<Projects.Blouppy_Web>("blouppy-api")`, it injects the variables that point the project at the Aspire dashboard's OTLP endpoint, along with `OTEL_SERVICE_NAME` set to the resource name. Each host shows up under its own name, and the dashboard gives us structured logs filterable by property, traces across hosts and the metrics, without installing anything.
+## The dashboard, for free
+In development, we never set that variable by hand. When the AppHost starts a project, it injects the variables that point it at the Aspire dashboard, and `OTEL_SERVICE_NAME` set to the resource name. A request through the gateway then shows as one trace: the API's request under it, the SQL commands and the Wolverine spans it caused, across hosts.
 
-In the Starter, a request through the gateway shows as one trace with the API's request under it, then the Npgsql commands and the Wolverine spans it caused. The [end-to-end tests built on Aspire.Hosting.Testing](/blog/2026-09-25-end-to-end-tests-with-aspire-hosting-testing/) start the same AppHost graph, so the telemetry of a failing scenario is wired the same way.
-
-
-## Libraries that bring their own instrumentation
-Several libraries in the Starter emit telemetry. Each needs one of two things: its name listed in `ConfigureOpenTelemetry`, or an Aspire client integration that lists it for us.
-
-**Wolverine** publishes an `ActivitySource` named `Wolverine`, and a meter whose name includes the service name, hence `AddMeter("Wolverine*")` (wildcards are accepted). Its spans show the send, the receive and the handler, so a message consumed by another host joins the trace of the request that published it. The move to Wolverine itself is told in [Replacing MassTransit with Wolverine](/blog/2026-06-09-replacing-masstransit-with-wolverine/).
-
-**MailKit** needs to be switched on before it emits anything: `Telemetry.SmtpClient.Configure()` creates its source and meter, and their names come from the same class.
-
-**EF Core and Npgsql** come through the Aspire client integration `Aspire.Npgsql.EntityFrameworkCore.PostgreSQL`. Each `DbContext` keeps its own `AddDbContext` registration (migrations history table, interceptors), then asks Aspire to enrich it:
-
-```csharp
-public IHostApplicationBuilder AddBlouppyDbContext()
-{
-    builder.Services.AddDbContext<BlouppyDbContext>((serviceProvider, options) => options
-        .UseNpgsql(builder.Configuration.GetConnectionString("blouppy-db"), npgsqlOptions => npgsqlOptions
-            .MigrationsHistoryTable(HistoryRepository.DefaultTableName, Schemas.Blouppy))
-        .AddInterceptors(serviceProvider.GetServices<ISaveChangesInterceptor>()));
-
-    builder.EnrichNpgsqlDbContext<BlouppyDbContext>();
-
-    return builder;
-}
-```
-
-`EnrichNpgsqlDbContext` adds Npgsql's tracing and metrics and a health check of the context. The Billing, identity and gateway contexts do the same. We get one span per SQL command, with the statement, under the request that ran it.
-
-**Redis** comes through `Aspire.StackExchange.Redis.DistributedCaching`. `AddRedisDistributedCache` wires the tracing of the connection; the Starter turns its health check off on purpose, because the response cache is an optimization, and a Redis outage must not take the API out of its load balancer's rotation:
-
-```csharp
-builder.AddRedisDistributedCache(CacheConnectionName, settings => settings.DisableHealthChecks = true);
-```
-
-The health checks share the project with telemetry. `/health` runs every check and `/alive` only the ones tagged `live`, and both answer with the status alone, never which check failed or why: the details are in the logs and the traces. The compose file's container healthcheck calls `/health` every fifteen seconds.
+The SQL spans come from Aspire client integrations rather than from the list above. Each `DbContext` keeps its own `AddDbContext`, then calls `builder.EnrichNpgsqlDbContext<BlouppyDbContext>()`, which adds Npgsql's tracing, metrics and a health check. Redis works the same way through `AddRedisDistributedCache`.
 
 
 ## Our own spans and metrics
-The libraries tell us that a SQL command took 40 ms. They cannot tell us that a webhook delivery was retried or that an export took ten seconds because the person owns 300 files. That is what our own `ActivitySource` and `Meter` are for.
-
-A span is an `Activity`. In a generic shop, we create one source per component, with a stable name, and start activities from it:
+The libraries tell us that a SQL command took 40 ms. They cannot tell us that an export took ten seconds because a customer has 300 orders. That is what our own `ActivitySource` and `Meter` are for. In a generic shop:
 
 ```csharp
-using System.Diagnostics;
-
-namespace Shop.Exports;
-
-internal static class ExportTelemetry
+internal sealed class OrderExportBuilder(IOrdersRepository ordersRepository, IMeterFactory meterFactory)
 {
-    public const string SourceName = "Shop.Exports";
+    public const string Name = "Shop.Exports";
 
-    public static readonly ActivitySource Source = new(SourceName);
-}
+    private static readonly ActivitySource Source = new(Name);
 
-internal sealed class OrderExportBuilder(IOrdersRepository ordersRepository)
-{
+    private readonly Counter<long> _exports = meterFactory.Create(Name).CreateCounter<long>("shop.exports");
+
     public async Task<IReadOnlyList<Order>> BuildAsync(CustomerId customerId, CancellationToken cancellationToken)
     {
-        using var activity = ExportTelemetry.Source.StartActivity("export.orders");
+        using var activity = Source.StartActivity("export.orders");
 
         var orders = await ordersRepository.ListByCustomerAsync(customerId, cancellationToken);
 
         activity?.SetTag("export.orders.count", orders.Count);
+        _exports.Add(1, new KeyValuePair<string, object?>("outcome", "success"));
 
         return orders;
     }
 }
 ```
 
-`StartActivity` returns `null` when nothing listens, hence the `?.`. The span becomes a child of whatever is current, the request or the message handler, without passing anything around.
+`StartActivity` returns `null` when nothing listens, hence the `?.`. The span becomes a child of whatever is current, the request or the message handler, without passing anything around. `IMeterFactory`, added in .NET 8, gives a meter owned by the container, which plays well with tests.
 
-For metrics, .NET 8 added `IMeterFactory`, registered by the host. A meter created from it is owned by the container and plays well with tests:
+Then `Shop.Exports` goes into both lists. The template's `ApplicationName` entry only covers a source named after the host's assembly. In a hexagonal solution, the work happens in domain projects with other names, and each one must be listed. A shared prefix and a wildcard (`AddSource("Shop.*")`) keep the list short.
 
-```csharp
-using System.Diagnostics.Metrics;
+Keep metric tags bounded. `outcome` has two values. A user id as a tag creates one time series per user, and backends bill per series. High-cardinality values belong on spans and logs.
 
-namespace Shop.Webhooks;
 
-internal sealed class WebhookMetrics
-{
-    public const string MeterName = "Shop.Webhooks";
-
-    private readonly Counter<long> _deliveries;
-
-    public WebhookMetrics(IMeterFactory meterFactory)
-    {
-        var meter = meterFactory.Create(MeterName);
-
-        _deliveries = meter.CreateCounter<long>("shop.webhooks.deliveries");
-    }
-
-    public void Delivered(bool succeeded)
-        => _deliveries.Add(1, new KeyValuePair<string, object?>("outcome", succeeded ? "success" : "failure"));
-}
-```
-
-Both names then go into `ConfigureOpenTelemetry`, next to Wolverine's:
-
-```csharp
-.WithMetrics(metrics => metrics.AddMeter(WebhookMetrics.MeterName))
-.WithTracing(tracing => tracing.AddSource(ExportTelemetry.SourceName))
-```
-
-The template's `AddSource(builder.Environment.ApplicationName)` only covers a source named after the host's assembly (`Blouppy.Web`). In a hexagonal solution, where the work happens in domain and module projects, the sources usually have other names, and each one must be listed. A shared prefix and a wildcard (`AddSource("Shop.*")`) keep that list short.
-
-Keep tag values bounded. `outcome` has two values; a user id or a URL as a metric tag creates one time series per value, and backends bill or slow down per series. High-cardinality values belong on spans and logs.
+## A meter nobody listened to
+The Starter fell into the list trap once. The identity host counts sign-ins and consents (`tokenservice.user_login`, `tokenservice.consent`) on a meter named after its assembly. At first, no `AddMeter` named it: the counters were incremented and never exported. Nothing failed, which was the problem. The fix is the `AddMeter(builder.Environment.ApplicationName)` line above, the twin of the `AddSource` line the template already had. Check each custom name in the dashboard once.
 
 
 ## Exporting in production
-The Starter's `deploy/` directory runs PostgreSQL, RabbitMQ, Redis, Caddy, the migration runner and the hosts with Docker Compose. It ships **no collector**. Every .NET host reads the same `.env` file, which leaves the choice open:
+The Starter's `deploy/` runs everything with Docker Compose and ships **no collector**. The hosts share one `.env` file, where `OTEL_EXPORTER_OTLP_ENDPOINT` is empty by default. Empty, `docker compose logs` is the observability. Set, the hosts export to a hosted backend that accepts OTLP, or to a collector container such as the OpenTelemetry Collector. The .NET exporter defaults to gRPC on port 4317; an HTTP-only backend needs `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and port 4318.
 
-```bash
-# An OpenTelemetry collector (OTLP) the hosts send their traces, metrics and logs to.
-# Empty, they log to the console only (`docker compose logs`).
-OTEL_EXPORTER_OTLP_ENDPOINT=
-# OTEL_EXPORTER_OTLP_PROTOCOL=grpc
-# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer ...
-```
-
-With the variable empty, `docker compose logs -f gateway identity api` is the observability. With it set, the hosts export, and the console logs stay. The endpoint can be a hosted backend that accepts OTLP directly (with its key in `OTEL_EXPORTER_OTLP_HEADERS`), or a collector container added to the compose file, such as the OpenTelemetry Collector or Grafana Alloy, which batches, filters and forwards. For a staging box, the standalone Aspire dashboard image accepts OTLP too, but it keeps everything in memory and loses it on restart.
-
-The protocol matters: the .NET exporter defaults to gRPC on port 4317. A backend that only accepts HTTP needs `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and its 4318 endpoint.
-
-
-## Pitfalls
-**The service name.** Aspire sets `OTEL_SERVICE_NAME` for each resource; the compose file does not. Without it, the OpenTelemetry SDK falls back to `unknown_service:` and the process name, and each image runs `dotnet <assembly>.dll`, so the three hosts would arrive under the same name. Since the `.env` file is shared, the name goes in each service's `environment:` block:
+Outside Aspire, nobody sets the service name. The SDK would fall back to `unknown_service`, and the hosts would be impossible to tell apart. Since the `.env` file is shared, each host sets its own name in its `environment:` block:
 
 ```yaml
 api:
@@ -248,37 +113,15 @@ api:
     OTEL_SERVICE_NAME: blouppy-api
 ```
 
-**A meter nobody listens to.** The Starter's identity host keeps the counters of its sign-in pages (`tokenservice.user_login`, `tokenservice.consent`) on a static `Meter` named after its assembly, and as the code stands, no `AddMeter` lists that name. The counters are incremented and never exported. Nothing fails, which is the problem: check each custom name in the dashboard once.
+The identity host, the gateway and the migration runner do the same, with Aspire's resource names.
 
-**Health checks in the traces.** The container healthcheck calls `/health` every fifteen seconds on each host, and each call is a span. A filter on the ASP.NET Core instrumentation drops them:
+Two more things to watch once data leaves the machine. The default sampler records every trace; a `ParentBasedSampler` over a `TraceIdRatioBasedSampler(0.1)` keeps one in ten without cutting a trace in half between hosts. And telemetry can leak secrets: the Starter has an integration test that listens to every source and every log while an organization's AI key goes through the API, and asserts the key appears in none of them.
 
-```csharp
-.AddAspNetCoreInstrumentation(options => options.Filter = context =>
-    !context.Request.Path.StartsWithSegments(Extensions.ReadinessPath)
-    && !context.Request.Path.StartsWithSegments(Extensions.LivenessPath))
-```
-
-**Volume.** The default sampler records every trace. On a busy API, a backend billed by span grows quickly. `SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(0.1)))` keeps one trace in ten and follows the caller's decision, so a trace is never cut in half between the gateway and the API.
-
-**Secrets in the telemetry.** Npgsql spans carry the SQL statement, and logs carry their parameters. The Starter has an integration test that listens to every `ActivitySource` and every log while an organization's AI key goes through the API, and asserts the key appears in none of them. A key in a header or a query string is the usual leak.
-
-
-## When it is not worth it
-For one host with a database, the console logs and `docker compose logs` are often enough, and `AddServiceDefaults` already gives us the dashboard in development for free. A collector is one more container to run, update and size; a hosted backend is one more bill.
-
-The setup pays off when a request crosses processes, through a gateway or a message bus, which is where log lines alone stop telling a story. Even then, start with what the template wires and the OTLP variable, then add a custom span where a question came up twice, not everywhere at once.
-
-
-## Conclusion
-`AddServiceDefaults` wires the three signals, lists the sources and meters to collect, and adds an OTLP exporter only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Aspire points it at its dashboard in development; in production, the same variable points it at a collector or a hosted backend. What stays our job is the list: every library integration, every `ActivitySource` and every `Meter` we create must be named there, and each host needs its own `OTEL_SERVICE_NAME` once Aspire no longer sets it.
+For one host with a database, console logs are often enough. The setup pays off when a request crosses processes, through a gateway or a bus, which is where log lines alone stop telling a story.
 
 
 ## References
 - [OpenTelemetry .NET](https://opentelemetry.io/docs/languages/dotnet/) — the SDK, its exporters and its instrumentation libraries.
-- [.NET Aspire service defaults](https://learn.microsoft.com/dotnet/aspire/fundamentals/service-defaults) — what the generated ServiceDefaults project contains.
-- [.NET Aspire telemetry](https://learn.microsoft.com/dotnet/aspire/fundamentals/telemetry) — how the AppHost configures OTLP for each resource.
-- [.NET Aspire dashboard](https://learn.microsoft.com/dotnet/aspire/fundamentals/dashboard/overview) — the dashboard, and its standalone mode.
-- [Distributed tracing in .NET](https://learn.microsoft.com/dotnet/core/diagnostics/distributed-tracing-instrumentation-walkthroughs) — `ActivitySource` and `Activity`.
+- [.NET Aspire telemetry](https://learn.microsoft.com/dotnet/aspire/fundamentals/telemetry) — what ServiceDefaults wires and how the AppHost configures OTLP.
 - [Creating metrics in .NET](https://learn.microsoft.com/dotnet/core/diagnostics/metrics-instrumentation) — `Meter`, `IMeterFactory` and instrument types.
-- [OTLP exporter configuration](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/) — the `OTEL_EXPORTER_OTLP_*` variables.
-- [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) — the vendor-neutral collector.
+- [End-to-end tests with Aspire.Hosting.Testing](/blog/2026-09-25-end-to-end-tests-with-aspire-hosting-testing/) — the same AppHost graph, under test.
