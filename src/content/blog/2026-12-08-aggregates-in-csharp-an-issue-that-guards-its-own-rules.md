@@ -106,7 +106,7 @@ A rule that crosses issues cannot live in one of them. In a Shape Up project, a 
 Automatic writes are where setters usually come back. When a merged pull request asks for an issue to change status, the handler does not touch the entity. It acts as the system actor and calls the same service a person would. A rule added to the aggregate next year applies to the merge as well, because there is no second path.
 
 
-## What it costs
+## The price of private setters
 **Test data is painful.** A test that needs an issue with a given id cannot set it. The code base copes with a reflection helper, `SetProperty`, that writes through a private setter or a backing field. It works, but it bypasses the very rules the aggregate exists for. Test builders that replay real method calls are cleaner, and longer to write.
 
 **EF Core needs a way in.** The constructor takes label ids, which are not a column, so EF Core cannot bind to it. Every aggregate carries a private parameterless constructor "Required for EF", and collections need a backing field EF Core can find.
