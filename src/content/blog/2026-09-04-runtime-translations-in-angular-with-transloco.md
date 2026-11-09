@@ -96,7 +96,7 @@ The app points the library at its language once, in `app.config.ts`, with `provi
 By default, Transloco renders a missing key as the key itself, and a spec that finds a button by role still passes. The Starter's specs import `provideTranslocoTesting()`. It loads the real catalogues and installs a missing handler that throws, so a template naming a key absent from `en.json` fails its spec. The specs run in English, so a separate spec checks that `en.json` and `fr.json` hold the same keys.
 
 
-## What it costs, and when not to
+## Runtime or build-time translation?
 Runtime translation has real costs:
 
 - **No compile-time key check.** `'workspace.titel' | transloco` compiles. Tests catch only the keys a spec renders.
