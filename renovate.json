@@ -70,6 +70,11 @@
       "description": "Major updates one by one, never merged automatically.",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "astro check does not support TypeScript 7 yet (it says to install TypeScript 6, and points to the experimental @astrojs/ts-content-mapper for 7.1+): hold TypeScript at 6 until it does.",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
     }
   ],
   "vulnerabilityAlerts": {
