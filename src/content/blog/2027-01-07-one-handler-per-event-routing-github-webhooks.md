@@ -42,7 +42,7 @@ Nothing is wrong with it at three events. The trouble is the direction it grows 
 
 
 ## A table of handlers
-The fix is to give each event a class behind one interface, and pick the class by a key that arrives at run time. Each handler is a Strategy. Martin Fowler calls the move **Replace Conditional with Polymorphism**: each branch becomes an implementation of one method.
+The fix is the Strategy pattern picked by key, as in [picking an implementation by key with dependency injection](/blog/2026-11-10-the-strategy-pattern-pick-an-implementation-by-key/): one class per event behind one interface, and a dictionary built from every registered implementation. What follows is what webhooks add to it.
 
 A project-management app built on [Blouppy Starter](https://starter.blouppy.com/) links issues to GitHub this way. A pull request that names an issue moves it on the board. A commit is linked to the issues its message mentions. Uninstalling the GitHub App disconnects the integration. Each `X-GitHub-Event` value has one class, which names its own key, and a router indexes them (trimmed):
 
@@ -74,9 +74,7 @@ internal sealed class GitHubEventRouter
 }
 ```
 
-The container does the wiring. When several classes are registered for one interface, asking for `IEnumerable<IGitHubEventHandler>` returns all of them. The module registers its handlers by assembly scan, so a new event is one new file and no registration line. Six exist today, from `installation` to `push`.
-
-Two details in the router matter. `ToDictionary` throws on a duplicate key, so two classes claiming `"push"` fail loudly instead of leaving one silently unused. And the comparer is ordinal: GitHub sends event names in lower case, and the router does not guess.
+The module registers its handlers by assembly scan, so a new event is one new file and no registration line. Six exist today, from `installation` to `push`. The key is the `X-GitHub-Event` header, compared ordinally: GitHub sends event names in lower case, and the router does not guess.
 
 The lifetime matters too. The handlers depend on repositories, which are scoped, so the handlers and the router are scoped as well. A singleton router would keep the first scope's handlers, and their `DbContext`, for the life of the process. Rebuilding a six-entry dictionary per scope costs nothing.
 
@@ -90,15 +88,7 @@ The handlers do not ban the `switch`. Inside one event, GitHub sends an `action`
 
 
 ## Why not keyed services
-Since .NET 8, the container can do the lookup itself:
-
-```csharp
-services.AddKeyedScoped<IGitHubEventHandler, PushEventHandler>("push");
-
-var handler = serviceProvider.GetKeyedService<IGitHubEventHandler>(delivery.Event);
-```
-
-It removes the router. But for a key that arrives with the request, the caller has to take an `IServiceProvider`, which hides its dependencies. The scan has to read the key from an attribute or a constant, since the container cannot ask an instance before building it. And two registrations under one key do not throw: the last one wins. The router keeps the key next to the code that handles it, and refuses the duplicate.
+Keyed services would remove the router, but they fit webhooks badly. The key arrives with the delivery, so the caller has to take an `IServiceProvider`. The scan has to read the key from an attribute or a constant, since the container cannot ask an instance before building it. And two registrations under one key do not throw: the last one wins. The router keeps the key next to the code that handles it, and refuses the duplicate.
 
 
 ## Testing it, and its gap
