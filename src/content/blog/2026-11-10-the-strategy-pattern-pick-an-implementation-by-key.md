@@ -78,9 +78,10 @@ Every exporter is registered against the same interface. Asked for `IEnumerable<
 
 ```csharp
 services
-    .AddSingleton<IReportExporter, CsvReportExporter>()
-    .AddSingleton<IReportExporter, ExcelReportExporter>()
-    .AddSingleton<IReportExporter, PdfReportExporter>();
+    .AddScoped<IReportExporter, CsvReportExporter>()
+    .AddScoped<IReportExporter, ExcelReportExporter>()
+    .AddScoped<IReportExporter, PdfReportExporter>()
+    .AddScoped<ReportExportService>();
 
 internal sealed class ReportExportService(IEnumerable<IReportExporter> exporters)
 {
@@ -94,16 +95,15 @@ internal sealed class ReportExportService(IEnumerable<IReportExporter> exporters
 }
 ```
 
-Adding a format is a new value in the enum, a new class and a registration line; `ReportExportService` does not change. Two details are worth keeping:
+Adding a format is a new value in the enum, a new class and a registration line; `ReportExportService` does not change. The strategies and the service are scoped: a strategy can then take any dependency, a `DbContext` included, and the service never holds one beyond its request (see [the captive dependency](/blog/2026-05-07-dotnet-di-lifetimes-and-the-captive-dependency/)). Three details are worth keeping:
 
 - **`ToDictionary` throws on a duplicate key.** Two classes claiming `Pdf` fail as soon as the service is built, instead of one being silently ignored.
 - **What happens when no strategy matches is a decision.** Here an exception is right: a format without an exporter is a bug. [Blouppy Starter](https://starter.blouppy.com/) makes the opposite choice for its real-time topics, where each kind of topic has an authorizer picked the same way: when no authorizer matches, the request is refused, so a kind whose authorizer was forgotten is closed rather than open. Silently doing nothing is rarely the right answer.
-
-The discriminant does not have to be an enum. A `string` works the same way when the key comes from outside, such as a file extension or a route value.
+- **The discriminant does not have to be an enum.** A `string` works the same way when the key comes from outside, such as a file extension or a route value.
 
 
 ## Keyed services
-Since .NET 8, the container can do the lookup itself. Each strategy is registered under its key with `AddKeyedSingleton<IReportExporter, PdfReportExporter>(ExportFormat.Pdf)`, and resolved by that key with `GetRequiredKeyedService<IReportExporter>(format)`.
+Since .NET 8, the container can do the lookup itself. Each strategy is registered under its key with `AddKeyedScoped<IReportExporter, PdfReportExporter>(ExportFormat.Pdf)`, and resolved by that key with `GetRequiredKeyedService<IReportExporter>(format)`.
 
 That saves the dictionary, but the key moves from the class to the registration, and a key known only at run time has to be resolved through `IServiceProvider`, which hides the dependency. Keyed services shine when the key is known at compile time and injected with `[FromKeyedServices(ExportFormat.Pdf)]`. For a key that arrives with the request, the `IEnumerable<>` and a discriminant keep each class explicit about what it handles.
 
