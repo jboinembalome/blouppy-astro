@@ -1,6 +1,6 @@
 ---
 templateKey: 'blog-post'
-title: 'The Strategy pattern in C#: one class per field in an issue activity log'
+title: 'The Strategy pattern in C#: every strategy runs, one per field of an issue'
 date: 2026-11-10T09:00:00.000Z
 author: Jimmy Boinembalome
 authorimage: /img/jimmy.jpg
@@ -10,7 +10,7 @@ illustration: 1
 categorycolor: bg-purple-100 text-purple-800
 featuredpost: true
 description: >-
-  Learn the Strategy pattern in C# through a real issue activity log, where generics pick one class per field, and when a switch expression is enough.
+  A less usual shape of the Strategy pattern in C#: an issue activity log where one strategy per field runs on every change, selected by generic type rather than by key.
 tags:
   - Development
   - C#
@@ -20,39 +20,11 @@ tags:
 
 An issue tracker keeps a history: "Alice changed the priority from Low to High", "Bob removed the label Bug". The first version is one method with a `switch` on the field. Then each field grows its own rules, and every new field means editing that method again.
 
-The Strategy pattern gives each of those rules a class of its own.
-
-
-## The pattern
-The Strategy pattern puts each variant of an algorithm in its own class, behind one interface, so the code that calls it does not know which variant it holds. Shipping costs are the textbook case:
-
-```csharp
-public interface IShippingCostStrategy
-{
-    decimal Compute(Parcel parcel);
-}
-
-internal sealed class FlatRateShipping : IShippingCostStrategy
-{
-    public decimal Compute(Parcel parcel) => 5m;
-}
-
-internal sealed class WeightBasedShipping : IShippingCostStrategy
-{
-    public decimal Compute(Parcel parcel) => 1.2m * parcel.WeightInKg;
-}
-
-internal sealed class Checkout(IShippingCostStrategy shippingCost)
-{
-    public decimal Total(Order order) => order.Subtotal + shippingCost.Compute(order.Parcel);
-}
-```
-
-`Checkout` is the **context**: it receives a strategy, usually from the dependency injection container, and calls it. Adding a pick-up point option is a new class; `Checkout` does not change.
+The Strategy pattern gives each of those rules a class of its own. Its usual shape picks one strategy by key, as in [picking an implementation by key with dependency injection](/blog/2026-11-10-the-strategy-pattern-pick-an-implementation-by-key/). This one is different: every strategy runs on every change, and the generic type of each field decides which class handles it.
 
 
 ## One class per field
-A project-management app built on [Blouppy Starter](https://starter.blouppy.com/) uses the same idea for its issue history. When an issue is saved, its domain event carries the old and new value of each field as a `PropertyValueChange<T>`. Each field has a strategy that turns that change into activity lines:
+A project-management app built on [Blouppy Starter](https://starter.blouppy.com/) keeps such a history for its issues. When an issue is saved, its domain event carries the old and new value of each field as a `PropertyValueChange<T>`. Each field has a strategy that turns that change into activity lines:
 
 ```csharp
 internal interface IChangeActivityStrategy<TProperty>
